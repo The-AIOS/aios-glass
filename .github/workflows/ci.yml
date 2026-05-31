@@ -1,0 +1,52 @@
+name: CI
+
+# Runs on every push to main and every pull request (including from forks).
+# Gate: the extension must type-check, compile, and package into a .vsix — and
+# the diff must be free of secrets. Keep this green before merging.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check & compile
+        run: npm run compile
+
+      - name: Package (validate the .vsix builds)
+        run: npx --yes @vscode/vsce package --no-dependencies -o aios-glass.vsix
+
+      - name: Upload the built .vsix
+        uses: actions/upload-artifact@v4
+        with:
+          name: aios-glass-vsix-${{ github.sha }}
+          path: aios-glass.vsix
+          if-no-files-found: error
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the scan can diff commits
+
+      - name: TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown

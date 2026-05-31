@@ -27,7 +27,23 @@ jobs:
       - name: Package
         run: npx --yes @vscode/vsce package --no-dependencies -o aios-glass.vsix
 
+      # Re-tagging or a manual re-run must not fail on "version already exists".
+      # Query Open VSX for this package.json version; only publish if it's new.
+      - name: Check whether this version is already on Open VSX
+        id: check
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://open-vsx.org/api/the-aios/aios-glass/$VER")
+          if [ "$CODE" = "200" ]; then
+            echo "v$VER is already published on Open VSX — skipping publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$VER is new — will publish."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to Open VSX
+        if: steps.check.outputs.exists == 'false'
         run: npx --yes ovsx publish aios-glass.vsix -p "$OVSX_TOKEN"
         env:
           OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
