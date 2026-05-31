@@ -1,5 +1,10 @@
 # AIOS Glass
 
+[![Open VSX](https://img.shields.io/open-vsx/v/the-aios/aios-glass?label=Open%20VSX&color=ff5d4d)](https://open-vsx.org/extension/the-aios/aios-glass)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/the-aios/aios-glass?label=downloads)](https://open-vsx.org/extension/the-aios/aios-glass)
+[![CI](https://github.com/The-AIOS/aios-glass/actions/workflows/ci.yml/badge.svg)](https://github.com/The-AIOS/aios-glass/actions/workflows/ci.yml)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](./LICENSE)
+
 A friendly **glass layer over the [AIOS](https://github.com/The-AIOS/aios)** — run rituals, browse agents, manage spaces, and navigate your vault, all from inside [Google Antigravity](https://antigravity.google) (or any VS Code-compatible editor).
 
 > **Glass, not engine.** AIOS Glass never reimplements the AIOS. It *surfaces* and *triggers* what already exists — your slash commands, your `spawn` workers, your company/collaborate syncs. The brain stays in the framework; this is the clickable window onto it. The terminal becomes optional, not required.

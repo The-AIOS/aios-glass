@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Keep npm dependencies current (TypeScript, @types, tooling).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+
+  # Keep GitHub Actions current (auto-bumps action runtimes, e.g. the Node 24 migration).
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

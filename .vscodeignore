@@ -6,3 +6,7 @@ tsconfig.json
 .gitignore
 **/*.ts
 .github/**
+CLAUDE.md
+CONTRIBUTING.md
+PUBLISHING.md
+.vscodeignore
