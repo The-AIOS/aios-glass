@@ -85,12 +85,45 @@ export function contextDir(kind: ContextKind): string | undefined {
   return path.join(v, sub);
 }
 
-/** Count top-level .md notes in a context/projects folder (excludes _index.md). */
+/**
+ * Note statuses that are NOT "live" work and should be excluded from counts.
+ * Mirrors the AIOS project taxonomy: `active` (counted) vs
+ * `paused` / `engagement` / `archived` / `idea` (not counted). Context notes
+ * (declared/observed) carry no `status`, so they're always counted.
+ */
+const NON_ACTIVE_STATUS = new Set(['archived', 'paused', 'engagement', 'idea']);
+
+/** Read the `status:` frontmatter value of a note (lowercased), if present. */
+function noteStatus(file: string): string | undefined {
+  try {
+    const txt = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''); // strip BOM
+    const fm = txt.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (!fm) return undefined;
+    // No end anchor: tolerate trailing whitespace or a YAML inline comment
+    // (`status: archived  # migrated`). The value is bounded by the frontmatter block.
+    const m = fm[1].match(/^status:\s*["']?([A-Za-z-]+)/m);
+    return m ? m[1].toLowerCase() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Count top-level .md notes in a context/projects folder (excludes `_index.md`).
+ * For `projects`, notes whose frontmatter `status` is non-active
+ * (archived/paused/engagement/idea) are excluded, so the count reflects the
+ * *active* taxonomy rather than a raw file tally. `declared`/`observed` notes
+ * carry no `status`, so their read is skipped entirely (just a file tally).
+ * Non-recursive by design — non-active notes filed into subfolders
+ * (e.g. `projects/archived/`) are absent from `readdirSync` and so also excluded.
+ */
 export function countNotes(kind: ContextKind): number {
   const dir = contextDir(kind);
   if (!dir) return 0;
   try {
-    return fs.readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '_index.md').length;
+    const candidates = fs.readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '_index.md');
+    if (kind !== 'projects') return candidates.length;
+    return candidates.filter((f) => !NON_ACTIVE_STATUS.has(noteStatus(path.join(dir, f)) ?? '')).length;
   } catch {
     return 0;
   }

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
-import { operatorName, primaryName, countNotes, vaultRoot } from './vault';
+import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
 import { listRunningAgents } from '../agents/running';
@@ -82,6 +82,35 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       ew.onDidCreate(onExp);
       ew.onDidDelete(onExp);
       webviewView.onDidDispose(() => ew.dispose());
+    }
+    // Refresh the Projects count when project notes change — added/removed, or
+    // re-categorized via frontmatter `status` (archiving/pausing a project), or
+    // moved into a subfolder. Watch is recursive (`**/*.md`) so a move into
+    // projects/archived/ etc. fires too; countNotes() itself stays non-recursive,
+    // so the moved note drops out of the (active, top-level) count either way.
+    if (v) {
+      const pw = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(vscode.Uri.file(path.join(v, '00 - notes', 'projects')), '**/*.md')
+      );
+      const onProj = () => this.postState();
+      pw.onDidChange(onProj);
+      pw.onDidCreate(onProj);
+      pw.onDidDelete(onProj);
+      webviewView.onDidDispose(() => pw.dispose());
+    }
+    // Refresh Companies/Collaboration when USER.md changes (the Companies table
+    // is parsed from USER.md → `## Companies (mounted)`), so mounting/unmounting
+    // a company shows up live without a reload.
+    const root = frameworkRoot();
+    if (root) {
+      const uw = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(vscode.Uri.file(root), 'USER.md')
+      );
+      const onUser = () => this.postState();
+      uw.onDidChange(onUser);
+      uw.onDidCreate(onUser);
+      uw.onDidDelete(onUser);
+      webviewView.onDidDispose(() => uw.dispose());
     }
   }
 
