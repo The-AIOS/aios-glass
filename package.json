@@ -1,0 +1,302 @@
+{
+  "name": "aios-glass",
+  "displayName": "AIOS Glass",
+  "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
+  "version": "0.1.1",
+  "publisher": "the-aios",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/The-AIOS/aios-glass.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Notebooks"
+  ],
+  "keywords": [
+    "aios",
+    "obsidian",
+    "foam",
+    "notes",
+    "pkm",
+    "antigravity"
+  ],
+  "icon": "media/icon.png",
+  "extensionDependencies": [
+    "foam.foam-vscode"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aios-glass",
+          "title": "AIOS",
+          "icon": "media/aios.svg"
+        }
+      ]
+    },
+    "views": {
+      "aios-glass": [
+        {
+          "id": "aios.home",
+          "name": "AIOS Glass",
+          "type": "webview"
+        }
+      ]
+    },
+    "icons": {
+      "aios-mark": {
+        "description": "AIOS mark",
+        "default": {
+          "fontPath": "media/font/aios-icons.woff",
+          "fontCharacter": "\\F101"
+        }
+      }
+    },
+    "viewsWelcome": [
+      {
+        "view": "aios.rituals",
+        "contents": "No AIOS commands found.\n\nAIOS Glass reads the live `commands/` directory of your AIOS framework — it never hardcodes the list.\n\nSet the framework path so it can find them.\n[Set framework path](command:aios.setFrameworkPath)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "aios.openHome",
+        "title": "AIOS: Open Home",
+        "icon": { "light": "media/aios-color.svg", "dark": "media/aios-color.svg" }
+      },
+      {
+        "command": "aios.openWalkthrough",
+        "title": "AIOS: Open Getting Started"
+      },
+      {
+        "command": "aios.openConfigMenu",
+        "title": "AIOS: Config",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "aios.runRitualPicker",
+        "title": "AIOS: Run a Command"
+      },
+      {
+        "command": "aios.openSource",
+        "title": "AIOS: Open Source of Preview"
+      },
+      {
+        "command": "aios.skillsPicker",
+        "title": "AIOS: Browse Skills"
+      },
+      {
+        "command": "aios.createCustom",
+        "title": "AIOS: Create Custom (agent / skill / plugin)",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aios.showGraph",
+        "title": "AIOS: Open Vault Graph",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "aios.cheatsheet",
+        "title": "AIOS: Cheatsheet",
+        "icon": "$(question)"
+      },
+      {
+        "command": "aios.runRitual",
+        "title": "AIOS: Run Ritual"
+      },
+      {
+        "command": "aios.spawnAgent",
+        "title": "AIOS: Spawn Agent"
+      },
+      {
+        "command": "aios.spawnWorker",
+        "title": "AIOS: Spawn Worker (adjective-animal)"
+      },
+      {
+        "command": "aios.refreshAgents",
+        "title": "AIOS: Refresh Agents",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aios.openCapability",
+        "title": "AIOS: Open Capability"
+      },
+      {
+        "command": "aios.refreshCapabilities",
+        "title": "AIOS: Refresh Capabilities",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aios.companyAction",
+        "title": "AIOS: Company Actions"
+      },
+      {
+        "command": "aios.collaborateAction",
+        "title": "AIOS: Collaborate Actions"
+      },
+      {
+        "command": "aios.updateFramework",
+        "title": "AIOS: Update Framework"
+      },
+      {
+        "command": "aios.refreshSpaces",
+        "title": "AIOS: Refresh Spaces",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aios.refreshRituals",
+        "title": "AIOS: Refresh Rituals",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aios.setFrameworkPath",
+        "title": "AIOS: Set Framework Path"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "aios.openHome",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "aios.showGraph",
+          "when": "view == aios.home",
+          "group": "navigation@0"
+        },
+        {
+          "command": "aios.createCustom",
+          "when": "view == aios.home",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aios.openConfigMenu",
+          "when": "view == aios.home",
+          "group": "navigation@2"
+        },
+        {
+          "command": "aios.cheatsheet",
+          "when": "view == aios.home",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AIOS Glass",
+      "properties": {
+        "aiosGlass.frameworkPath": {
+          "type": "string",
+          "default": "~/aios",
+          "markdownDescription": "Path to your AIOS framework root (the folder containing `plugins/aios/commands/`). `~` is expanded to your home directory. If empty, AIOS Glass falls back to the open workspace root."
+        },
+        "aiosGlass.claudeCommand": {
+          "type": "string",
+          "default": "claude",
+          "markdownDescription": "The command used to launch native Claude Code. Rituals run as `<claudeCommand> \"/aios:<ritual>\"` in an integrated terminal."
+        },
+        "aiosGlass.openNotesIn": {
+          "type": "string",
+          "enum": ["preview", "editor", "previewToSide"],
+          "enumDescriptions": [
+            "Rendered Markdown preview (Foam renders [[wikilinks]]) — Obsidian-style reading view",
+            "Source editor (raw Markdown)",
+            "Preview opened beside the source editor"
+          ],
+          "default": "preview",
+          "markdownDescription": "How clicking a day in the Calendar opens its note. ⌘/Ctrl-click always opens the source editor; newly-created notes always open in the editor."
+        },
+        "aiosGlass.terminalMode": {
+          "type": "string",
+          "enum": ["ask", "active"],
+          "enumDescriptions": [
+            "Ask each time which terminal to use (existing ones, or a new one)",
+            "Use the focused terminal (assumed to have a live Claude session), else open a new one"
+          ],
+          "default": "ask",
+          "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "aios.gettingStarted",
+        "title": "Get started with AIOS Glass",
+        "description": "Operate your AIOS — rituals, agents, calendar, companies — without the terminal.",
+        "steps": [
+          {
+            "id": "welcome",
+            "title": "Welcome to AIOS Glass",
+            "description": "AIOS Glass is a friendly window onto your AIOS. It surfaces and runs what you already have — slash commands, agents, companies — from clickable panels.\n\nOpen the **AIOS** icon in the activity bar anytime.",
+            "media": { "image": "media/icon.png", "altText": "AIOS" }
+          },
+          {
+            "id": "frameworkPath",
+            "title": "Point Glass at your AIOS",
+            "description": "Tell Glass where your framework lives (the folder containing `plugins/aios/commands`).\n[Set framework path](command:aios.setFrameworkPath)",
+            "media": { "image": "media/icon.png", "altText": "AIOS" },
+            "completionEvents": ["onCommand:aios.setFrameworkPath"]
+          },
+          {
+            "id": "home",
+            "title": "Open your Home dashboard",
+            "description": "Your command center: today's plan, calendar, agents, capabilities, spaces.\n[Open AIOS Home](command:aios.openHome)",
+            "media": { "image": "media/icon.png", "altText": "AIOS Home" },
+            "completionEvents": ["onCommand:aios.openHome"]
+          },
+          {
+            "id": "ritual",
+            "title": "Plan your day",
+            "description": "In Home, click **Plan my day** — or run any ritual from the Rituals panel. It launches native Claude for you.\n[Open AIOS Home](command:aios.openHome)",
+            "media": { "image": "media/icon.png", "altText": "Rituals" },
+            "completionEvents": ["onCommand:aios.runRitual"]
+          },
+          {
+            "id": "agent",
+            "title": "Spawn an agent",
+            "description": "Pick a specialist and a task; Glass spawns a native-Claude worker for you.\n[Spawn an agent](command:aios.spawnAgent)",
+            "media": { "image": "media/icon.png", "altText": "Agents" },
+            "completionEvents": ["onCommand:aios.spawnAgent"]
+          },
+          {
+            "id": "capabilities",
+            "title": "Explore your capabilities",
+            "description": "Browse the skills, MCPs and plugins your AIOS can use.\n[Browse capabilities](command:aios.capabilities.focus)",
+            "media": { "image": "media/icon.png", "altText": "Capabilities" }
+          },
+          {
+            "id": "spaces",
+            "title": "Companies & collaboration",
+            "description": "Mount a company, sync context, or open a collaboration space — no flags to memorize.\n[Company actions](command:aios.companyAction)",
+            "media": { "image": "media/icon.png", "altText": "Spaces" }
+          },
+          {
+            "id": "coldstart",
+            "title": "Brand-new clone? Run the full interview",
+            "description": "If this is a fresh AIOS, run `/aios:cold-start-interview` from the Rituals panel to set everything up end-to-end.\n[Open AIOS Home](command:aios.openHome)",
+            "media": { "image": "media/icon.png", "altText": "Cold start" }
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,39 @@
+name: Publish to Open VSX
+
+# Tag a release (vX.Y.Z) → this packages the extension and publishes it to the
+# Open VSX registry. Teammates who installed AIOS Glass from Open VSX then
+# auto-update on their next IDE refresh — "they do nothing." You can also run it
+# manually from the Actions tab (workflow_dispatch).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Package
+        run: npx --yes @vscode/vsce package --no-dependencies -o aios-glass.vsix
+
+      - name: Publish to Open VSX
+        run: npx --yes ovsx publish aios-glass.vsix -p "$OVSX_TOKEN"
+        env:
+          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+
+      - name: Keep the .vsix as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aios-glass-vsix
+          path: aios-glass.vsix

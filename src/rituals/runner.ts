@@ -1,0 +1,391 @@
+import * as vscode from 'vscode';
+import { AiosCommand, discoverCommands, expandHome, resolveCommandsDir } from '../aios/commands';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { execFile } from 'child_process';
+import { listRunningAgents } from '../agents/running';
+import { discoverAgents, iconForAgent } from '../agents/agents';
+import { primaryName } from '../home/vault';
+
+/**
+ * The core "glass" mechanic: a click launches an existing AIOS command via
+ * native Claude. We trigger the engine; we never reimplement it.
+ *
+ * Terminal model:
+ *  - In-session actions (commands, skills) honor `aiosGlass.terminalMode`:
+ *      · ask    → pick a terminal each time (existing ones, or a new one)
+ *      · active → use the focused terminal (assumed to have a live Claude)
+ *    A NEW terminal runs `claude "/slash"`; an EXISTING/active terminal gets
+ *    the bare `/slash` typed into the Claude session already running there.
+ *  - Always-new actions (spawn agent, spawn worker, resume, builder, auth)
+ *    always open a fresh terminal and run the full shell command.
+ */
+
+const TERM_NAME = 'AIOS · Claude';
+
+function frameworkRoot(): string | undefined {
+  const dir = resolveCommandsDir();
+  if (dir) return path.resolve(dir, '..', '..', '..');
+  const configured = vscode.workspace.getConfiguration('aiosGlass').get<string>('frameworkPath', '~/aios');
+  return configured ? expandHome(configured) : undefined;
+}
+
+/**
+ * Per-action terminal styling. `icon` is a codicon id (or our contributed
+ * `aios-mark`); `color` is a `terminal.ansi*` ThemeColor id — VS Code only
+ * allows terminal tab colors from the ANSI palette, not arbitrary hex, so the
+ * brand palette lives in the Home webview (the status dots) while terminal
+ * tabs get a recognizable-but-themed tint per action type.
+ */
+export interface TermStyle { name?: string; icon?: string; color?: string; }
+
+function newTerminal(style?: TermStyle): vscode.Terminal {
+  return vscode.window.createTerminal({
+    name: style?.name || TERM_NAME,
+    cwd: frameworkRoot(),
+    iconPath: style?.icon ? new vscode.ThemeIcon(style.icon) : undefined,
+    color: style?.color ? new vscode.ThemeColor(style.color) : undefined,
+  });
+}
+
+function claudeBin(): string {
+  return vscode.workspace.getConfiguration('aiosGlass').get<string>('claudeCommand', 'claude') || 'claude';
+}
+
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Resolve the target terminal for an in-session action (ask/active). `style`
+ *  names/icons a NEW terminal if one is created (existing terminals keep theirs). */
+async function pickTarget(style?: TermStyle): Promise<{ terminal: vscode.Terminal; isNew: boolean } | undefined> {
+  const mode = vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'ask');
+
+  if (mode === 'active') {
+    const t = vscode.window.activeTerminal;
+    return t ? { terminal: t, isNew: false } : { terminal: newTerminal(style), isNew: true };
+  }
+
+  // ask
+  const NEW = '＋ New terminal';
+  const names = vscode.window.terminals.map((t) => t.name);
+  const choice = await vscode.window.showQuickPick([NEW, ...names], {
+    title: 'Run in…', placeHolder: 'Pick a terminal'
+  });
+  if (choice === undefined) return undefined;
+  if (choice === NEW) return { terminal: newTerminal(style), isNew: true };
+  const existing = vscode.window.terminals.find((t) => t.name === choice);
+  return existing ? { terminal: existing, isNew: false } : { terminal: newTerminal(style), isNew: true };
+}
+
+/**
+ * Run a slash command in-session. A new terminal (or an existing one with no
+ * live Claude) launches `claude "/slash"`; an existing terminal that already
+ * has a Claude session gets the bare `/slash` typed into it. We detect a live
+ * Claude by scanning the terminal's shell process tree.
+ */
+async function runInSession(slash: string, style?: TermStyle): Promise<void> {
+  const target = await pickTarget(style);
+  if (!target) return;
+  target.terminal.show(true);
+  const hasClaude = target.isNew ? false : await terminalHasClaude(target.terminal);
+  if (hasClaude) {
+    target.terminal.sendText(slash);
+    return;
+  }
+  // New Claude session. Name it (--name) when the style carries a clean session
+  // token, so the session shows correctly in Glass's running list — session name
+  // = terminal name. (No --remote-control: governed globally by settings.json.)
+  const n = style?.name;
+  // A *new* terminal was already named at creation. When we're reusing an
+  // existing (Claude-less) terminal, rename its tab to match — we just show()'d
+  // it so it's the active terminal, which is what renameWithArg acts on.
+  if (!target.isNew && n) {
+    try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: n }); } catch { /* command unavailable — best effort */ }
+  }
+  const nameArg = n && /^[a-z0-9][a-z0-9-]*$/.test(n) ? `--name ${n} ` : '';
+  target.terminal.sendText(`${claudeBin()} ${nameArg}${shellQuote(slash)}`);
+}
+
+/** True if a `claude` process is a descendant of the terminal's shell. */
+async function terminalHasClaude(terminal: vscode.Terminal): Promise<boolean> {
+  const shellPid = await terminal.processId;
+  if (!shellPid) return false;
+  return new Promise((resolve) => {
+    execFile('ps', ['-axo', 'pid=,ppid=,command='], { timeout: 5000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      if (err || !stdout) return resolve(false);
+      const childrenOf = new Map<number, number[]>();
+      const exeOf = new Map<number, string>();
+      for (const line of stdout.split('\n')) {
+        const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
+        if (!m) continue;
+        const pid = Number(m[1]);
+        const ppid = Number(m[2]);
+        exeOf.set(pid, m[3].split(/\s+/)[0]);
+        if (!childrenOf.has(ppid)) childrenOf.set(ppid, []);
+        childrenOf.get(ppid)!.push(pid);
+      }
+      // Check the shell process itself, then walk its descendants.
+      if (path.basename(exeOf.get(shellPid) ?? '') === 'claude') return resolve(true);
+      const stack = [shellPid];
+      const seen = new Set<number>();
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (seen.has(cur)) continue;
+        seen.add(cur);
+        for (const child of childrenOf.get(cur) ?? []) {
+          if (path.basename(exeOf.get(child) ?? '') === 'claude') return resolve(true);
+          stack.push(child);
+        }
+      }
+      resolve(false);
+    });
+  });
+}
+
+/** Run a full shell command line in a fresh terminal (always-new actions). */
+function runNew(cmdline: string, style?: TermStyle): void {
+  const t = newTerminal(style);
+  t.show(true);
+  t.sendText(cmdline);
+}
+
+// ── In-session actions (ask/active) ───────────────────────────────────────
+
+/** Run an AIOS ritual; prompts for args first if the command declares an argument-hint. */
+export async function runRitual(command: AiosCommand): Promise<void> {
+  let slash = `/aios:${command.name}`;
+  if (command.argumentHint) {
+    const arg = await vscode.window.showInputBox({
+      title: `/aios:${command.name}`,
+      prompt: `Arguments (optional) — ${command.argumentHint}`,
+      placeHolder: command.argumentHint,
+      ignoreFocusOut: true
+    });
+    if (arg === undefined) return;
+    if (arg.trim()) slash += ` ${arg.trim()}`;
+  }
+  await runInSession(slash, { name: command.name, icon: 'play', color: 'terminal.ansiBlue' });
+}
+
+/** Launch /aios:<name> directly (no arg prompt) — used by Home cards. A NEW
+ *  terminal+session is named for the command unless the caller overrides `style`. */
+export async function launchAios(name: string, args?: string, style?: TermStyle): Promise<void> {
+  await runInSession(
+    `/aios:${name}${args ? ` ${args}` : ''}`,
+    style ?? { name, icon: 'play', color: 'terminal.ansiBlue' }
+  );
+}
+
+/** Run free-form text in-session (Terminal-Control-aware). Used by "None" /
+ *  prompt-style frequent tasks. */
+export async function launchInSession(text: string, style?: TermStyle): Promise<void> {
+  await runInSession(text, style);
+}
+
+/**
+ * Invoke a skill in-session. Uses a natural-language instruction (not a raw
+ * `/slash`) because slash-skill resolution only happens in the interactive
+ * REPL, not from a CLI initial-prompt arg — NL works in both cases.
+ */
+export async function launchSkill(name: string, context?: string, style?: TermStyle): Promise<void> {
+  await runInSession(
+    `Use the ${name} skill.${context && context.trim() ? ' ' + context.trim() : ''}`,
+    style ?? { name, icon: 'sparkle', color: 'terminal.ansiBlue' }
+  );
+}
+
+/**
+ * Run a slash in the PRIMARY session (/today, /close-day belong to it).
+ * Targets the primary's terminal if it's live here; otherwise falls back to the
+ * normal Terminal-Control routing (which can start a fresh session).
+ */
+export async function runInPrimarySession(slash: string): Promise<void> {
+  const name = primaryName();
+  if (name) {
+    const live = (await listRunningAgents()).find((a) => a.name === name);
+    if (live) {
+      const t = await findAgentTerminal(name, live.pid);
+      if (t) { t.show(true); t.sendText(slash); return; }
+    }
+  }
+  await runInSession(slash, { name: slash.replace(/^\/aios:/, '').split(' ')[0], icon: 'play', color: 'terminal.ansiBlue' });
+}
+
+/**
+ * Run a slash ONLY in an existing live-Claude session — never a new terminal.
+ * Used by /close-session: you can't close a session that isn't running. Prefers
+ * the active terminal; disambiguates if several Claude sessions are live.
+ */
+export async function runInActiveClaude(slash: string): Promise<void> {
+  const active = vscode.window.activeTerminal;
+  if (active && (await terminalHasClaude(active))) { active.show(true); active.sendText(slash); return; }
+
+  const claudeTerms: vscode.Terminal[] = [];
+  for (const t of vscode.window.terminals) {
+    if (await terminalHasClaude(t)) claudeTerms.push(t);
+  }
+  if (claudeTerms.length === 1) { claudeTerms[0].show(true); claudeTerms[0].sendText(slash); return; }
+  if (claudeTerms.length > 1) {
+    const pick = await vscode.window.showQuickPick(
+      claudeTerms.map((t) => ({ label: t.name, t })),
+      { title: 'Close which session?', placeHolder: 'Pick the Claude session to close' }
+    );
+    if (!pick) return;
+    pick.t.show(true);
+    pick.t.sendText(slash);
+    return;
+  }
+  void vscode.window.showInformationMessage('AIOS Glass: no live Claude session to close. Open or focus the session you want to close, then try again.');
+}
+
+/** Quick-pick across all commands, then run the chosen one. */
+export async function runRitualPicker(): Promise<void> {
+  const cmds = discoverCommands();
+  const pick = await vscode.window.showQuickPick(
+    cmds.map((c) => ({ label: `/aios:${c.name}`, description: c.cadence, detail: c.description, cmd: c })),
+    { title: 'Run an AIOS command', placeHolder: 'Pick a command', matchOnDetail: true }
+  );
+  if (pick) await runRitual(pick.cmd);
+}
+
+// ── Always-new actions ────────────────────────────────────────────────────
+
+/** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
+export async function launchSpawn(name: string, task?: string): Promise<void> {
+  // Icon comes from the agent's own context (declared frontmatter `icon:`, else
+  // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
+  // a graph, etc. Builder keeps a distinct amber tab.
+  const agent = discoverAgents().find((a) => a.name === name);
+  const icon = iconForAgent(agent ?? { name });
+  const color = name === 'aios-builder' ? 'terminal.ansiYellow' : 'terminal.ansiCyan';
+  runNew(`spawn ${name}${task && task.trim() ? ` ${shellQuote(task.trim())}` : ''}`, { name, icon, color });
+}
+
+/**
+ * Launch the primary session: if it's already running, focus it; otherwise run
+ * the named primary wrapper in a fresh terminal to begin everything.
+ */
+export async function launchPrimary(name: string): Promise<void> {
+  const running = await listRunningAgents();
+  if (running.some((a) => a.name === name)) {
+    await revealAgentTerminal(name);
+    return;
+  }
+  runNew(name, { name, icon: 'aios-mark', color: 'terminal.ansiMagenta' });
+}
+
+/** Resume a Claude conversation — always a new terminal with the session picker. */
+export async function launchResume(): Promise<void> {
+  runNew(`${claudeBin()} --resume`, { name: 'resume', icon: 'history', color: 'terminal.ansiBlue' });
+}
+
+/** Kill a running spawned worker via spawn-kill. */
+export async function launchKill(name: string): Promise<void> {
+  runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
+}
+
+/** pid → ppid map from `ps`, for walking the process tree. */
+function getPpidMap(): Promise<Map<number, number>> {
+  return new Promise((resolve) => {
+    execFile('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 }, (err, out) => {
+      const m = new Map<number, number>();
+      if (!err && out) {
+        for (const line of out.split('\n')) {
+          const mm = line.trim().match(/^(\d+)\s+(\d+)$/);
+          if (mm) m.set(Number(mm[1]), Number(mm[2]));
+        }
+      }
+      resolve(m);
+    });
+  });
+}
+
+/**
+ * Reveal a running worker's integrated terminal. Matches by PROCESS TREE
+ * (rename-proof): finds the integrated terminal whose shell is an ancestor of
+ * the agent's claude PID. (Renaming a tab doesn't update VS Code's
+ * `terminal.name`, so name-matching misses spawned workers.)
+ */
+async function findAgentTerminal(name: string, pid?: number): Promise<vscode.Terminal | undefined> {
+  if (pid) {
+    const ppidOf = await getPpidMap();
+    const ancestors = new Set<number>([pid]);
+    let cur = pid;
+    for (let i = 0; i < 256; i++) {
+      const pp = ppidOf.get(cur);
+      if (pp === undefined || pp === 0 || pp === 1) break;
+      ancestors.add(pp);
+      cur = pp;
+    }
+    for (const t of vscode.window.terminals) {
+      const sp = await t.processId;
+      if (sp && ancestors.has(sp)) return t;
+    }
+  }
+  // Fallback: name match in this window.
+  return vscode.window.terminals.find((t) => t.name === name || t.name.includes(name));
+}
+
+export async function revealAgentTerminal(name: string, pid?: number): Promise<void> {
+  const t = await findAgentTerminal(name, pid);
+  if (t) { t.show(false); return; }
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" isn't a terminal in this window — it may be running in another window.`);
+}
+
+/**
+ * Close a running session's terminal — like clicking the IDE terminal's trash.
+ * Disposing the terminal SIGHUPs the shell + its children (claude + respawn
+ * loop), so it stops cleanly. Falls back to `spawn-kill` only when the session
+ * isn't an integrated terminal in this window (e.g. another window / machine).
+ */
+export async function disposeAgentTerminal(name: string, pid?: number): Promise<void> {
+  const t = await findAgentTerminal(name, pid);
+  if (t) { t.dispose(); return; }
+  runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
+}
+
+/** Launch native Claude with a natural-language prompt — fresh terminal. */
+export async function launchPrompt(text: string): Promise<void> {
+  runNew(`${claudeBin()} ${shellQuote(text)}`, { name: 'AIOS', icon: 'aios-mark' });
+}
+
+/** Run a bare claude subcommand (e.g. `auth login`) in a fresh, named terminal. */
+export async function launchClaude(subcommand: string): Promise<void> {
+  const tag = subcommand.split(/\s+/)[0] || 'claude'; // e.g. "auth"
+  runNew(`${claudeBin()} ${subcommand}`, { name: tag, icon: 'account', color: 'terminal.ansiWhite' });
+}
+
+/**
+ * Silent account swap — runs `claude-identity.sh switch <email>` HEADLESSLY (no
+ * terminal): it swaps the Keychain creds + ~/.claude.json oauthAccount in place,
+ * logs to ~/.claude/swap-log.jsonl, and the statusline (context-monitor.py)
+ * shows the swap banner for its TTL. Nothing restarts; in-session work continues.
+ */
+export async function launchAccountSwap(email: string): Promise<void> {
+  const root = frameworkRoot();
+  if (!root) { void vscode.window.showWarningMessage('AIOS Glass: framework path not found — cannot swap account.'); return; }
+  const script = path.join(root, 'hooks', 'claude-identity', 'claude-identity.sh');
+  const claudeJson = path.join(os.homedir(), '.claude.json');
+  const readAccount = (): string => {
+    try { return JSON.parse(fs.readFileSync(claudeJson, 'utf8'))?.oauthAccount?.emailAddress || ''; } catch { return ''; }
+  };
+  const fromEmail = readAccount(); // outgoing account, for the statusline banner
+  return new Promise((resolve) => {
+    execFile('bash', [script, 'switch', email], { timeout: 20000 }, (err, _out, stderr) => {
+      if (err) { void vscode.window.showWarningMessage(`AIOS Glass: account swap failed — ${(stderr || err.message).slice(0, 160)}`); return resolve(); }
+      // The manual `switch` only logs; write the swap-notification marker the
+      // statusline (context-monitor.py) reads, so the swap banner shows for its
+      // TTL — exactly what the autopilot (_watch.py) does after its swaps.
+      try {
+        fs.writeFileSync(
+          path.join(os.homedir(), '.claude', 'swap-notification.json'),
+          JSON.stringify({ from: fromEmail, to: readAccount() || email, ts: Math.floor(Date.now() / 1000), reason: 'manual (AIOS Glass)' })
+        );
+      } catch { /* banner is best-effort */ }
+      vscode.window.setStatusBarMessage(`$(arrow-swap) Swapped to ${email}`, 5000);
+      resolve();
+    });
+  });
+}
