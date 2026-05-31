@@ -49,7 +49,7 @@ jobs:
           OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
 
       - name: Keep the .vsix as a build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aios-glass-vsix
           path: aios-glass.vsix
