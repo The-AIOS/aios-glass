@@ -8,6 +8,14 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
+    ignore:
+      # typescript and @types/node must track the toolchain + VS Code runtime
+      # (~Node 20), not float to the newest major — major bumps break the build
+      # or type-check against APIs absent at runtime. Bump these deliberately.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # Keep GitHub Actions current (auto-bumps action runtimes, e.g. the Node 24 migration).
   - package-ecosystem: github-actions

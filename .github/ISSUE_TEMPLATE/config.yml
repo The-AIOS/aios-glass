@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation & setup help
+    url: https://github.com/The-AIOS/aios-glass/blob/main/INSTALL.md
+    about: Prerequisites, install paths, and troubleshooting before filing a bug.
+  - name: Contributing
+    url: https://github.com/The-AIOS/aios-glass/blob/main/CONTRIBUTING.md
+    about: How to fork, build, and open a PR.
+  - name: The AIOS framework
+    url: https://github.com/The-AIOS/aios
+    about: Glass is a layer over the AIOS — framework issues belong there.
