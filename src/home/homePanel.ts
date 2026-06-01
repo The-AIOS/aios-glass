@@ -308,6 +308,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   body.compact .btn{padding:7px 11px; font-size:13px; margin-bottom:6px}
   body.compact .muted{margin-top:5px; font-size:11.5px}
   body.compact .runitem{padding:2px 6px}
+  /* In the densest view, drop the 7d readout so the bar reclaims width (7d stays in the tooltip). */
+  body.compact .q7d{display:none}
   .cog.active{color:var(--accent)}
   .nudge{display:block; width:100%; text-align:left; background:color-mix(in srgb, var(--accent) 14%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; font-size:13.5px; cursor:pointer; margin-bottom:16px; font-family:var(--font)}
   .nudge:hover{background:color-mix(in srgb, var(--accent) 22%, var(--surface-1))}
@@ -442,7 +444,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
       <section class="card">
         <p class="ctitle">Sessions</p>
-        <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k" id="quotaLabel">5h</span></div>
+        <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k"><span id="q5h">5h</span><span class="q7d" id="q7d"></span></span></div>
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
         <div class="runlist" id="runningList"></div>
@@ -677,7 +679,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         const lvl = (f >= 95 || s >= 99) ? 'red' : f >= 90 ? 'orange' : f >= 85 ? 'yellow' : 'green';
         document.getElementById('quotaBar').className = 'quotabar ' + lvl;
         document.getElementById('quotaFill').style.width = Math.min(100, f) + '%';
-        document.getElementById('quotaLabel').textContent = s > 0 ? '5h ' + Math.round(f) + '% · 7d ' + Math.round(s) + '%' : '5h ' + Math.round(f) + '%';
+        document.getElementById('q5h').textContent = '5h ' + Math.round(f) + '%';
+        document.getElementById('q7d').textContent = s > 0 ? ' · 7d ' + Math.round(s) + '%' : '';
         qline.title = '5h ' + f + '% · 7d ' + s + '% — Anthropic rate-limit usage';
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
