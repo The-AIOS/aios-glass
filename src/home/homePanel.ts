@@ -387,7 +387,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem:hover{background:var(--surface-2)}
   .runitem:focus-visible{outline:1px solid var(--accent); outline-offset:0}
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .termdiv{font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--subtle); opacity:.7; margin:10px 0 4px}
   .termbtns{display:flex; gap:8px}
   .termbtns .btn.add{flex:1; margin-bottom:0; text-align:center}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
@@ -503,7 +502,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
         <div class="runlist" id="runningList"></div>
-        <p class="termdiv" id="termDiv" style="display:none">Terminals</p>
+        <button class="btn" id="toggleTerms" style="display:none" title="Show / hide open terminals"><span id="termCaret">▾</span> Terminals <span class="val" id="vTerms">0</span></button>
         <div class="runlist" id="termList"></div>
         <div class="termbtns">
           <button class="btn add" id="spawnSessionBtn" title="Spawn a session — name it (or blank for a random handle), optional task">＋ Session</button>
@@ -669,6 +668,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     document.getElementById('runCaret').textContent = runOpen ? '▾' : '▸';
   }
   document.getElementById('toggleRunning').addEventListener('click', () => { runOpen = !runOpen; applyRunOpen(); });
+  let termOpen = true;
+  function applyTermOpen(){
+    document.getElementById('termList').style.display = termOpen ? '' : 'none';
+    document.getElementById('termCaret').textContent = termOpen ? '▾' : '▸';
+  }
+  document.getElementById('toggleTerms').addEventListener('click', () => { termOpen = !termOpen; applyTermOpen(); });
   document.getElementById('spawnSessionBtn').addEventListener('click', () => run('aios.spawnWorker'));
   document.getElementById('newTermBtn').addEventListener('click', () => vscode.postMessage({ type: 'newTerminal' }));
   document.getElementById('termList').addEventListener('click', (ev) => {
@@ -784,7 +789,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       } else { qw.style.display = 'none'; }
     } else if (msg.type === 'terminals'){
       const terms = msg.terminals || [];
-      document.getElementById('termDiv').style.display = terms.length ? '' : 'none';
+      document.getElementById('toggleTerms').style.display = terms.length ? '' : 'none';
+      const vt = document.getElementById('vTerms'); vt.textContent = terms.length + ''; vt.className = terms.length ? 'val' : 'k';
       const tl = document.getElementById('termList');
       if (tl){
         tl.innerHTML = terms.map((t) => {
@@ -796,6 +802,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
             + '</button></div>';
         }).join('');
       }
+      applyTermOpen();
     } else if (msg.type === 'updateStatus'){
       const b = document.getElementById('updBadge');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
