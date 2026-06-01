@@ -442,7 +442,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
       <section class="card">
         <p class="ctitle">Sessions</p>
-        <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k">5h usage</span></div>
+        <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k" id="quotaLabel">5h</span></div>
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
         <div class="runlist" id="runningList"></div>
@@ -677,6 +677,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         const lvl = (f >= 95 || s >= 99) ? 'red' : f >= 90 ? 'orange' : f >= 85 ? 'yellow' : 'green';
         document.getElementById('quotaBar').className = 'quotabar ' + lvl;
         document.getElementById('quotaFill').style.width = Math.min(100, f) + '%';
+        document.getElementById('quotaLabel').textContent = s > 0 ? '5h · 7d ' + Math.round(s) + '%' : '5h';
         qline.title = '5h ' + f + '% · 7d ' + s + '% — Anthropic rate-limit usage';
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
