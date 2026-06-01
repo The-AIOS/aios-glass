@@ -403,7 +403,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       </div>
 
       <section class="card hero">
-        <p class="ctitle">Daily Ritual <span class="sub">discipline compounds</span></p>
+        <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>
         <button class="btn" data-ritual="today">Plan my day <span class="k">/today</span></button>
         <button class="btn" data-ritual="close-session">Close session <span class="k">/close-session</span></button>
         <button class="btn" data-ritual="close-day">Close the day <span class="k">/close-day</span></button>
@@ -435,7 +435,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       </section>
 
       <section class="card">
-        <p class="ctitle">Sessions Running</p>
+        <p class="ctitle">Sessions</p>
         <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k">5h usage</span></div>
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
@@ -454,7 +454,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
     <div class="col minor">
       <section class="card">
-        <p class="ctitle">Personalizations</p>
+        <p class="ctitle">Customize</p>
         <button class="btn" data-doc="intent">INTENT.md <span class="k">autonomy · trust</span></button>
         <button class="btn" data-doc="user">USER.md <span class="k">identity · settings</span></button>
         <p class="muted">Click to read · ⌘-click to edit — or just ask Claude to update them.</p>
@@ -464,7 +464,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <p class="ctitle">Context</p>
         <button class="btn" id="browseDeclared">Declared <span class="k">you stated</span> <span class="val" id="vDeclared">—</span></button>
         <button class="btn" id="browseObserved">Observed <span class="k">claude learned</span> <span class="val" id="vObserved">—</span></button>
-        <p class="muted">Declared = what you've told Claude · Observed = what Claude has learned.</p>
       </section>
 
       <section class="card">
@@ -480,7 +479,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       </section>
 
       <section class="card">
-        <p class="ctitle">Reports</p>
+        <p class="ctitle">Reports <span class="sub">recent · create new</span></p>
         <button class="btn" id="genReport" title="Generate a report — pick type (role / weekly / status / custom) + period">Generate a report <span class="k">type · period</span></button>
         <div class="learnlist" id="reportList"></div>
         <p class="muted" id="reportHint" style="display:none">Click to read · ⌘-click for source.</p>
