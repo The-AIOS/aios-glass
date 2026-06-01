@@ -457,7 +457,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <p class="ctitle">Customize <span class="sub">personalizations</span></p>
         <button class="btn" data-doc="intent">INTENT.md <span class="k">autonomy · trust</span></button>
         <button class="btn" data-doc="user">USER.md <span class="k">identity · settings</span></button>
-        <p class="muted">Click to read · ⌘-click to edit — or just ask Claude to update them.</p>
+        <p class="muted">Ask Claude to update them for you.</p>
       </section>
 
       <section class="card">
