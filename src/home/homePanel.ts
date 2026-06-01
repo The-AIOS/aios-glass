@@ -396,12 +396,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
   .lhead .btn{flex:1; margin-bottom:0; border:0}
-  .lhead-add{flex:0 0 auto; width:30px; height:30px; background:transparent; border:0; color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
+  .lhead-add{flex:0 0 auto; width:30px; height:30px; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
-  /* Terminals is secondary to Running — three knobs to dial its weight down:
-     (1) label text color, (2) count color, (3) button background. */
-  #toggleTerms{color:var(--subtle); background:transparent}        /* (1) text + (3) bg */
-  #toggleTerms .val{color:var(--subtle)}                            /* (2) count — gray, not accent */
+  /* Terminals header wears the small-caps section-divider style (the original look)
+     — secondary to Running's button label — but its count matches Running's accent. */
+  #toggleTerms{background:transparent; color:var(--subtle); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.12em}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
