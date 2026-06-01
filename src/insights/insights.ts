@@ -105,7 +105,31 @@ function latestDailyNote(): string | undefined {
  * Close-of-Day section yet — the moment a non-dev silently breaks the
  * compounding (run /today, work, never close → nothing gets captured).
  */
-export interface Nudge { kind: 'plan' | 'sessions' | 'close'; icon: string; label: string; command?: string; }
+export interface Nudge { kind: 'plan' | 'sessions' | 'close' | 'week'; icon: string; label: string; command?: string; }
+
+/** ISO-8601 week (Mon-based) for a date — matches the AIOS `{YYYY}-W{WW}` weekly-note convention. */
+function isoWeek(d: Date): { year: number; week: number } {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 3 - ((date.getUTCDay() + 6) % 7)); // shift to this week's Thursday
+  const week1 = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getUTCDay() + 6) % 7)) / 7);
+  return { year: date.getUTCFullYear(), week };
+}
+
+/** True if THIS week's weekly-plan note (`{YYYY}-W{WW}-plan.md`) already exists under 01 - calendar/. */
+function weeklyPlanExists(): boolean {
+  const v = vaultRoot();
+  if (!v) return false;
+  const { year, week } = isoWeek(new Date());
+  const name = `${year}-W${String(week).padStart(2, '0')}-plan.md`;
+  const cal = path.join(v, '01 - calendar');
+  try {
+    for (const mo of fs.readdirSync(cal).filter((d) => /^\d{4}-\d{2}$/.test(d))) {
+      if (fs.existsSync(path.join(cal, mo, name))) return true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
 
 /**
  * The first actionable 💡 ritual the daily note suggests — a backticked
@@ -128,14 +152,16 @@ function suggestedRitual(md: string): { command: string; short: string } | null 
 }
 
 /**
- * Contextual ritual nudge for the Home banner, by time of day + state:
- *   no today-note     → plan the day (/today)
- *   evening (≥17h)    → close the day
- *   morning (<12h)    → the note's 💡 suggested ritual (planning-type only)
- *   daytime + live sessions → wrap open sessions before close-day
- * Pure given the inputs — caller passes the local hour + live-session count.
+ * Contextual ritual nudge for the Home banner, by time of day + day of week + state:
+ *   no today-note            → plan the day (/today)
+ *   evening (≥17h) + unclosed → close the day
+ *   Mon/Tue + no weekly plan  → plan the week (/7plan)
+ *   morning (<12h)           → the note's 💡 suggested ritual (planning-type only)
+ *   daytime + live sessions  → wrap open sessions before close-day
+ * Caller passes the local hour + weekday (0=Sun…6=Sat) + live-session count;
+ * filesystem state (today's note, close-of-day, weekly plan) is read here.
  */
-export function nudgeState(hour: number, runningCount: number): Nudge | null {
+export function nudgeState(hour: number, weekday: number, runningCount: number): Nudge | null {
   const note = latestDailyNote();
   const isToday = !!note && path.basename(note, '.md') === todayLocalIso();
   if (!isToday) return { kind: 'plan', icon: '☀️', label: 'Plan your day', command: '/aios:today' };
@@ -144,6 +170,13 @@ export function nudgeState(hour: number, runningCount: number): Nudge | null {
   const isClosed = /close[\s-]?of[\s-]?day|^#{1,4}.*\bclose\b.*\bday\b/im.test(md);
   if (hour >= 17 && !isClosed) {
     return { kind: 'close', icon: '🌙', label: "Close the day — capture what compounded before it's lost", command: '/aios:close-day' };
+  }
+  // Early-week: on Mon/Tue, during the day (6–17h), nudge the weekly plan if it isn't done yet.
+  // Day-gated so it never fires late at night or after the day is closed (the evening-close guard
+  // above owns ≥17h). Intentionally ranks above the morning 💡 / wrap-sessions nudges — the week
+  // kickoff is the Mon/Tue priority; wrap-sessions only matters near close time anyway.
+  if ((weekday === 1 || weekday === 2) && hour >= 6 && hour < 17 && !weeklyPlanExists()) {
+    return { kind: 'week', icon: '🗓️', label: `Plan your week — it's ${weekday === 1 ? 'Monday' : 'Tuesday'}`, command: '/aios:7plan' };
   }
   if (hour < 12) {
     const r = suggestedRitual(md);
