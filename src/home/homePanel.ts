@@ -25,6 +25,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
   private view?: vscode.WebviewView;
   private runningTimer?: ReturnType<typeof setInterval>;
+  private refreshTimer?: ReturnType<typeof setTimeout>;
+  private pendingCalendar = false;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     HomeViewProvider.current = this;
@@ -59,7 +61,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       const watcher = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(vscode.Uri.file(path.join(v, '01 - calendar')), '**/*.md')
       );
-      const onNote = () => { this.postState(); this.post({ type: 'calendarDirty' }); };
+      const onNote = () => this.scheduleRefresh({ calendar: true });
       watcher.onDidChange(onNote);
       watcher.onDidCreate(onNote);
       watcher.onDidDelete(onNote);
@@ -69,7 +71,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const obs = observedDirPath();
     if (obs) {
       const ow = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(obs), '*.md'));
-      const onObs = () => this.postState();
+      const onObs = () => this.scheduleRefresh();
       ow.onDidChange(onObs);
       ow.onDidCreate(onObs);
       webviewView.onDidDispose(() => ow.dispose());
@@ -77,7 +79,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // Refresh "Recent outputs" when a deliverable lands under 03 - export/.
     if (v) {
       const ew = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(path.join(v, '03 - export')), '**/*'));
-      const onExp = () => this.postState();
+      const onExp = () => this.scheduleRefresh();
       ew.onDidChange(onExp);
       ew.onDidCreate(onExp);
       ew.onDidDelete(onExp);
@@ -91,7 +93,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       const pw = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(vscode.Uri.file(path.join(v, '00 - notes', 'projects')), '**/*.md')
       );
-      const onProj = () => this.postState();
+      const onProj = () => this.scheduleRefresh();
       pw.onDidChange(onProj);
       pw.onDidCreate(onProj);
       pw.onDidDelete(onProj);
@@ -105,12 +107,32 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       const uw = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(vscode.Uri.file(fwRoot), 'USER.md')
       );
-      const onUser = () => this.postState();
+      const onUser = () => this.scheduleRefresh();
       uw.onDidChange(onUser);
       uw.onDidCreate(onUser);
       uw.onDidDelete(onUser);
       webviewView.onDidDispose(() => uw.dispose());
     }
+    webviewView.onDidDispose(() => { if (this.refreshTimer) { clearTimeout(this.refreshTimer); this.refreshTimer = undefined; } });
+  }
+
+  /**
+   * Debounced full-state refresh. All file watchers route through this instead
+   * of calling postState() directly, so a burst of events (autosave while
+   * editing a daily note, the multi-file PDF export pipeline, a company sync)
+   * collapses into ONE re-scan ~250ms after the last event. postState() is
+   * heavy (walks agents/ + skills/, three countNotes, reads USER.md + learnings
+   * + outputs + reports), so coalescing matters. `calendar` also re-renders the
+   * calendar grid once the dust settles.
+   */
+  private scheduleRefresh(opts?: { calendar?: boolean }): void {
+    if (opts?.calendar) this.pendingCalendar = true;
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = undefined;
+      this.postState();
+      if (this.pendingCalendar) { this.post({ type: 'calendarDirty' }); this.pendingCalendar = false; }
+    }, 250);
   }
 
   refresh(): void {
