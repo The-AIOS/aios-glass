@@ -177,7 +177,19 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'nudgeRun':
         // Morning/evening nudge → run the suggested ritual in the primary session.
-        if (typeof msg.command === 'string') await runInPrimarySession(msg.command);
+        // The note writes commands inconsistently (bare `/7plan`, `/aios:close-day`,
+        // legacy `/vault-commands:…`, or a builtin like `/fewer-permission-prompts`),
+        // so normalize: a namespaced or known-aios command → `/aios:<cmd>`; an
+        // unknown bare command (a Claude builtin) is left as-is.
+        if (typeof msg.command === 'string') {
+          let cmd = msg.command.trim();
+          const m = cmd.match(/^\/(?:(aios|vault-commands):)?(\S+)(.*)$/);
+          if (m) {
+            const base = m[2], rest = m[3] || '';
+            if (m[1] || discoverCommands().some((c) => c.name === base)) cmd = `/aios:${base}${rest}`;
+          }
+          await runInPrimarySession(cmd);
+        }
         return;
       case 'cmd':
         if (typeof msg.command === 'string') {

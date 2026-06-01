@@ -113,7 +113,7 @@ export interface Nudge { kind: 'plan' | 'sessions' | 'close'; icon: string; labe
  * and skips close-day/close-session (the time-based states own those). Namespace-
  * agnostic: takes whatever's in the backticks (`/aios:`, `/vault-commands:`, bare).
  */
-function suggestedRitual(md: string): { command: string; short: string } | null {
+function suggestedRitual(md: string): { command: string; short: string; desc: string } | null {
   for (const line of md.split(/\r?\n/)) {
     if (!/^\s*>?\s*💡/.test(line)) continue;
     if (/~~|✅/.test(line)) continue; // already done / struck through
@@ -122,7 +122,16 @@ function suggestedRitual(md: string): { command: string; short: string } | null 
     const command = m[1].trim();
     if (/close-?day|close-?session/i.test(command)) continue; // time-based states own these
     const short = command.replace(/^\/(?:aios:|vault-commands:)?/, '').split(/\s/)[0];
-    return { command, short };
+    // The note's own warm one-liner — the first italic span after the command
+    // (e.g. _maps the week across all four pillars…_). Skip the trailing _(suggested)_.
+    let desc = '';
+    for (const im of line.matchAll(/_([^_]+)_/g)) {
+      const cand = im[1].trim();
+      if (/^\(?\s*suggested\s*\)?$/i.test(cand)) continue;
+      desc = cand;
+      break;
+    }
+    return { command, short, desc };
   }
   return null;
 }
@@ -147,7 +156,13 @@ export function nudgeState(hour: number, runningCount: number): Nudge | null {
   }
   if (hour < 12) {
     const r = suggestedRitual(md);
-    if (r) return { kind: 'plan', icon: '💡', label: `Suggested: /${r.short}`, command: r.command };
+    if (r) {
+      // Use the note's own warm one-liner (capitalized, trimmed) — matches the
+      // voice of the other nudges. Fall back to the command if the note had none.
+      let label = r.desc ? r.desc.charAt(0).toUpperCase() + r.desc.slice(1) : `Today's ritual: /${r.short}`;
+      if (label.length > 80) label = label.slice(0, 79).trimEnd() + '…';
+      return { kind: 'plan', icon: '💡', label, command: r.command };
+    }
   }
   if (hour < 17 && runningCount > 0) {
     return { kind: 'sessions', icon: '💬', label: 'Wrap your open sessions before you close the day', command: '/aios:close-session' };
