@@ -354,11 +354,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
      elsewhere stay — the 5h-usage label (.quotarow .k) and session-item status
      (.runitem .k). Counts (.val) and helper lines (.muted) are also unaffected. */
   body.no-hints .btn .k, body.no-hints .ctitle .sub{display:none}
-  /* Keyboard cheat-sheet footer — secondary reference text; hides with the hints toggle. */
-  .shortcuts{margin:18px 2px 4px; font-size:11px; line-height:1.7; color:var(--subtle); font-family:var(--mono)}
-  .shortcuts b{color:var(--muted); font-weight:600}
-  .shortcuts kbd{color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:1px 5px; font-family:var(--mono); font-size:10.5px}
-  body.no-hints .shortcuts{display:none}
+  /* Keyboard shortcuts — its own collapsible section (independent of the hints toggle). */
+  .shortcuts{margin:18px 2px 6px}
+  .scbar{display:flex; align-items:center; gap:6px; width:100%; background:transparent; border:0; color:var(--subtle); font-size:11.5px; font-family:var(--font); cursor:pointer; padding:4px 0; text-align:left}
+  .scbar:hover{color:var(--ink)}
+  .scbar .scsub{color:var(--subtle); opacity:.65; font-size:10.5px; font-family:var(--mono)}
+  .scgrid{display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; margin:7px 0 0; font-size:11px; color:var(--subtle); font-family:var(--mono)}
+  .scgrid.collapsed{display:none}
+  .scgrid kbd{display:inline-block; min-width:14px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-family:var(--mono); font-size:10.5px; margin-right:5px}
   /* Compact density — tightens spacing so more actionables fit in one view. */
   body.compact .cols{gap:10px}
   body.compact .col{gap:10px}
@@ -568,10 +571,19 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     </div>
   </div>
 
-  <p class="shortcuts"><kbd>⌘⌥G</kbd> then —
-    <b>A</b> agent · <b>S</b> session · <b>T</b> terminal · <b>K</b> skill · <b>C</b> command · <b>I</b> ingest ·
-    <b>R</b> running · <b>D</b> daily · <b>W</b> workspaces · <b>P</b> personalizations · <b>X</b> context ·
-    <b>E</b> reports · <b>G</b> go-with-agents · <b>H</b> home · <b>Y</b> today · <b>,</b> config</p>
+  <section class="shortcuts">
+    <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub">⌘⌥G then a key</span></button>
+    <div class="scgrid collapsed" id="scGrid">
+      <div><kbd>A</kbd>agent</div><div><kbd>S</kbd>session</div>
+      <div><kbd>T</kbd>terminal</div><div><kbd>K</kbd>skill</div>
+      <div><kbd>C</kbd>command</div><div><kbd>I</kbd>ingest</div>
+      <div><kbd>R</kbd>running</div><div><kbd>D</kbd>daily ritual</div>
+      <div><kbd>W</kbd>workspaces</div><div><kbd>P</kbd>personalizations</div>
+      <div><kbd>X</kbd>context</div><div><kbd>E</kbd>reports</div>
+      <div><kbd>G</kbd>go-with-agents</div><div><kbd>H</kbd>home</div>
+      <div><kbd>Y</kbd>today's note</div><div><kbd>,</kbd>config</div>
+    </div>
+  </section>
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
@@ -693,6 +705,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     document.getElementById('termCaret').textContent = termOpen ? '▾' : '▸';
   }
   document.getElementById('toggleTerms').addEventListener('click', () => { termOpen = !termOpen; applyTermOpen(); });
+  // Key-shortcuts section — own collapse, default collapsed, persisted (independent of hints).
+  let scOpen = !!(((vscode.getState && vscode.getState()) || {}).scOpen);
+  function applyShortcuts(){ document.getElementById('scGrid').classList.toggle('collapsed', !scOpen); document.getElementById('scCaret').textContent = scOpen ? '▾' : '▸'; }
+  applyShortcuts();
+  document.getElementById('scToggle').addEventListener('click', () => { scOpen = !scOpen; const s=(vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, s, { scOpen })); applyShortcuts(); });
   document.getElementById('addSession').addEventListener('click', (e) => { e.stopPropagation(); run('aios.spawnWorker'); });
   document.getElementById('addTerm').addEventListener('click', (e) => { e.stopPropagation(); vscode.postMessage({ type: 'newTerminal' }); });
   document.getElementById('termList').addEventListener('click', (ev) => {
