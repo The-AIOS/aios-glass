@@ -109,7 +109,7 @@ async function runInSession(slash: string, style?: TermStyle): Promise<void> {
 }
 
 /** True if a `claude` process is a descendant of the terminal's shell. */
-async function terminalHasClaude(terminal: vscode.Terminal): Promise<boolean> {
+export async function terminalHasClaude(terminal: vscode.Terminal): Promise<boolean> {
   const shellPid = await terminal.processId;
   if (!shellPid) return false;
   return new Promise((resolve) => {

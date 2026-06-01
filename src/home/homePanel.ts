@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
-import { launchAios, runInPrimarySession, runInActiveClaude } from '../rituals/runner';
+import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
 import { listRunningAgents } from '../agents/running';
 import { discoverSkills } from '../capabilities/capabilities';
@@ -238,16 +238,23 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, showSwap, to: multi ? nextAccount() : '' }
       : { has: false, fiveHour: 0, sevenDay: 0, showSwap: false, to: '' };
     this.post({ type: 'running', running: running.map((a) => ({ name: a.name, pid: a.pid, status: a.status })), quota });
+    void this.postTerminals(new Set(running.map((a) => a.name))); // reconcile Terminals vs the live registry each poll
   }
 
   /** Open integrated terminals that aren't live Claude sessions — the Terminals list
    *  in the Sessions card, so terminals stay manageable with the native tabs hidden. */
-  private async postTerminals(): Promise<void> {
-    const sessionNames = new Set((await listRunningAgents()).map((a) => a.name));
-    const terms = await Promise.all(
-      vscode.window.terminals.map(async (t) => ({ name: t.name, pid: (await t.processId) ?? 0 }))
-    );
-    const plain = terms.filter((t) => !sessionNames.has(t.name));
+  private async postTerminals(sessionNames?: Set<string>): Promise<void> {
+    const names = sessionNames ?? new Set((await listRunningAgents()).map((a) => a.name));
+    // A terminal is "plain" only if it's neither a live session (by name) nor
+    // running Claude (catches a just-spawned session before it hits the registry —
+    // the open-event can fire before the process registers). The 2s poll calls this
+    // with the fresh session names, so any brief leak reconciles within a poll.
+    const plain: { name: string; pid: number }[] = [];
+    for (const t of vscode.window.terminals) {
+      if (names.has(t.name)) continue;
+      if (await terminalHasClaude(t)) continue;
+      plain.push({ name: t.name, pid: (await t.processId) ?? 0 });
+    }
     this.post({ type: 'terminals', terminals: plain });
   }
 
