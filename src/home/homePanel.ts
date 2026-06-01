@@ -407,7 +407,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn" data-ritual="today">Plan my day <span class="k">/today</span></button>
         <button class="btn" data-ritual="close-session">Close session <span class="k">/close-session</span></button>
         <button class="btn" data-ritual="close-day">Close the day <span class="k">/close-day</span></button>
-        <button class="btn accent" id="goWithAgents" title="Spawn the agents your latest daily note suggests under “Agents can handle” — one terminal each">🤖 Go with agents <span class="val" id="vGoAgents">—</span></button>
+        <button class="btn accent" id="goWithAgents" title="Spawn the agents your latest daily note suggests under “Agents can handle” — one terminal each">🤖 Go with agents <span class="k">multi spawn</span> <span class="val" id="vGoAgents">—</span></button>
       </section>
 
       <section class="card">
@@ -446,24 +446,24 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
       <section class="card">
         <p class="ctitle">Workspaces</p>
-        <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="val" id="vCompanies">—</span></button>
-        <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="val" id="vCollab">—</span></button>
-        <button class="btn" id="browseProjects" title="Your project notes (top-level)">Projects <span class="val" id="vProjects">—</span></button>
+        <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="k">mount · sync</span> <span class="val" id="vCompanies">—</span></button>
+        <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="k">shared spaces</span> <span class="val" id="vCollab">—</span></button>
+        <button class="btn" id="browseProjects" title="Your project notes (top-level)">Projects <span class="k">your work</span> <span class="val" id="vProjects">—</span></button>
       </section>
     </div>
 
     <div class="col minor">
       <section class="card">
         <p class="ctitle">Personalizations</p>
-        <button class="btn" data-doc="intent">INTENT.md <span class="k">Autonomy levels</span></button>
+        <button class="btn" data-doc="intent">INTENT.md <span class="k">autonomy · trust</span></button>
         <button class="btn" data-doc="user">USER.md <span class="k">identity · settings</span></button>
         <p class="muted">Click to read · ⌘-click to edit — or just ask Claude to update them.</p>
       </section>
 
       <section class="card">
         <p class="ctitle">Context</p>
-        <button class="btn" id="browseDeclared">Declared <span class="val" id="vDeclared">—</span></button>
-        <button class="btn" id="browseObserved">Observed <span class="val" id="vObserved">—</span></button>
+        <button class="btn" id="browseDeclared">Declared <span class="k">you stated</span> <span class="val" id="vDeclared">—</span></button>
+        <button class="btn" id="browseObserved">Observed <span class="k">claude learned</span> <span class="val" id="vObserved">—</span></button>
         <p class="muted">Declared = what you've told Claude · Observed = what Claude has learned.</p>
       </section>
 
