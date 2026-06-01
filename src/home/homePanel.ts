@@ -295,8 +295,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     transition:border-color .15s, background .15s; margin-bottom:10px; font-family:var(--font)}
   .btn:last-child{margin-bottom:0}
   /* Secondary-hints toggle (cog → Secondary hints): hide button hints + header
-     subtitles for a label-only view. Counts (.val) and helper lines (.muted) stay. */
-  body.no-hints .k, body.no-hints .sub{display:none}
+     subtitles for a label-only view. Scoped to .btn/.ctitle so functional labels
+     elsewhere stay — the 5h-usage label (.quotarow .k) and session-item status
+     (.runitem .k). Counts (.val) and helper lines (.muted) are also unaffected. */
+  body.no-hints .btn .k, body.no-hints .ctitle .sub{display:none}
   /* Compact density — tightens spacing so more actionables fit in one view. */
   body.compact .cols{gap:10px}
   body.compact .col{gap:10px}
@@ -450,7 +452,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
       <section class="card">
         <p class="ctitle">Workspaces</p>
-        <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="k">create · mount · sync</span> <span class="val" id="vCompanies">—</span></button>
+        <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="k">ventures context</span> <span class="val" id="vCompanies">—</span></button>
         <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="k">shared spaces</span> <span class="val" id="vCollab">—</span></button>
         <button class="btn" id="browseProjects" title="Your project notes (top-level)">Projects <span class="k">your work</span> <span class="val" id="vProjects">—</span></button>
       </section>
@@ -471,13 +473,13 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       </section>
 
       <section class="card">
-        <p class="ctitle">What Claude's learned <span class="sub">lately</span></p>
+        <p class="ctitle">Learned <span class="sub">lately</span></p>
         <div class="learnlist" id="learnList"></div>
         <p class="muted" id="learnHint">Your second brain, getting smarter — click to read.</p>
       </section>
 
       <section class="card">
-        <p class="ctitle">Recent outputs <span class="sub">what shipped</span></p>
+        <p class="ctitle">Shipped <span class="sub">recently</span></p>
         <div class="learnlist" id="outputList"></div>
         <p class="muted" id="outputHint">Click to read · ⌘-click for source.</p>
       </section>
