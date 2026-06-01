@@ -9,10 +9,10 @@ import { discoverSkills } from '../capabilities/capabilities';
 import { discoverCommands } from '../aios/commands';
 import { countAgentSuggestions } from '../tasks/goWithAgents';
 import { frequentTaskCount } from '../tasks/frequent';
-import { recentLearnings, closeLoopNeeded, observedDirPath, recentOutputs } from '../insights/insights';
+import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges } from './config';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -28,6 +28,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   private runningTimer?: ReturnType<typeof setInterval>;
   private refreshTimer?: ReturnType<typeof setTimeout>;
   private pendingCalendar = false;
+  private lastRunningCount = 0;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     HomeViewProvider.current = this;
@@ -174,6 +175,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           else await launchAios(msg.name);
         }
         return;
+      case 'nudgeRun':
+        // Morning/evening nudge → run the suggested ritual in the primary session.
+        if (typeof msg.command === 'string') await runInPrimarySession(msg.command);
+        return;
       case 'cmd':
         if (typeof msg.command === 'string') {
           await vscode.commands.executeCommand(msg.command, ...(msg.args ?? []));
@@ -188,6 +193,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
   private async refreshRunning(): Promise<void> {
     const running = await listRunningAgents();
+    this.lastRunningCount = running.length; // feeds the daytime "wrap your sessions" nudge
     // Usage line (green→red) + swap button. Read live each 2s poll (the cache
     // updates ~per statusline turn). The swap is offered only with 2+ accounts.
     // TESTING: QUOTA_SWAP_ALWAYS forces the button visible to tune the UX —
@@ -222,7 +228,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       projects: countNotes('projects'),
       goAgents: countAgentSuggestions(),
       learnings: recentLearnings(4).map((l) => ({ title: l.title, date: l.date, source: l.source, file: l.file, line: l.line })),
-      closeLoop: closeLoopNeeded(),
+      nudge: showNudges() ? nudgeState(new Date().getHours(), this.lastRunningCount) : null,
       outputs: recentOutputs(6).map((o) => ({ name: o.name, group: o.group, path: o.path })),
       reports: recentReports(5).map((r) => ({ name: r.name, path: r.path }))
     });
@@ -309,8 +315,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   body.compact .muted{margin-top:5px; font-size:11.5px}
   body.compact .runitem{padding:2px 6px}
   .cog.active{color:var(--accent)}
-  .nudge{display:block; width:100%; text-align:left; background:color-mix(in srgb, var(--accent) 14%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; font-size:13.5px; cursor:pointer; margin-bottom:16px; font-family:var(--font)}
+  .nudge{display:flex; align-items:center; gap:6px; width:100%; background:color-mix(in srgb, var(--accent) 14%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; margin-bottom:16px}
   .nudge:hover{background:color-mix(in srgb, var(--accent) 22%, var(--surface-1))}
+  .nudgebody{flex:1; min-width:0; text-align:left; background:transparent; border:0; color:var(--ink); font-size:13.5px; cursor:pointer; font-family:var(--font); padding:0}
+  .nudgex{flex:0 0 auto; background:transparent; border:0; color:var(--subtle); font-size:12px; line-height:1; cursor:pointer; padding:3px 5px; border-radius:6px; opacity:.55}
+  .nudgex:hover{opacity:1; color:var(--ink); background:color-mix(in srgb, var(--accent) 18%, transparent)}
   .quota{display:block; width:100%; text-align:left; background:color-mix(in srgb, #f5a623 16%, var(--surface-1)); border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:var(--ink); border-radius:10px; padding:9px 12px; font-size:13px; cursor:pointer; margin-bottom:10px; font-family:var(--font)}
   .quota:hover{background:color-mix(in srgb, #f5a623 26%, var(--surface-1))}
   .quotarow{display:flex; align-items:center; gap:8px; margin:2px 0 9px}
@@ -399,7 +408,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     </div>
   </header>
 
-  <button class="nudge" id="closeNudge" style="display:none" title="Run /aios:close-day in your primary session">🌙 Close the day — capture what compounded before it's lost</button>
+  <div class="nudge" id="nudgeCard" style="display:none">
+    <button class="nudgebody" id="nudgeAction"></button>
+    <button class="nudgex" id="nudgeDismiss" title="Dismiss for now" aria-label="Dismiss">✕</button>
+  </div>
 
   <div class="cols">
     <div class="col">
@@ -538,7 +550,28 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
   document.getElementById('onboard').addEventListener('click', () => run('aios.onboarding'));
-  document.getElementById('closeNudge').addEventListener('click', () => vscode.postMessage({ type: 'ritual', name: 'close-day' }));
+  function nudgeToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function renderNudge(n){
+    const card=document.getElementById('nudgeCard'), act=document.getElementById('nudgeAction');
+    const dis=((vscode.getState&&vscode.getState())||{}).nudgeDismissed;
+    if(!n || (dis && dis.date===nudgeToday() && dis.kind===n.kind)){ card.style.display='none'; act.dataset.kind=''; return; }
+    act.textContent = n.icon + ' ' + n.label;
+    act.dataset.kind = n.kind;
+    act.dataset.command = n.command || '';
+    act.title = n.command ? ('Run ' + n.command) : '';
+    card.style.display='';
+  }
+  document.getElementById('nudgeAction').addEventListener('click', (e) => {
+    const k=e.currentTarget.dataset.kind, cmd=e.currentTarget.dataset.command;
+    if(k==='sessions') vscode.postMessage({ type:'ritual', name:'close-session' });
+    else if(cmd) vscode.postMessage({ type:'nudgeRun', command:cmd });
+  });
+  document.getElementById('nudgeDismiss').addEventListener('click', () => {
+    const k=document.getElementById('nudgeAction').dataset.kind;
+    const s=(vscode.getState&&vscode.getState())||{};
+    vscode.setState(Object.assign({}, s, { nudgeDismissed:{ date:nudgeToday(), kind:k } }));
+    document.getElementById('nudgeCard').style.display='none';
+  });
   document.getElementById('learnList').addEventListener('click', (ev) => {
     const it = ev.target.closest('.learnitem');
     if (it && it.getAttribute('data-file')) run('aios.openLearning', it.getAttribute('data-file'), Number(it.getAttribute('data-line')) || 0);
@@ -637,7 +670,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           + '<span class="lsrc ' + x.source + '">' + x.source + '</span><span class="ltitle">' + t + '</span><span class="ldate">' + (x.date||'').slice(5) + '</span></div>';
       }).join('');
       document.getElementById('learnHint').style.display = ll.length ? '' : 'none';
-      document.getElementById('closeNudge').style.display = msg.closeLoop ? '' : 'none';
+      renderNudge(msg.nudge);
       const outs = msg.outputs || [];
       document.getElementById('outputList').innerHTML = outs.map((o) => {
         const nm = (o.name || '').replace(/</g,'&lt;');

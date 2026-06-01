@@ -229,6 +229,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show the secondary hint texts in the Home panel — button hints (e.g. `browse · task`) and header subtitles (e.g. `discipline compounds`). Turn off for a cleaner, label-only view. Toggle from the cog menu. Counts and helper lines are unaffected."
+        },
+        "aiosGlass.showNudges": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the contextual ritual nudge banner at the top of Home — morning (the day's suggested ritual), daytime (wrap open sessions), evening (close the day). Each nudge can be dismissed for the day; turn this off to hide them entirely."
         }
       }
     },

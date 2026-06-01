@@ -105,12 +105,52 @@ function latestDailyNote(): string | undefined {
  * Close-of-Day section yet — the moment a non-dev silently breaks the
  * compounding (run /today, work, never close → nothing gets captured).
  */
-export function closeLoopNeeded(): boolean {
+export interface Nudge { kind: 'plan' | 'sessions' | 'close'; icon: string; label: string; command?: string; }
+
+/**
+ * The first actionable 💡 ritual the daily note suggests — a backticked
+ * `/command` (args included). Skips lines already marked done (`~~strike~~` / ✅)
+ * and skips close-day/close-session (the time-based states own those). Namespace-
+ * agnostic: takes whatever's in the backticks (`/aios:`, `/vault-commands:`, bare).
+ */
+function suggestedRitual(md: string): { command: string; short: string } | null {
+  for (const line of md.split(/\r?\n/)) {
+    if (!/^\s*>?\s*💡/.test(line)) continue;
+    if (/~~|✅/.test(line)) continue; // already done / struck through
+    const m = line.match(/`(\/[^`]+)`/);
+    if (!m) continue;
+    const command = m[1].trim();
+    if (/close-?day|close-?session/i.test(command)) continue; // time-based states own these
+    const short = command.replace(/^\/(?:aios:|vault-commands:)?/, '').split(/\s/)[0];
+    return { command, short };
+  }
+  return null;
+}
+
+/**
+ * Contextual ritual nudge for the Home banner, by time of day + state:
+ *   no today-note     → plan the day (/today)
+ *   evening (≥17h)    → close the day
+ *   morning (<12h)    → the note's 💡 suggested ritual (planning-type only)
+ *   daytime + live sessions → wrap open sessions before close-day
+ * Pure given the inputs — caller passes the local hour + live-session count.
+ */
+export function nudgeState(hour: number, runningCount: number): Nudge | null {
   const note = latestDailyNote();
-  if (!note) return false;
-  if (path.basename(note, '.md') !== todayLocalIso()) return false; // only nudge for today's note
+  const isToday = !!note && path.basename(note, '.md') === todayLocalIso();
+  if (!isToday) return { kind: 'plan', icon: '☀️', label: 'Plan your day', command: '/aios:today' };
   let md = '';
-  try { md = fs.readFileSync(note, 'utf8'); } catch { return false; }
-  const hasClose = /close[\s-]?of[\s-]?day|^#{1,4}.*\bclose\b.*\bday\b/im.test(md);
-  return !hasClose;
+  try { md = fs.readFileSync(note as string, 'utf8'); } catch { return null; }
+  const isClosed = /close[\s-]?of[\s-]?day|^#{1,4}.*\bclose\b.*\bday\b/im.test(md);
+  if (hour >= 17 && !isClosed) {
+    return { kind: 'close', icon: '🌙', label: "Close the day — capture what compounded before it's lost", command: '/aios:close-day' };
+  }
+  if (hour < 12) {
+    const r = suggestedRitual(md);
+    if (r) return { kind: 'plan', icon: '💡', label: `Suggested: /${r.short}`, command: r.command };
+  }
+  if (hour < 17 && runningCount > 0) {
+    return { kind: 'sessions', icon: '💬', label: 'Wrap your open sessions before you close the day', command: '/aios:close-session' };
+  }
+  return null;
 }

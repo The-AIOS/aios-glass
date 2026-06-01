@@ -128,6 +128,16 @@ export async function setShowHints(on: boolean): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
 }
 
+/** Whether to show the contextual ritual nudge banner (morning/daytime/evening). Default true. */
+export function showNudges(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showNudges', true);
+}
+
+export async function setShowNudges(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('showNudges', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: ritual nudges ${on ? 'on' : 'off'}.`);
+}
+
 /** Reads Claude's global `remoteControlAtStartup` (~/.claude/settings.json). */
 export function remoteControlOn(): boolean {
   try {

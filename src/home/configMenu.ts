@@ -6,7 +6,8 @@ import {
   remoteControlOn, setRemoteControl,
   currentAnthropicAccount, anthropicAccounts,
   automaticUpdates, setAutomaticUpdates,
-  showHints, setShowHints
+  showHints, setShowHints,
+  showNudges, setShowNudges
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -21,6 +22,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(sync) Automatic updates', description: automaticUpdates() ? 'on' : 'off', id: 'autoupdate' },
     { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
     { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
+    { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
     { label: '', kind: vscode.QuickPickItemKind.Separator },
     { label: '$(target) Set a session goal', description: '/goal', id: 'goal' },
     { label: '$(check-all) Fewer permission prompts', description: '/fewer-permission-prompts', id: 'fewerperms' },
@@ -73,6 +75,17 @@ export async function openConfigMenu(): Promise<void> {
         { title: `Secondary hints — currently ${showHints() ? 'on' : 'off'}` }
       );
       if (choice) await setShowHints(choice.value);
+      return;
+    }
+    case 'nudges': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(bell) On', description: 'morning ritual · midday session-wrap · evening close-day', value: true },
+          { label: '$(bell-slash) Off', description: 'no nudge banner at all', value: false }
+        ],
+        { title: `Ritual nudges — currently ${showNudges() ? 'on' : 'off'}` }
+      );
+      if (choice) await setShowNudges(choice.value);
       return;
     }
     case 'goal': return launchInSession('/goal', { name: 'goal', icon: 'target', color: 'terminal.ansiBlue' });
