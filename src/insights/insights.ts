@@ -159,9 +159,9 @@ export function nudgeState(hour: number, runningCount: number): Nudge | null {
     if (r) {
       // Use the note's own warm one-liner (capitalized, trimmed) — matches the
       // voice of the other nudges. Fall back to the command if the note had none.
-      let label = r.desc ? r.desc.charAt(0).toUpperCase() + r.desc.slice(1) : 'today\'s ritual';
-      if (label.length > 80) label = label.slice(0, 79).trimEnd() + '…';
-      return { kind: 'plan', icon: '💡', cmdLabel: `/${r.short}`, label, command: r.command };
+      // bold "Run /cmd" + the note's own one-liner (the webview clamps it to 2 rows).
+      const label = r.desc ? r.desc.charAt(0).toUpperCase() + r.desc.slice(1) : '';
+      return { kind: 'plan', icon: '💡', cmdLabel: `Run /${r.short}`, label, command: r.command };
     }
   }
   if (hour < 17 && runningCount > 0) {

@@ -329,7 +329,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .cog.active{color:var(--accent)}
   .nudge{display:flex; align-items:center; gap:6px; width:100%; background:color-mix(in srgb, var(--accent) 14%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; margin-bottom:16px}
   .nudge:hover{background:color-mix(in srgb, var(--accent) 22%, var(--surface-1))}
-  .nudgebody{flex:1; min-width:0; text-align:left; background:transparent; border:0; color:var(--ink); font-size:13.5px; cursor:pointer; font-family:var(--font); padding:0}
+  .nudgebody{flex:1; min-width:0; text-align:left; background:transparent; border:0; color:var(--ink); font-size:13.5px; line-height:1.35; cursor:pointer; font-family:var(--font); padding:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
   .nudgex{flex:0 0 auto; background:transparent; border:0; color:var(--subtle); font-size:12px; line-height:1; cursor:pointer; padding:3px 5px; border-radius:6px; opacity:.55}
   .nudgex:hover{opacity:1; color:var(--ink); background:color-mix(in srgb, var(--accent) 18%, transparent)}
   .quota{display:block; width:100%; text-align:left; background:color-mix(in srgb, #f5a623 16%, var(--surface-1)); border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:var(--ink); border-radius:10px; padding:9px 12px; font-size:13px; cursor:pointer; margin-bottom:10px; font-family:var(--font)}
