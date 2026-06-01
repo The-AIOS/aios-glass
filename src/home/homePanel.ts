@@ -398,9 +398,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .lhead .btn{flex:1; margin-bottom:0}
   .lhead-add{flex:0 0 auto; width:30px; height:30px; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
-  /* Terminals header wears the small-caps section-divider style (the original look)
-     — secondary to Running's button label — but its count matches Running's accent. */
-  #toggleTerms{background:transparent; color:var(--subtle); font-size:12.5px; font-weight:600; text-transform:uppercase; letter-spacing:.12em}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
@@ -511,12 +508,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k" id="quotaLabel">5h</span></div>
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <div class="lhead">
-          <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions">Running <span class="val" id="vRunning">0</span></button>
+          <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
           <button class="lhead-add" id="addSession" title="Spawn a session — name it (or blank for a random handle), optional task">＋</button>
         </div>
         <div class="runlist" id="runningList"></div>
         <div class="lhead">
-          <button class="btn" id="toggleTerms" title="Show / hide open terminals">Terminals <span class="val" id="vTerms">0</span></button>
+          <button class="btn" id="toggleTerms" title="Show / hide open terminals"><span id="termCaret">▾</span> Terminals <span class="val" id="vTerms">0</span></button>
           <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)">＋</button>
         </div>
         <div class="runlist" id="termList"></div>
@@ -677,11 +674,13 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const hasItems = list.children.length > 0;
     list.style.display = runOpen ? '' : 'none';
     document.getElementById('runHint').style.display = (runOpen && hasItems) ? '' : 'none';
+    document.getElementById('runCaret').textContent = runOpen ? '▾' : '▸';
   }
   document.getElementById('toggleRunning').addEventListener('click', () => { runOpen = !runOpen; applyRunOpen(); });
   let termOpen = true;
   function applyTermOpen(){
     document.getElementById('termList').style.display = termOpen ? '' : 'none';
+    document.getElementById('termCaret').textContent = termOpen ? '▾' : '▸';
   }
   document.getElementById('toggleTerms').addEventListener('click', () => { termOpen = !termOpen; applyTermOpen(); });
   document.getElementById('addSession').addEventListener('click', (e) => { e.stopPropagation(); run('aios.spawnWorker'); });
