@@ -7,7 +7,8 @@ import {
   currentAnthropicAccount, anthropicAccounts,
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
-  showNudges, setShowNudges
+  showNudges, setShowNudges,
+  nativeTabsEnabled, setNativeTabs
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -23,6 +24,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
     { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
     { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
+    { label: '$(list-flat) Native terminal tabs', description: nativeTabsEnabled() ? 'shown' : 'hidden', id: 'nativetabs' },
     { label: '', kind: vscode.QuickPickItemKind.Separator },
     { label: '$(target) Set a session goal', description: '/goal', id: 'goal' },
     { label: '$(check-all) Fewer permission prompts', description: '/fewer-permission-prompts', id: 'fewerperms' },
@@ -86,6 +88,17 @@ export async function openConfigMenu(): Promise<void> {
         { title: `Ritual nudges — currently ${showNudges() ? 'on' : 'off'}` }
       );
       if (choice) await setShowNudges(choice.value);
+      return;
+    }
+    case 'nativetabs': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye) Shown', description: "VS Code's native terminal tabs", value: true },
+          { label: '$(eye-closed) Hidden', description: "manage terminals from Glass's Sessions card", value: false }
+        ],
+        { title: `Native terminal tabs — currently ${nativeTabsEnabled() ? 'shown' : 'hidden'}` }
+      );
+      if (choice) await setNativeTabs(choice.value);
       return;
     }
     case 'goal': return launchInSession('/goal', { name: 'goal', icon: 'target', color: 'terminal.ansiBlue' });

@@ -138,6 +138,16 @@ export async function setShowNudges(on: boolean): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: ritual nudges ${on ? 'on' : 'off'}.`);
 }
 
+/** VS Code's native terminal tabs (terminal.integrated.tabs.enabled). Hide them to manage terminals from Glass. */
+export function nativeTabsEnabled(): boolean {
+  return vscode.workspace.getConfiguration('terminal.integrated.tabs').get<boolean>('enabled', true);
+}
+
+export async function setNativeTabs(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('terminal.integrated.tabs').update('enabled', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: native terminal tabs ${on ? 'shown' : 'hidden'}${on ? '' : ' — manage terminals from the Sessions card'}.`);
+}
+
 /** Reads Claude's global `remoteControlAtStartup` (~/.claude/settings.json). */
 export function remoteControlOn(): boolean {
   try {

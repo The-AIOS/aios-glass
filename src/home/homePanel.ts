@@ -55,6 +55,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     });
     webviewView.onDidDispose(() => stopPolling());
     startPolling();
+    // Keep the Terminals list live as terminals open/close (event-driven, not polled).
+    const openSub = vscode.window.onDidOpenTerminal(() => void this.postTerminals());
+    const closeSub = vscode.window.onDidCloseTerminal(() => void this.postTerminals());
+    webviewView.onDidDispose(() => { openSub.dispose(); closeSub.dispose(); });
 
     // Refresh state (incl. the Go-with-agents count) when a daily note changes —
     // so editing/generating today's note updates the count without a manual poke.
@@ -146,6 +150,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     if (!this.view) return;
     this.postState();
     void this.refreshRunning();
+    void this.postTerminals();
     void checkForUpdates().then((state) => this.post({ type: 'updateStatus', state, framework: readFrameworkStatus() ?? null }));
   }
 
@@ -173,6 +178,20 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           if (msg.name === 'today' || msg.name === 'close-day') await runInPrimarySession(`/aios:${msg.name}`);
           else if (msg.name === 'close-session') await runInActiveClaude('/aios:close-session');
           else await launchAios(msg.name);
+        }
+        return;
+      case 'newTerminal':
+        vscode.window.createTerminal().show();
+        return;
+      case 'focusTerminal':
+      case 'closeTerminal':
+        if (typeof msg.pid === 'number') {
+          for (const t of vscode.window.terminals) {
+            if ((await t.processId) === msg.pid) {
+              if (msg.type === 'focusTerminal') t.show(); else t.dispose();
+              break;
+            }
+          }
         }
         return;
       case 'nudgeRun':
@@ -219,6 +238,17 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, showSwap, to: multi ? nextAccount() : '' }
       : { has: false, fiveHour: 0, sevenDay: 0, showSwap: false, to: '' };
     this.post({ type: 'running', running: running.map((a) => ({ name: a.name, pid: a.pid, status: a.status })), quota });
+  }
+
+  /** Open integrated terminals that aren't live Claude sessions — the Terminals list
+   *  in the Sessions card, so terminals stay manageable with the native tabs hidden. */
+  private async postTerminals(): Promise<void> {
+    const sessionNames = new Set((await listRunningAgents()).map((a) => a.name));
+    const terms = await Promise.all(
+      vscode.window.terminals.map(async (t) => ({ name: t.name, pid: (await t.processId) ?? 0 }))
+    );
+    const plain = terms.filter((t) => !sessionNames.has(t.name));
+    this.post({ type: 'terminals', terminals: plain });
   }
 
   private postState(): void {
@@ -357,6 +387,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem:hover{background:var(--surface-2)}
   .runitem:focus-visible{outline:1px solid var(--accent); outline-offset:0}
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .termdiv{font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--subtle); opacity:.7; margin:10px 0 4px}
+  .termbtns{display:flex; gap:8px}
+  .termbtns .btn.add{flex:1; margin-bottom:0; text-align:center}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
@@ -471,7 +504,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
         <div class="runlist" id="runningList"></div>
         <p class="muted" id="runHint">Click a session to reveal · trash to kill.</p>
-        <button class="btn add" id="spawnSessionBtn" title="Spawn a session — name it (or blank for a random handle), optional task">＋ New session</button>
+        <p class="termdiv" id="termDiv" style="display:none">Terminals</p>
+        <div class="runlist" id="termList"></div>
+        <div class="termbtns">
+          <button class="btn add" id="spawnSessionBtn" title="Spawn a session — name it (or blank for a random handle), optional task">＋ New session</button>
+          <button class="btn add" id="newTermBtn" title="Open a new plain terminal (not a Claude session)">＋ New terminal</button>
+        </div>
       </section>
 
       <section class="card">
@@ -632,6 +670,13 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   }
   document.getElementById('toggleRunning').addEventListener('click', () => { runOpen = !runOpen; applyRunOpen(); });
   document.getElementById('spawnSessionBtn').addEventListener('click', () => run('aios.spawnWorker'));
+  document.getElementById('newTermBtn').addEventListener('click', () => vscode.postMessage({ type: 'newTerminal' }));
+  document.getElementById('termList').addEventListener('click', (ev) => {
+    const item = ev.target.closest('.runitem'); if (!item) return;
+    const pid = Number(item.getAttribute('data-tpid')) || 0; if (!pid) return;
+    if (ev.target.closest('[data-tclose]')) { vscode.postMessage({ type: 'closeTerminal', pid }); item.remove(); }
+    else vscode.postMessage({ type: 'focusTerminal', pid });
+  });
   document.getElementById('quotaWarn').addEventListener('click', () => { const to = document.getElementById('quotaWarn').getAttribute('data-to'); if (to) run('aios.swapTo', to); });
   document.getElementById('browseAgents').addEventListener('click', () => run('aios.spawnAgent'));
   document.getElementById('skillsPicker').addEventListener('click', () => run('aios.skillsPicker'));
@@ -737,6 +782,20 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         qw.setAttribute('data-to', q.to);
         qw.style.display = '';
       } else { qw.style.display = 'none'; }
+    } else if (msg.type === 'terminals'){
+      const terms = msg.terminals || [];
+      document.getElementById('termDiv').style.display = terms.length ? '' : 'none';
+      const tl = document.getElementById('termList');
+      if (tl){
+        tl.innerHTML = terms.map((t) => {
+          const nm = (t.name || 'terminal').replace(/</g,'&lt;');
+          return '<div class="runitem" role="button" tabindex="0" data-tpid="' + (t.pid||0) + '" title="Click to focus this terminal">'
+            + '<span class="dot unk"></span><span class="rname">' + nm + '</span>'
+            + '<button class="runkill" data-tclose="1" title="Close terminal" aria-label="Close terminal">'
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+            + '</button></div>';
+        }).join('');
+      }
     } else if (msg.type === 'updateStatus'){
       const b = document.getElementById('updBadge');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
