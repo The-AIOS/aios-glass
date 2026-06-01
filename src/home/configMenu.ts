@@ -5,7 +5,8 @@ import {
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
   currentAnthropicAccount, anthropicAccounts,
-  automaticUpdates, setAutomaticUpdates
+  automaticUpdates, setAutomaticUpdates,
+  showHints, setShowHints
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -19,6 +20,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(terminal) Terminal mode', description: currentTerminalMode(), id: 'terminal' },
     { label: '$(sync) Automatic updates', description: automaticUpdates() ? 'on' : 'off', id: 'autoupdate' },
     { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
+    { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
     { label: '', kind: vscode.QuickPickItemKind.Separator },
     { label: '$(target) Set a session goal', description: '/goal', id: 'goal' },
     { label: '$(check-all) Fewer permission prompts', description: '/fewer-permission-prompts', id: 'fewerperms' },
@@ -60,6 +62,17 @@ export async function openConfigMenu(): Promise<void> {
         title: 'Remote control — append --remote-control to Glass launches'
       });
       if (choice) await setRemoteControl(choice === 'on');
+      return;
+    }
+    case 'hints': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye) On', description: 'show button hints + header subtitles', value: true },
+          { label: '$(eye-closed) Off', description: 'cleaner, label-only view (counts + helpers stay)', value: false }
+        ],
+        { title: `Secondary hints — currently ${showHints() ? 'on' : 'off'}` }
+      );
+      if (choice) await setShowHints(choice.value);
       return;
     }
     case 'goal': return launchInSession('/goal', { name: 'goal', icon: 'target', color: 'terminal.ansiBlue' });

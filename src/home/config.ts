@@ -118,6 +118,16 @@ export async function setTerminalMode(value: string): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: terminal mode set to ${value}.`);
 }
 
+/** Whether to show secondary hint texts — button hints (.k) + header subtitles (.sub). Default true. */
+export function showHints(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showHints', true);
+}
+
+export async function setShowHints(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('showHints', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
+}
+
 /** Reads Claude's global `remoteControlAtStartup` (~/.claude/settings.json). */
 export function remoteControlOn(): boolean {
   try {

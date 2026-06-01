@@ -241,7 +241,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('aiosGlass.frameworkPath')) HomeViewProvider.current?.refresh();
+      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints')) HomeViewProvider.current?.refresh();
     })
   );
 

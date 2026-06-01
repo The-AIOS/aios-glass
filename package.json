@@ -224,6 +224,11 @@
           ],
           "default": "ask",
           "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+        },
+        "aiosGlass.showHints": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the secondary hint texts in the Home panel — button hints (e.g. `browse · task`) and header subtitles (e.g. `discipline compounds`). Turn off for a cleaner, label-only view. Toggle from the cog menu. Counts and helper lines are unaffected."
         }
       }
     },

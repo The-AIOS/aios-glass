@@ -12,7 +12,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, closeLoopNeeded, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints } from './config';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -212,6 +212,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       skills: discoverSkills().length,
       commands: discoverCommands().length,
       frequent: frequentTaskCount(),
+      showHints: showHints(),
       companies: readCompanies().map((c) => ({ name: c.name, lastSync: c.lastSync })),
       collab: readCollabSpaces().map((s) => ({ name: s.name })),
       framework: readFrameworkStatus() ?? null,
@@ -293,6 +294,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:14px; cursor:pointer;
     transition:border-color .15s, background .15s; margin-bottom:10px; font-family:var(--font)}
   .btn:last-child{margin-bottom:0}
+  /* Secondary-hints toggle (cog → Secondary hints): hide button hints + header
+     subtitles for a label-only view. Counts (.val) and helper lines (.muted) stay. */
+  body.no-hints .k, body.no-hints .sub{display:none}
   /* Compact density — tightens spacing so more actionables fit in one view. */
   body.compact .cols{gap:10px}
   body.compact .col{gap:10px}
@@ -611,6 +615,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const msg = e.data;
     if (msg.type === 'state'){
       if (msg.primary) document.getElementById('vPrimary').textContent = msg.primary;
+      document.body.classList.toggle('no-hints', msg.showHints === false);
       document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';
       document.getElementById('vSkills').textContent = (msg.skills || 0) + '';
