@@ -550,11 +550,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
   document.getElementById('onboard').addEventListener('click', () => run('aios.onboarding'));
-  function nudgeToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  // Dismiss is session-scoped: held in memory (not persisted), so it survives
+  // view-switches (retainContextWhenHidden) but a window reload brings the nudge
+  // back. Keyed by kind, so dismissing the morning nudge never suppresses the
+  // evening close-day one. The cog "Ritual nudges" toggle is the permanent off.
+  const nudgeDismissed = new Set();
   function renderNudge(n){
     const card=document.getElementById('nudgeCard'), act=document.getElementById('nudgeAction');
-    const dis=((vscode.getState&&vscode.getState())||{}).nudgeDismissed;
-    if(!n || (dis && dis.date===nudgeToday() && dis.kind===n.kind)){ card.style.display='none'; act.dataset.kind=''; return; }
+    if(!n || nudgeDismissed.has(n.kind)){ card.style.display='none'; act.dataset.kind=''; return; }
     act.textContent = n.icon + ' ' + n.label;
     act.dataset.kind = n.kind;
     act.dataset.command = n.command || '';
@@ -568,8 +571,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   });
   document.getElementById('nudgeDismiss').addEventListener('click', () => {
     const k=document.getElementById('nudgeAction').dataset.kind;
-    const s=(vscode.getState&&vscode.getState())||{};
-    vscode.setState(Object.assign({}, s, { nudgeDismissed:{ date:nudgeToday(), kind:k } }));
+    if(k) nudgeDismissed.add(k);
     document.getElementById('nudgeCard').style.display='none';
   });
   document.getElementById('learnList').addEventListener('click', (ev) => {
