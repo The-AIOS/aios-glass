@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-31
+
+### Added
+- **Live refresh** for the Home Workspace cards — `FileSystemWatcher`s now update the **Projects** count, **Collaboration** list, and **Companies** table the moment their sources change (project notes under `00 - notes/projects/`, and `USER.md`), with no panel hide/show or window reload. The Projects count stays a top-level tally, so archiving a project into a subfolder drops it out automatically — your taxonomy, not one baked into the extension.
+
 ## [0.1.1] — 2026-05-31
 
 ### Added
@@ -36,6 +41,7 @@ Initial public release on the [Open VSX Registry](https://open-vsx.org/extension
 - **Onboarding walkthrough** (editor Welcome page) that completes as you use each surface.
 - Foam declared as an `extensionDependency` (glass, not fork). Settings: `aiosGlass.frameworkPath`, `aiosGlass.claudeCommand`, `aiosGlass.terminalMode`, `aiosGlass.permissionMode`, `aiosGlass.operatorName`.
 
-[Unreleased]: https://github.com/The-AIOS/aios-glass/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/The-AIOS/aios-glass/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.2
 [0.1.1]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.1
 [0.1.0]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.0
