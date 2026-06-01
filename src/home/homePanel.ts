@@ -424,11 +424,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     <div class="col">
       <section class="card">
         <p class="ctitle">Quick</p>
-        <button class="btn" id="frequentMenu" title="Your frequent tasks — pick one to run, or add / remove your own">Frequent tasks <span class="k">menu</span></button>
-        <button class="btn" id="browseAgents" title="Browse and spawn any bundled or custom agent">Launch an agent <span class="val" id="vAgents">—</span></button>
+        <button class="btn" id="frequentMenu" title="Your frequent tasks — pick one to run, or add / remove your own">Frequent tasks <span class="k">add your own</span></button>
+        <button class="btn" id="browseAgents" title="Browse and spawn any agent — bundled, custom, or company">Launch an agent <span class="val" id="vAgents">—</span></button>
         <button class="btn" id="skillsPicker" title="Browse and load any registered skill">Load a skill <span class="val" id="vSkills">—</span></button>
         <button class="btn" id="cmdPicker" title="Browse and run any /aios: command">Run a command <span class="val" id="vCommands">—</span></button>
-        <button class="btn" id="ingestQuick" title="Turn one or more sources (URLs, files, transcripts) into structured vault context">Ingest content <span class="k">one or more sources</span></button>
+        <button class="btn" id="ingestQuick" title="Turn one or more sources (URLs, files, transcripts) into structured vault context">Ingest content <span class="k">→ vault context</span></button>
         <button class="btn" id="spawnWorker" title="Spawn a session you name (e.g. feat-checkout) — or leave the name blank for a random handle — with an optional task">Spawn a session <span class="k">name · task</span></button>
       </section>
 
@@ -444,9 +444,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
       <section class="card">
         <p class="ctitle">Workspaces</p>
-        <button class="btn" id="companyAction">Companies <span class="val" id="vCompanies">—</span></button>
-        <button class="btn" id="collaborateAction">Collaboration <span class="val" id="vCollab">—</span></button>
-        <button class="btn" id="browseProjects" title="Your active projects (from projects/_index)">Projects <span class="val" id="vProjects">—</span></button>
+        <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="val" id="vCompanies">—</span></button>
+        <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="val" id="vCollab">—</span></button>
+        <button class="btn" id="browseProjects" title="Your project notes — top-level files in 00 - notes/projects/">Projects <span class="val" id="vProjects">—</span></button>
       </section>
     </div>
 
@@ -454,7 +454,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <section class="card">
         <p class="ctitle">Personalizations</p>
         <button class="btn" data-doc="intent">INTENT.md <span class="k">Autonomy levels</span></button>
-        <button class="btn" data-doc="user">USER.md <span class="k">Personalizations</span></button>
+        <button class="btn" data-doc="user">USER.md <span class="k">identity · settings</span></button>
         <p class="muted">Click to read · ⌘-click to edit — or just ask Claude to update them.</p>
       </section>
 
