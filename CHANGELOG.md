@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-31
+
+### Added
+- **Show/hide secondary hints** — a cog toggle (`aiosGlass.showHints`, default on) flips the panel between the full hinted view and a clean, label-only view. Hides button hints + header subtitles; counts, the quota label, and helper lines stay.
+- **Inline 7-day usage** in the Sessions quota label: `5h (7d 56%)` — the bar still carries 5h visually, with both metrics in the hover tooltip.
+- **Live refresh for Workspaces** — adding/archiving a project or mounting a company now updates the Projects / Collaboration / Companies counts without a reload.
+
+### Changed
+- **Secondary-text pass across the whole panel** — consistent inline hints on every actionable (e.g. `browse · task`, `add your own`, `ventures context`, `you stated` / `claude learned`) and tightened card headers (`Daily`, `Sessions`, `Customize`, `Learned`, `Shipped`, with subtitles).
+- Watcher-driven refreshes are **debounced** (250 ms) so bursts — autosave while editing a note, the multi-file export pipeline, a company sync — collapse into one re-scan.
+
+### Fixed
+- **Agent count** no longer over-counts: index READMEs mis-tagged as agents are excluded at the source, so the count reflects real agents (bundled + custom + company).
+- Corrected/added tooltips (Projects, Launch-an-agent, Companies, Collaboration); removed a redundant Context explainer line.
+
 ## [0.1.2] — 2026-05-31
 
 ### Added
@@ -41,7 +56,8 @@ Initial public release on the [Open VSX Registry](https://open-vsx.org/extension
 - **Onboarding walkthrough** (editor Welcome page) that completes as you use each surface.
 - Foam declared as an `extensionDependency` (glass, not fork). Settings: `aiosGlass.frameworkPath`, `aiosGlass.claudeCommand`, `aiosGlass.terminalMode`, `aiosGlass.permissionMode`, `aiosGlass.operatorName`.
 
-[Unreleased]: https://github.com/The-AIOS/aios-glass/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/The-AIOS/aios-glass/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.3
 [0.1.2]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.2
 [0.1.1]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.1
 [0.1.0]: https://github.com/The-AIOS/aios-glass/releases/tag/v0.1.0
