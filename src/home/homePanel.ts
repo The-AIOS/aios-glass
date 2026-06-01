@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
-import { operatorName, primaryName, countNotes, vaultRoot } from './vault';
+import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
 import { listRunningAgents } from '../agents/running';
@@ -82,6 +82,34 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       ew.onDidCreate(onExp);
       ew.onDidDelete(onExp);
       webviewView.onDidDispose(() => ew.dispose());
+    }
+    // Refresh the Projects count AND Collaboration list when project notes change
+    // — both read from `00 - notes/projects/` (collab spaces are `space-*.md`
+    // there). Recursive so adds/removes/moves into subfolders all fire; the
+    // counts/lists are recomputed by their own functions, so no taxonomy lives here.
+    if (v) {
+      const pw = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(vscode.Uri.file(path.join(v, '00 - notes', 'projects')), '**/*.md')
+      );
+      const onProj = () => this.postState();
+      pw.onDidChange(onProj);
+      pw.onDidCreate(onProj);
+      pw.onDidDelete(onProj);
+      webviewView.onDidDispose(() => pw.dispose());
+    }
+    // Refresh the Companies list when USER.md changes — the Companies table is
+    // parsed from USER.md → `## Companies (mounted)`, so mounting/unmounting a
+    // company shows up live without a reload.
+    const fwRoot = frameworkRoot();
+    if (fwRoot) {
+      const uw = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(vscode.Uri.file(fwRoot), 'USER.md')
+      );
+      const onUser = () => this.postState();
+      uw.onDidChange(onUser);
+      uw.onDidCreate(onUser);
+      uw.onDidDelete(onUser);
+      webviewView.onDidDispose(() => uw.dispose());
     }
   }
 
