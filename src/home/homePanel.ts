@@ -387,8 +387,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem:hover{background:var(--surface-2)}
   .runitem:focus-visible{outline:1px solid var(--accent); outline-offset:0}
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .termbtns{display:flex; gap:8px}
-  .termbtns .btn.add{flex:1; margin-bottom:0; text-align:center}
+  .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
+  .lhead .btn{flex:1; margin-bottom:0}
+  .lhead-add{flex:0 0 auto; width:30px; height:30px; background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
+  .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
@@ -399,12 +401,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem .dot.input{background:#4aa3ff; box-shadow:0 0 0 2px color-mix(in srgb, #4aa3ff 24%, transparent)}
   .runitem .dot.error{background:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
   .runitem .dot.unk{background:var(--subtle)}
-  .btn.add{background:transparent; border:1px dashed var(--line); color:var(--subtle); font-size:13px; padding:9px 14px; margin-top:8px; margin-bottom:8px}
   .btn.accent{border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background:color-mix(in srgb, var(--accent) 12%, var(--surface-2))}
   .btn.accent:hover{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2))}
   .btn.accent .val{color:var(--accent)}
   .btn.dim{opacity:.5}
-  .btn.add:hover{border-color:var(--accent-line); color:var(--accent); background:transparent}
   .launch{display:flex; gap:8px; margin-bottom:2px}
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
@@ -500,14 +500,16 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <p class="ctitle">Sessions</p>
         <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k" id="quotaLabel">5h</span></div>
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
-        <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
-        <div class="runlist" id="runningList"></div>
-        <button class="btn" id="toggleTerms" style="display:none" title="Show / hide open terminals"><span id="termCaret">▾</span> Terminals <span class="val" id="vTerms">0</span></button>
-        <div class="runlist" id="termList"></div>
-        <div class="termbtns">
-          <button class="btn add" id="spawnSessionBtn" title="Spawn a session — name it (or blank for a random handle), optional task">＋ Session</button>
-          <button class="btn add" id="newTermBtn" title="Open a new plain terminal (not a Claude session)">＋ Terminal</button>
+        <div class="lhead">
+          <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
+          <button class="lhead-add" id="addSession" title="Spawn a session — name it (or blank for a random handle), optional task">＋</button>
         </div>
+        <div class="runlist" id="runningList"></div>
+        <div class="lhead">
+          <button class="btn" id="toggleTerms" title="Show / hide open terminals"><span id="termCaret">▾</span> Terminals <span class="val" id="vTerms">0</span></button>
+          <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)">＋</button>
+        </div>
+        <div class="runlist" id="termList"></div>
         <p class="muted" id="runHint">Click a session to reveal · trash to kill.</p>
       </section>
 
@@ -674,8 +676,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     document.getElementById('termCaret').textContent = termOpen ? '▾' : '▸';
   }
   document.getElementById('toggleTerms').addEventListener('click', () => { termOpen = !termOpen; applyTermOpen(); });
-  document.getElementById('spawnSessionBtn').addEventListener('click', () => run('aios.spawnWorker'));
-  document.getElementById('newTermBtn').addEventListener('click', () => vscode.postMessage({ type: 'newTerminal' }));
+  document.getElementById('addSession').addEventListener('click', (e) => { e.stopPropagation(); run('aios.spawnWorker'); });
+  document.getElementById('addTerm').addEventListener('click', (e) => { e.stopPropagation(); vscode.postMessage({ type: 'newTerminal' }); });
   document.getElementById('termList').addEventListener('click', (ev) => {
     const item = ev.target.closest('.runitem'); if (!item) return;
     const pid = Number(item.getAttribute('data-tpid')) || 0; if (!pid) return;
@@ -789,7 +791,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       } else { qw.style.display = 'none'; }
     } else if (msg.type === 'terminals'){
       const terms = msg.terminals || [];
-      document.getElementById('toggleTerms').style.display = terms.length ? '' : 'none';
       const vt = document.getElementById('vTerms'); vt.textContent = terms.length + ''; vt.className = terms.length ? 'val' : 'k';
       const tl = document.getElementById('termList');
       if (tl){
