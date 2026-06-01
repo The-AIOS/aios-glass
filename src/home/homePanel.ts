@@ -677,7 +677,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         const lvl = (f >= 95 || s >= 99) ? 'red' : f >= 90 ? 'orange' : f >= 85 ? 'yellow' : 'green';
         document.getElementById('quotaBar').className = 'quotabar ' + lvl;
         document.getElementById('quotaFill').style.width = Math.min(100, f) + '%';
-        document.getElementById('quotaLabel').textContent = s > 0 ? '5h · 7d ' + Math.round(s) + '%' : '5h';
+        document.getElementById('quotaLabel').textContent = s > 0 ? '5h ' + Math.round(f) + '% · 7d ' + Math.round(s) + '%' : '5h ' + Math.round(f) + '%';
         qline.title = '5h ' + f + '% · 7d ' + s + '% — Anthropic rate-limit usage';
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
