@@ -503,13 +503,13 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Running <span class="val" id="vRunning">0</span></button>
         <div class="runlist" id="runningList"></div>
-        <p class="muted" id="runHint">Click a session to reveal · trash to kill.</p>
         <p class="termdiv" id="termDiv" style="display:none">Terminals</p>
         <div class="runlist" id="termList"></div>
         <div class="termbtns">
-          <button class="btn add" id="spawnSessionBtn" title="Spawn a session — name it (or blank for a random handle), optional task">＋ New session</button>
-          <button class="btn add" id="newTermBtn" title="Open a new plain terminal (not a Claude session)">＋ New terminal</button>
+          <button class="btn add" id="spawnSessionBtn" title="Spawn a session — name it (or blank for a random handle), optional task">＋ Session</button>
+          <button class="btn add" id="newTermBtn" title="Open a new plain terminal (not a Claude session)">＋ Terminal</button>
         </div>
+        <p class="muted" id="runHint">Click a session to reveal · trash to kill.</p>
       </section>
 
       <section class="card">
