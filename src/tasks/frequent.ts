@@ -110,6 +110,11 @@ function getTasks(): FreqTask[] {
   return base;
 }
 
+/** How many frequent tasks are configured (kept defaults + customizations) — for the Home badge. */
+export function frequentTaskCount(): number {
+  return getTasks().length;
+}
+
 async function saveTasks(list: FreqTask[]): Promise<void> {
   await store?.update(STORE_KEY, list);
 }

@@ -8,6 +8,7 @@ import { listRunningAgents } from '../agents/running';
 import { discoverSkills } from '../capabilities/capabilities';
 import { discoverCommands } from '../aios/commands';
 import { countAgentSuggestions } from '../tasks/goWithAgents';
+import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, closeLoopNeeded, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
@@ -210,6 +211,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       agents: discoverAgents().length,
       skills: discoverSkills().length,
       commands: discoverCommands().length,
+      frequent: frequentTaskCount(),
       companies: readCompanies().map((c) => ({ name: c.name, lastSync: c.lastSync })),
       collab: readCollabSpaces().map((s) => ({ name: s.name })),
       framework: readFrameworkStatus() ?? null,
@@ -424,10 +426,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     <div class="col">
       <section class="card">
         <p class="ctitle">Quick</p>
-        <button class="btn" id="frequentMenu" title="Your frequent tasks — pick one to run, or add / remove your own">Frequent tasks <span class="k">add your own</span></button>
-        <button class="btn" id="browseAgents" title="Browse and spawn any agent — bundled, custom, or company">Launch an agent <span class="k">browse <span id="vAgents">—</span></span></button>
-        <button class="btn" id="skillsPicker" title="Browse and load any registered skill">Load a skill <span class="k">browse <span id="vSkills">—</span></span></button>
-        <button class="btn" id="cmdPicker" title="Browse and run any /aios: command">Run a command <span class="k">browse <span id="vCommands">—</span></span></button>
+        <button class="btn" id="frequentMenu" title="Your frequent tasks — pick one to run, or add / remove your own">Frequent tasks <span class="k">add your own</span> <span class="val" id="vFrequent">—</span></button>
+        <button class="btn" id="browseAgents" title="Browse and spawn any agent — bundled, custom, or company">Launch an agent <span class="k">browse · task</span> <span class="val" id="vAgents">—</span></button>
+        <button class="btn" id="skillsPicker" title="Browse and load any registered skill">Load a skill <span class="k">browse · run</span> <span class="val" id="vSkills">—</span></button>
+        <button class="btn" id="cmdPicker" title="Browse and run any /aios: command">Run a command <span class="k">aios plugins</span> <span class="val" id="vCommands">—</span></button>
         <button class="btn" id="ingestQuick" title="Turn one or more sources (URLs, files, transcripts) into structured vault context">Ingest content <span class="k">→ vault context</span></button>
         <button class="btn" id="spawnWorker" title="Spawn a session you name (e.g. feat-checkout) — or leave the name blank for a random handle — with an optional task">Spawn a session <span class="k">name · task</span></button>
       </section>
@@ -610,6 +612,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const msg = e.data;
     if (msg.type === 'state'){
       if (msg.primary) document.getElementById('vPrimary').textContent = msg.primary;
+      document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';
       document.getElementById('vSkills').textContent = (msg.skills || 0) + '';
       document.getElementById('vCommands').textContent = (msg.commands || 0) + '';
