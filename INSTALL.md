@@ -11,13 +11,13 @@ Glass is published on the **[Open VSX Registry](https://open-vsx.org/extension/t
 1. **Antigravity IDE** (or any recent VS Code ≥ 1.85) — Glass uses the Open VSX registry.
 2. **Claude CLI** installed and signed in — `claude` must be on your `PATH` (Glass launches it). Check: `claude --version`.
 3. **The AIOS framework** set up at **`~/aios`** (your vault). Glass reads it at runtime — rituals, agents, daily notes, observed context all come from there. If yours lives elsewhere, see *Configuration* below.
-4. **Foam** extension (`foam.foam-vscode`) — Glass depends on it for the markdown/wikilink layer. Install it first from the Extensions view (search "Foam"), or the Glass install will prompt for it.
+4. **Foam** extension (`foam.foam-vscode`) — *recommended, not required*. It renders `[[wikilinks]]` in your notes and powers the vault graph. Glass works without it (it'll prompt you to install it on first run); install it from the Extensions view (search "Foam") for the full experience. *(Note: the latest Foam needs editor engine ≥ 1.110 — older editors like stock Antigravity may not be able to install it yet; Glass still works.)*
 
 ---
 
 ## Install
 
-> **Preferred — from Open VSX (auto-updates):** open the Extensions view → search **"AIOS Glass"** → **Install**. This pulls it from the registry, **auto-installs Foam** (the dependency), and **keeps you on auto-update** — every future release lands on its own. Use this on any Open VSX–backed editor and skip the `.vsix` steps below.
+> **Preferred — from Open VSX (auto-updates):** open the Extensions view → search **"AIOS Glass"** → **Install**. This pulls it from the registry and **keeps you on auto-update** — every future release lands on its own. On first run Glass will **recommend Foam** (optional — for wikilink rendering + the graph). Use this on any Open VSX–backed editor and skip the `.vsix` steps below.
 >
 > CLI equivalent: `<editor-cli> --install-extension the-aios.aios-glass` (e.g. `~/.antigravity-ide/antigravity-ide/bin/agy-ide --install-extension the-aios.aios-glass`).
 
@@ -70,7 +70,7 @@ If the cards are empty, Glass can't find your vault — see Configuration.
 
 ## Troubleshooting
 
-- **"Depends on Foam"** on install → install the Foam extension first, then retry.
+- **Wikilinks show as plain `[[text]]` / no graph** → install **Foam** (Extensions → search "Foam"). It's optional but renders wikilinks and powers the vault graph. (On editors with an engine older than Foam's minimum, e.g. stock Antigravity, Foam may not install yet — Glass still works without it.)
 - **Buttons open a terminal but nothing runs** → make sure `claude` is on your `PATH` (`which claude`).
 - **Empty Home / wrong vault** → set `aiosGlass.frameworkPath`.
 - **Nothing happens on click in `ask` terminal mode** → you're being asked which terminal to use; pick one (or switch to `active` in the cog).

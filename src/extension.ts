@@ -122,8 +122,16 @@ export function activate(context: vscode.ExtensionContext): void {
     // Friendly onboarding companion — spawn the onboarding-aios guide agent.
     vscode.commands.registerCommand('aios.onboarding', () => launchSpawn('onboarding-aios')),
 
-    // Open the vault graph (Foam) from the header.
-    vscode.commands.registerCommand('aios.showGraph', () => vscode.commands.executeCommand('foam-vscode.show-graph')),
+    // Open the vault graph (Foam) from the header. Foam is optional — if it isn't
+    // installed, offer to install it instead of throwing on the missing command.
+    vscode.commands.registerCommand('aios.showGraph', async () => {
+      if (!vscode.extensions.getExtension('foam.foam-vscode')) {
+        const pick = await vscode.window.showInformationMessage('The vault graph is powered by Foam. Install it to use the graph?', 'Install Foam');
+        if (pick === 'Install Foam') await vscode.commands.executeCommand('workbench.extensions.installExtension', 'foam.foam-vscode');
+        return;
+      }
+      await vscode.commands.executeCommand('foam-vscode.show-graph');
+    }),
 
     // One-click account swap (from the quota nudge in Sessions Running).
     vscode.commands.registerCommand('aios.swapTo', (email?: string) => {
@@ -258,6 +266,17 @@ export function activate(context: vscode.ExtensionContext): void {
   if (!context.globalState.get('aios.walkthroughShown')) {
     void context.globalState.update('aios.walkthroughShown', true);
     void vscode.commands.executeCommand('aios.openWalkthrough');
+  }
+
+  // Foam is recommended (renders [[wikilinks]] in your notes + powers the vault
+  // graph) but NOT required — Glass works without it. Recommend it once if absent,
+  // non-blocking. (Was a hard extensionDependency, which blocked activation on
+  // editors whose engine is too old for the latest Foam — e.g. stock Antigravity.)
+  if (!vscode.extensions.getExtension('foam.foam-vscode') && !context.globalState.get('aios.foamRecommended')) {
+    void context.globalState.update('aios.foamRecommended', true);
+    void vscode.window
+      .showInformationMessage('AIOS Glass works best with Foam — it renders [[wikilinks]] in your notes and powers the vault graph. (Optional — Glass works without it.)', 'Install Foam')
+      .then((pick) => { if (pick === 'Install Foam') void vscode.commands.executeCommand('workbench.extensions.installExtension', 'foam.foam-vscode'); });
   }
 
   if (!resolveCommandsDir()) {

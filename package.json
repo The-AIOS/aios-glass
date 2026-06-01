@@ -25,9 +25,6 @@
     "antigravity"
   ],
   "icon": "media/icon.png",
-  "extensionDependencies": [
-    "foam.foam-vscode"
-  ],
   "activationEvents": [
     "onStartupFinished"
   ],

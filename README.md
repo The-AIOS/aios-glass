@@ -15,7 +15,7 @@ The AIOS is powerful but lives behind the terminal: slash commands you type, the
 
 ## Relationship to Foam
 
-AIOS Glass **depends on [Foam](https://github.com/foambubble/foam)** (declared as an `extensionDependency`, auto-installed from Open VSX) for the vault-navigation layer — wikilinks, backlinks, and graph view. AIOS Glass adds the *operating-system control plane* on top:
+AIOS Glass **recommends [Foam](https://github.com/foambubble/foam)** for the vault-navigation layer — `[[wikilinks]]` rendering, backlinks, and graph view. It's an *optional* companion (Glass prompts to install it on first run): Glass works without it, and it's deliberately **not** a hard `extensionDependency` so Glass installs cleanly on editors whose engine predates the latest Foam (e.g. stock Antigravity). AIOS Glass adds the *operating-system control plane* on top:
 
 - **Rituals** — run `/aios:*` commands via native Claude Code _(Phase 1 — shipped)_
 - **Calendar** — vault-aware daily notes _(Phase 2)_
@@ -25,7 +25,7 @@ AIOS Glass **depends on [Foam](https://github.com/foambubble/foam)** (declared a
 - **Status** — framework updates + company syncs _(Phase 5)_
 - **Onboarding** — guided walkthrough for a fresh clone _(Phase 6)_
 
-We depend on Foam rather than forking it deliberately — Foam stays the engine and auto-updates upstream; we stay glass.
+We lean on Foam rather than forking it deliberately — Foam stays the engine and auto-updates upstream; we stay glass. (Soft dependency, not hard: a stuck/old Foam never blocks Glass from activating.)
 
 ## Develop
 
