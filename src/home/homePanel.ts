@@ -446,7 +446,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <p class="ctitle">Workspaces</p>
         <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="val" id="vCompanies">—</span></button>
         <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="val" id="vCollab">—</span></button>
-        <button class="btn" id="browseProjects" title="Your project notes — top-level files in 00 - notes/projects/">Projects <span class="val" id="vProjects">—</span></button>
+        <button class="btn" id="browseProjects" title="Your project notes (top-level)">Projects <span class="val" id="vProjects">—</span></button>
       </section>
     </div>
 
