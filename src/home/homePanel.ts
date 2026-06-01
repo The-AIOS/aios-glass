@@ -398,6 +398,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .lhead .btn{flex:1; margin-bottom:0}
   .lhead-add{flex:0 0 auto; width:30px; height:30px; background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
+  /* Terminals is secondary to Running — dial its header label one shade down (--muted vs --ink). */
+  #toggleTerms{color:var(--muted)}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
