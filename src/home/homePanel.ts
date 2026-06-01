@@ -425,9 +425,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <section class="card">
         <p class="ctitle">Quick</p>
         <button class="btn" id="frequentMenu" title="Your frequent tasks — pick one to run, or add / remove your own">Frequent tasks <span class="k">add your own</span></button>
-        <button class="btn" id="browseAgents" title="Browse and spawn any agent — bundled, custom, or company">Launch an agent <span class="val" id="vAgents">—</span></button>
-        <button class="btn" id="skillsPicker" title="Browse and load any registered skill">Load a skill <span class="val" id="vSkills">—</span></button>
-        <button class="btn" id="cmdPicker" title="Browse and run any /aios: command">Run a command <span class="val" id="vCommands">—</span></button>
+        <button class="btn" id="browseAgents" title="Browse and spawn any agent — bundled, custom, or company">Launch an agent <span class="k">browse <span id="vAgents">—</span></span></button>
+        <button class="btn" id="skillsPicker" title="Browse and load any registered skill">Load a skill <span class="k">browse <span id="vSkills">—</span></span></button>
+        <button class="btn" id="cmdPicker" title="Browse and run any /aios: command">Run a command <span class="k">browse <span id="vCommands">—</span></span></button>
         <button class="btn" id="ingestQuick" title="Turn one or more sources (URLs, files, transcripts) into structured vault context">Ingest content <span class="k">→ vault context</span></button>
         <button class="btn" id="spawnWorker" title="Spawn a session you name (e.g. feat-checkout) — or leave the name blank for a random handle — with an optional task">Spawn a session <span class="k">name · task</span></button>
       </section>
