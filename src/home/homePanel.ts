@@ -400,7 +400,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
   /* Terminals header wears the small-caps section-divider style (the original look)
      — secondary to Running's button label — but its count matches Running's accent. */
-  #toggleTerms{background:transparent; color:var(--subtle); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.12em}
+  #toggleTerms{background:transparent; color:var(--subtle); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.12em}
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
