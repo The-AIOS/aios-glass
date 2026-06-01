@@ -354,6 +354,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
      elsewhere stay — the 5h-usage label (.quotarow .k) and session-item status
      (.runitem .k). Counts (.val) and helper lines (.muted) are also unaffected. */
   body.no-hints .btn .k, body.no-hints .ctitle .sub{display:none}
+  /* Keyboard cheat-sheet footer — secondary reference text; hides with the hints toggle. */
+  .shortcuts{margin:18px 2px 4px; font-size:11px; line-height:1.7; color:var(--subtle); font-family:var(--mono)}
+  .shortcuts b{color:var(--muted); font-weight:600}
+  .shortcuts kbd{color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:1px 5px; font-family:var(--mono); font-size:10.5px}
+  body.no-hints .shortcuts{display:none}
   /* Compact density — tightens spacing so more actionables fit in one view. */
   body.compact .cols{gap:10px}
   body.compact .col{gap:10px}
@@ -562,6 +567,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       </section>
     </div>
   </div>
+
+  <p class="shortcuts"><kbd>⌘⌥G</kbd> then —
+    <b>A</b> agent · <b>S</b> session · <b>T</b> terminal · <b>K</b> skill · <b>C</b> command · <b>I</b> ingest ·
+    <b>R</b> running · <b>D</b> daily · <b>W</b> workspaces · <b>P</b> personalizations · <b>X</b> context ·
+    <b>E</b> reports · <b>G</b> go-with-agents · <b>H</b> home · <b>,</b> config</p>
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();

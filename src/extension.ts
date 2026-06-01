@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, launchPrimary, launchSpawn, launchAccountSwap } from './rituals/runner';
+import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { runFrequentTask, openFrequentMenu, initFrequentTasks } from './tasks/frequent';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
@@ -112,6 +112,69 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Reports: pick type + period → generate.
     vscode.commands.registerCommand('aios.reports', () => runReports()),
+
+    // ── Keyboard-chord targets (⌘⌥G …) — small pickers/actions behind the leader ──
+    vscode.commands.registerCommand('aios.newTerminal', () => { vscode.window.createTerminal().show(); }),
+
+    vscode.commands.registerCommand('aios.dailyPicker', async () => {
+      const items: (vscode.QuickPickItem & { d: string; primary: boolean })[] = [
+        { label: '$(sun) Plan my day', description: '/today', d: '/aios:today', primary: true },
+        { label: '$(book) Close session', description: '/close-session', d: '/aios:close-session', primary: false },
+        { label: '$(moon) Close the day', description: '/close-day', d: '/aios:close-day', primary: true }
+      ];
+      const pick = await vscode.window.showQuickPick(items, { title: 'Daily ritual', placeHolder: 'Run a daily ritual' });
+      if (!pick) return;
+      if (pick.primary) await runInPrimarySession(pick.d); else await runInActiveClaude(pick.d);
+    }),
+
+    vscode.commands.registerCommand('aios.workspacesPicker', async () => {
+      const items: (vscode.QuickPickItem & { id: string })[] = [
+        { label: '$(organization) Companies', description: 'mount · sync', id: 'companies' },
+        { label: '$(live-share) Collaboration', description: 'shared spaces', id: 'collab' },
+        { label: '$(folder) Projects', description: 'your work', id: 'projects' }
+      ];
+      const pick = await vscode.window.showQuickPick(items, { title: 'Workspaces' });
+      if (!pick) return;
+      if (pick.id === 'companies') await companyAction();
+      else if (pick.id === 'collab') await collaborateAction();
+      else await vscode.commands.executeCommand('aios.browseContext', 'projects');
+    }),
+
+    vscode.commands.registerCommand('aios.personalizationsPicker', async () => {
+      const items: (vscode.QuickPickItem & { key: string })[] = [
+        { label: 'INTENT.md', description: 'autonomy · trust', key: 'intent' },
+        { label: 'USER.md', description: 'identity · settings', key: 'user' }
+      ];
+      const pick = await vscode.window.showQuickPick(items, { title: 'Personalizations' });
+      if (pick) await vscode.commands.executeCommand('aios.openDoc', pick.key);
+    }),
+
+    vscode.commands.registerCommand('aios.contextPicker', async () => {
+      const items: (vscode.QuickPickItem & { ck: string })[] = [
+        { label: 'Declared', description: 'what you told Claude', ck: 'declared' },
+        { label: 'Observed', description: 'what Claude has learned', ck: 'observed' }
+      ];
+      const pick = await vscode.window.showQuickPick(items, { title: 'Context — about you' });
+      if (pick) await vscode.commands.executeCommand('aios.browseContext', pick.ck);
+    }),
+
+    vscode.commands.registerCommand('aios.runningPicker', async () => {
+      const sessions = await listRunningAgents();
+      const sessionNames = new Set(sessions.map((a) => a.name));
+      type RunItem = vscode.QuickPickItem & { rk: 'session' | 'terminal'; name?: string; pid?: number; term?: vscode.Terminal };
+      const items: RunItem[] = sessions.map((a, i) => ({ label: `$(server-process) ${i + 1}. ${a.name}`, description: a.status || 'session', rk: 'session', name: a.name, pid: a.pid }));
+      let n = sessions.length;
+      for (const t of vscode.window.terminals) {
+        if (sessionNames.has(t.name)) continue;
+        if (await terminalHasClaude(t)) continue;
+        items.push({ label: `$(terminal) ${++n}. ${t.name}`, description: 'terminal', rk: 'terminal', term: t });
+      }
+      if (!items.length) { void vscode.window.showInformationMessage('AIOS Glass: nothing running.'); return; }
+      const pick = await vscode.window.showQuickPick<RunItem>(items, { title: 'Running — sessions & terminals', placeHolder: 'Arrows to navigate · Enter to reveal · type a number to jump' });
+      if (!pick) return;
+      if (pick.rk === 'session' && pick.name) await revealAgentTerminal(pick.name, pick.pid);
+      else pick.term?.show();
+    }),
 
     // Frequent tasks (intent-first): the editable menu, + direct run by id.
     vscode.commands.registerCommand('aios.frequentMenu', () => openFrequentMenu()),

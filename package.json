@@ -158,6 +158,23 @@
         "title": "AIOS: Set Framework Path"
       }
     ],
+    "keybindings": [
+      { "command": "aios.spawnAgent", "mac": "cmd+alt+g a", "key": "ctrl+alt+g a" },
+      { "command": "aios.spawnWorker", "mac": "cmd+alt+g s", "key": "ctrl+alt+g s" },
+      { "command": "aios.newTerminal", "mac": "cmd+alt+g t", "key": "ctrl+alt+g t" },
+      { "command": "aios.skillsPicker", "mac": "cmd+alt+g k", "key": "ctrl+alt+g k" },
+      { "command": "aios.runRitualPicker", "mac": "cmd+alt+g c", "key": "ctrl+alt+g c" },
+      { "command": "aios.ingest", "mac": "cmd+alt+g i", "key": "ctrl+alt+g i" },
+      { "command": "aios.runningPicker", "mac": "cmd+alt+g r", "key": "ctrl+alt+g r" },
+      { "command": "aios.dailyPicker", "mac": "cmd+alt+g d", "key": "ctrl+alt+g d" },
+      { "command": "aios.workspacesPicker", "mac": "cmd+alt+g w", "key": "ctrl+alt+g w" },
+      { "command": "aios.personalizationsPicker", "mac": "cmd+alt+g p", "key": "ctrl+alt+g p" },
+      { "command": "aios.goWithAgents", "mac": "cmd+alt+g g", "key": "ctrl+alt+g g" },
+      { "command": "aios.openHome", "mac": "cmd+alt+g h", "key": "ctrl+alt+g h" },
+      { "command": "aios.contextPicker", "mac": "cmd+alt+g x", "key": "ctrl+alt+g x" },
+      { "command": "aios.reports", "mac": "cmd+alt+g e", "key": "ctrl+alt+g e" },
+      { "command": "aios.openConfigMenu", "mac": "cmd+alt+g ,", "key": "ctrl+alt+g ," }
+    ],
     "menus": {
       "editor/title": [
         {
