@@ -570,7 +570,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   function renderNudge(n){
     const card=document.getElementById('nudgeCard'), act=document.getElementById('nudgeAction');
     if(!n || nudgeDismissed.has(n.kind)){ card.style.display='none'; act.dataset.kind=''; return; }
-    act.textContent = n.icon + ' ' + n.label;
+    act.textContent='';
+    act.append(document.createTextNode(n.icon + ' '));
+    if(n.cmdLabel){ const b=document.createElement('b'); b.textContent=n.cmdLabel; act.append(b, document.createTextNode(' ')); }
+    act.append(document.createTextNode(n.label));
     act.dataset.kind = n.kind;
     act.dataset.command = n.command || '';
     act.title = n.command ? ('Run ' + n.command) : '';

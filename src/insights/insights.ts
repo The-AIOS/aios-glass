@@ -105,7 +105,7 @@ function latestDailyNote(): string | undefined {
  * Close-of-Day section yet — the moment a non-dev silently breaks the
  * compounding (run /today, work, never close → nothing gets captured).
  */
-export interface Nudge { kind: 'plan' | 'sessions' | 'close'; icon: string; label: string; command?: string; }
+export interface Nudge { kind: 'plan' | 'sessions' | 'close'; icon: string; label: string; command?: string; cmdLabel?: string; }
 
 /**
  * The first actionable 💡 ritual the daily note suggests — a backticked
@@ -159,9 +159,9 @@ export function nudgeState(hour: number, runningCount: number): Nudge | null {
     if (r) {
       // Use the note's own warm one-liner (capitalized, trimmed) — matches the
       // voice of the other nudges. Fall back to the command if the note had none.
-      let label = r.desc ? r.desc.charAt(0).toUpperCase() + r.desc.slice(1) : `Today's ritual: /${r.short}`;
+      let label = r.desc ? r.desc.charAt(0).toUpperCase() + r.desc.slice(1) : 'today\'s ritual';
       if (label.length > 80) label = label.slice(0, 79).trimEnd() + '…';
-      return { kind: 'plan', icon: '💡', label, command: r.command };
+      return { kind: 'plan', icon: '💡', cmdLabel: `/${r.short}`, label, command: r.command };
     }
   }
   if (hour < 17 && runningCount > 0) {
