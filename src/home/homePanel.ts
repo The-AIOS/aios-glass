@@ -799,7 +799,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           return '<div class="runitem" role="button" tabindex="0" data-tpid="' + (t.pid||0) + '" title="Click to focus this terminal">'
             + '<span class="dot unk"></span><span class="rname">' + nm + '</span>'
             + '<button class="runkill" data-tclose="1" title="Close terminal" aria-label="Close terminal">'
-            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
             + '</button></div>';
         }).join('');
       }
