@@ -571,7 +571,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   <p class="shortcuts"><kbd>⌘⌥G</kbd> then —
     <b>A</b> agent · <b>S</b> session · <b>T</b> terminal · <b>K</b> skill · <b>C</b> command · <b>I</b> ingest ·
     <b>R</b> running · <b>D</b> daily · <b>W</b> workspaces · <b>P</b> personalizations · <b>X</b> context ·
-    <b>E</b> reports · <b>G</b> go-with-agents · <b>H</b> home · <b>,</b> config</p>
+    <b>E</b> reports · <b>G</b> go-with-agents · <b>H</b> home · <b>Y</b> today · <b>,</b> config</p>
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();

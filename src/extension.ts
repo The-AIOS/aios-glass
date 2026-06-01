@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, initFrequentTasks } from './tasks/frequent';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
@@ -115,6 +116,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // ── Keyboard-chord targets (⌘⌥G …) — small pickers/actions behind the leader ──
     vscode.commands.registerCommand('aios.newTerminal', () => { vscode.window.createTerminal().show(); }),
+
+    vscode.commands.registerCommand('aios.openToday', async () => {
+      const d = new Date();
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      await openDailyNote(iso, { forcePreview: true });
+    }),
 
     vscode.commands.registerCommand('aios.dailyPicker', async () => {
       const items: (vscode.QuickPickItem & { d: string; primary: boolean })[] = [

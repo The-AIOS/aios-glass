@@ -173,7 +173,8 @@
       { "command": "aios.openHome", "mac": "cmd+alt+g h", "key": "ctrl+alt+g h" },
       { "command": "aios.contextPicker", "mac": "cmd+alt+g x", "key": "ctrl+alt+g x" },
       { "command": "aios.reports", "mac": "cmd+alt+g e", "key": "ctrl+alt+g e" },
-      { "command": "aios.openConfigMenu", "mac": "cmd+alt+g ,", "key": "ctrl+alt+g ," }
+      { "command": "aios.openConfigMenu", "mac": "cmd+alt+g ,", "key": "ctrl+alt+g ," },
+      { "command": "aios.openToday", "mac": "cmd+alt+g y", "key": "ctrl+alt+g y" }
     ],
     "menus": {
       "editor/title": [

@@ -107,7 +107,7 @@ export function getMonthData(year: number, month: number): MonthData {
  * always opens the source. Freshly-created stubs always open in the editor
  * so you can start writing.
  */
-export async function openDailyNote(iso: string, opts: { forceEditor?: boolean } = {}): Promise<void> {
+export async function openDailyNote(iso: string, opts: { forceEditor?: boolean; forcePreview?: boolean } = {}): Promise<void> {
   const target = dailyNotePath(iso);
   if (!target) {
     void vscode.window.showWarningMessage('AIOS Glass: could not resolve the vault calendar path.');
@@ -125,7 +125,9 @@ export async function openDailyNote(iso: string, opts: { forceEditor?: boolean }
   }
 
   const uri = vscode.Uri.file(target);
-  const mode = created || opts.forceEditor
+  const mode = opts.forcePreview
+    ? 'preview'
+    : created || opts.forceEditor
     ? 'editor'
     : vscode.workspace.getConfiguration('aiosGlass').get<string>('openNotesIn', 'preview');
 
