@@ -382,7 +382,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .shortcuts{margin:18px 2px 6px}
   .scbar{display:flex; align-items:center; gap:6px; width:100%; background:transparent; border:0; color:var(--subtle); font-size:11.5px; font-family:var(--font); cursor:pointer; padding:4px 0; text-align:left}
   .scbar:hover{color:var(--ink)}
-  .scbar .scsub{color:var(--subtle); opacity:.65; font-size:10.5px; font-family:var(--mono)}
+  .scbar .scsub{font-size:10.5px; font-family:var(--mono); display:inline-flex; align-items:center; gap:2px}
+  .scbar .scsub .dim{color:var(--subtle); opacity:.65; margin-left:3px}
+  .scbar .lead{display:inline-block; min-width:13px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:4px; padding:0 4px; font-family:var(--mono); font-size:10px}
   .scgrid{display:grid; grid-template-rows:repeat(9, auto); grid-auto-flow:column; grid-auto-columns:1fr; gap:4px 16px; margin:7px 0 0; font-size:11px; color:var(--subtle); font-family:var(--mono)}
   .scgrid.collapsed{display:none}
   .scgrid kbd{display:inline-block; min-width:14px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-family:var(--mono); font-size:10.5px; margin-right:5px}
@@ -596,7 +598,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   </div>
 
   <section class="shortcuts">
-    <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub">⌘⌥G then a key</span></button>
+    <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub"><kbd class="lead">⌘</kbd><kbd class="lead">⌥</kbd><kbd class="lead">G</kbd><span class="dim">then a key</span></span></button>
     <div class="scgrid collapsed" id="scGrid">
       <div><kbd>D</kbd>daily ritual</div>
       <div><kbd>Y</kbd>today's note</div>
