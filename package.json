@@ -170,7 +170,7 @@
       { "command": "aios.workspacesPicker", "mac": "cmd+alt+g w", "key": "ctrl+alt+g w" },
       { "command": "aios.personalizationsPicker", "mac": "cmd+alt+g p", "key": "ctrl+alt+g p" },
       { "command": "aios.goWithAgents", "mac": "cmd+alt+g g", "key": "ctrl+alt+g g" },
-      { "command": "aios.openHome", "mac": "cmd+alt+g h", "key": "ctrl+alt+g h" },
+      { "command": "aios.minimizeCards", "mac": "cmd+alt+g m", "key": "ctrl+alt+g m" },
       { "command": "aios.contextPicker", "mac": "cmd+alt+g x", "key": "ctrl+alt+g x" },
       { "command": "aios.reports", "mac": "cmd+alt+g e", "key": "ctrl+alt+g e" },
       { "command": "aios.openConfigMenu", "mac": "cmd+alt+g ,", "key": "ctrl+alt+g ," },

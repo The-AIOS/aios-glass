@@ -145,6 +145,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     this.recheck();
   }
 
+  /** Collapse/expand all cards at once (the ⌘⌥G M chord). */
+  toggleCards(): void {
+    this.post({ type: 'toggleAllCards' });
+  }
+
   /** Re-pull live state: counts, running sessions, and the update-status badge. */
   private recheck(): void {
     if (!this.view) return;
@@ -574,14 +579,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   <section class="shortcuts">
     <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub">⌘⌥G then a key</span></button>
     <div class="scgrid collapsed" id="scGrid">
-      <div><kbd>A</kbd>agent</div><div><kbd>S</kbd>session</div>
-      <div><kbd>T</kbd>terminal</div><div><kbd>K</kbd>skill</div>
-      <div><kbd>C</kbd>command</div><div><kbd>I</kbd>ingest</div>
-      <div><kbd>R</kbd>running</div><div><kbd>D</kbd>daily ritual</div>
+      <div><kbd>A</kbd>launch agent</div><div><kbd>S</kbd>new session</div>
+      <div><kbd>T</kbd>new terminal</div><div><kbd>K</kbd>load skill</div>
+      <div><kbd>C</kbd>run command</div><div><kbd>I</kbd>ingest content</div>
+      <div><kbd>R</kbd>running sessions</div><div><kbd>D</kbd>daily ritual</div>
       <div><kbd>W</kbd>workspaces</div><div><kbd>P</kbd>personalizations</div>
-      <div><kbd>X</kbd>context</div><div><kbd>E</kbd>reports</div>
-      <div><kbd>G</kbd>go-with-agents</div><div><kbd>H</kbd>home</div>
-      <div><kbd>Y</kbd>today's note</div><div><kbd>,</kbd>config</div>
+      <div><kbd>X</kbd>context</div><div><kbd>E</kbd>generate report</div>
+      <div><kbd>G</kbd>go-with-agents</div><div><kbd>M</kbd>minimize cards</div>
+      <div><kbd>Y</kbd>today's note</div><div><kbd>,</kbd>open config</div>
     </div>
   </section>
 
@@ -626,6 +631,17 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       persistCollapsed();
     });
   });
+  // Minimize / expand ALL cards (⌘⌥G M): if any is open, collapse all; else expand all.
+  function toggleAllCards(){
+    const titles = Array.from(document.querySelectorAll('.card .ctitle'));
+    const anyOpen = titles.some((ct) => !ct.closest('.card').classList.contains('collapsed'));
+    titles.forEach((ct) => {
+      const card = ct.closest('.card'); const key = (ct.textContent || '').trim().slice(0, 40);
+      if (anyOpen) { card.classList.add('collapsed'); collapsed.add(key); }
+      else { card.classList.remove('collapsed'); collapsed.delete(key); }
+    });
+    persistCollapsed();
+  }
 
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
@@ -849,6 +865,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       else { b.innerHTML = DASH; b.className = 'hbadge'; b.title = 'Status unknown' + fw; }
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
+    else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }
   });
 
   // Map a session's registry status → {dot color class, friendly label, tooltip}.
