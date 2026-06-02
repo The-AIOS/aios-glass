@@ -353,6 +353,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .ctitle:not(:first-child){margin-top:22px}
   .ctitle::before{content:""; width:6px;height:6px;border-radius:50%; background:var(--accent); flex:0 0 auto}
   .ctitle{cursor:pointer}
+  .ctitle:focus-visible{outline:1.5px solid var(--accent-line); outline-offset:3px; border-radius:4px}
   .ctitle::after{content:'▾'; margin-left:auto; font-size:10px; color:var(--subtle); opacity:.5; font-weight:400; letter-spacing:0}
   .card.collapsed .ctitle::after{content:'▸'}
   .card.collapsed .ctitle{margin-bottom:0}
@@ -587,14 +588,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   <section class="shortcuts">
     <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub">⌘⌥G then a key</span></button>
     <div class="scgrid collapsed" id="scGrid">
-      <div><kbd>A</kbd>launch agent</div><div><kbd>S</kbd>new session</div>
-      <div><kbd>T</kbd>new terminal</div><div><kbd>K</kbd>load skill</div>
+      <div><kbd>D</kbd>daily ritual</div><div><kbd>G</kbd>go-with-agents</div>
+      <div><kbd>Y</kbd>today's note</div><div><kbd>A</kbd>launch agent</div>
+      <div><kbd>S</kbd>new session</div><div><kbd>K</kbd>load skill</div>
       <div><kbd>C</kbd>run command</div><div><kbd>I</kbd>ingest content</div>
-      <div><kbd>R</kbd>running sessions</div><div><kbd>D</kbd>daily ritual</div>
+      <div><kbd>R</kbd>running sessions</div><div><kbd>T</kbd>new terminal</div>
       <div><kbd>W</kbd>workspaces</div><div><kbd>P</kbd>personalizations</div>
-      <div><kbd>X</kbd>context</div><div><kbd>E</kbd>generate report</div>
-      <div><kbd>G</kbd>go-with-agents</div><div><kbd>Y</kbd>today's note</div>
-      <div><kbd>H</kbd>show / hide Glass</div><div><kbd>M</kbd>minimize cards</div>
+      <div><kbd>X</kbd>context folders</div><div><kbd>E</kbd>generate report</div>
+      <div><kbd>M</kbd>minimize cards</div><div><kbd>H</kbd>toggle glass</div>
       <div><kbd>,</kbd>open config</div>
     </div>
   </section>
@@ -630,14 +631,21 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   const cstate0 = (vscode.getState && vscode.getState()) || {};
   const collapsed = new Set(cstate0.collapsed || []);
   function persistCollapsed(){ const s = (vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, s, { collapsed: Array.from(collapsed) })); }
-  document.querySelectorAll('.card .ctitle').forEach((ct) => {
+  const titleEls = Array.from(document.querySelectorAll('.card .ctitle'));
+  function setCollapsed(card, key, on){ card.classList.toggle('collapsed', on); if (on) collapsed.add(key); else collapsed.delete(key); persistCollapsed(); }
+  titleEls.forEach((ct, i) => {
     const card = ct.closest('.card');
     const key = (ct.textContent || '').trim().slice(0, 40);
+    ct.tabIndex = 0;
+    ct.setAttribute('role', 'button');
     if (collapsed.has(key)) card.classList.add('collapsed');
-    ct.addEventListener('click', () => {
-      const on = card.classList.toggle('collapsed');
-      if (on) collapsed.add(key); else collapsed.delete(key);
-      persistCollapsed();
+    ct.addEventListener('click', () => setCollapsed(card, key, !card.classList.contains('collapsed')));
+    ct.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown'){ e.preventDefault(); (titleEls[i + 1] || titleEls[0]).focus(); }
+      else if (e.key === 'ArrowUp'){ e.preventDefault(); (titleEls[i - 1] || titleEls[titleEls.length - 1]).focus(); }
+      else if (e.key === 'ArrowRight'){ e.preventDefault(); setCollapsed(card, key, false); }
+      else if (e.key === 'ArrowLeft'){ e.preventDefault(); setCollapsed(card, key, true); }
+      else if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setCollapsed(card, key, !card.classList.contains('collapsed')); }
     });
   });
   // Minimize / expand ALL cards (⌘⌥G M): if any is open, collapse all; else expand all.

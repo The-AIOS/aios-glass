@@ -171,15 +171,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const sessions = await listRunningAgents();
       const sessionNames = new Set(sessions.map((a) => a.name));
       type RunItem = vscode.QuickPickItem & { rk: 'session' | 'terminal'; name?: string; pid?: number; term?: vscode.Terminal };
-      const items: RunItem[] = sessions.map((a, i) => ({ label: `$(server-process) ${i + 1}. ${a.name}`, description: a.status || 'session', rk: 'session', name: a.name, pid: a.pid }));
-      let n = sessions.length;
+      const items: RunItem[] = sessions.map((a) => ({ label: `$(server-process) ${a.name}`, description: a.status || 'session', rk: 'session', name: a.name, pid: a.pid }));
       for (const t of vscode.window.terminals) {
         if (sessionNames.has(t.name)) continue;
         if (await terminalHasClaude(t)) continue;
-        items.push({ label: `$(terminal) ${++n}. ${t.name}`, description: 'terminal', rk: 'terminal', term: t });
+        items.push({ label: `$(terminal) ${t.name}`, description: 'terminal', rk: 'terminal', term: t });
       }
       if (!items.length) { void vscode.window.showInformationMessage('AIOS Glass: nothing running.'); return; }
-      const pick = await vscode.window.showQuickPick<RunItem>(items, { title: 'Running — sessions & terminals', placeHolder: 'Arrows to navigate · Enter to reveal · type a number to jump' });
+      const pick = await vscode.window.showQuickPick<RunItem>(items, { title: 'Running — sessions & terminals', placeHolder: 'Arrows to navigate · type to filter · Enter to reveal' });
       if (!pick) return;
       if (pick.rk === 'session' && pick.name) await revealAgentTerminal(pick.name, pick.pid);
       else pick.term?.show();
