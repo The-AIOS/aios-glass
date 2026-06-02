@@ -159,6 +159,7 @@
       }
     ],
     "keybindings": [
+      { "command": "aios.frequentMenu", "mac": "cmd+alt+g f", "key": "ctrl+alt+g f" },
       { "command": "aios.spawnAgent", "mac": "cmd+alt+g a", "key": "ctrl+alt+g a" },
       { "command": "aios.spawnWorker", "mac": "cmd+alt+g s", "key": "ctrl+alt+g s" },
       { "command": "aios.newTerminal", "mac": "cmd+alt+g t", "key": "ctrl+alt+g t" },

@@ -597,6 +597,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>M</kbd>minimize cards</div>
       <div><kbd>H</kbd>toggle glass</div>
       <div><kbd>,</kbd>open config</div>
+      <div><kbd>F</kbd>frequent tasks</div>
       <div><kbd>A</kbd>launch agent</div>
       <div><kbd>K</kbd>load skill</div>
       <div><kbd>C</kbd>run command</div>
