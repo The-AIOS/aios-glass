@@ -445,11 +445,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .lhead .btn{flex:1; margin-bottom:0}
   .lhead-add{flex:0 0 auto; width:30px; height:30px; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
-  /* Row actions — hidden at rest, revealed on hover WITH text labels (icons alone
-     weren't legible: a checkmark read as "done", not "capture this session"). */
-  .runacts{margin-left:auto; flex:0 0 auto; display:none; align-items:center; gap:4px}
+  /* Row actions — icon-only, hidden at rest, revealed on hover. Tooltips (title)
+     carry the meaning; close-session uses a door/exit icon so it reads clearly. */
+  .runacts{margin-left:auto; flex:0 0 auto; display:none; align-items:center; gap:3px}
   .runitem:hover .runacts, .runitem:focus-within .runacts{display:flex}
-  .runacts button{display:inline-flex; align-items:center; gap:3px; background:transparent; border:0; color:var(--subtle); padding:2px 5px; border-radius:4px; cursor:pointer; font-family:var(--font); font-size:10.5px; line-height:1}
+  .runacts button{display:inline-flex; align-items:center; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer}
   .runint:hover{color:#e0a13a; background:color-mix(in srgb, #e0a13a 18%, transparent)}
   .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
@@ -875,19 +875,19 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           // Interrupt (Esc) — only meaningful while the session is actively working.
           const interrupt = s.cls === 'busy'
             ? '<button class="runint" data-int="1" title="Interrupt — send Esc to stop Claude mid-task" aria-label="Interrupt (Esc)">'
-              + '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
-              + '<span>stop</span></button>'
+              + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
+              + '</button>'
             : '';
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + s.label + '</span>'
             + '<span class="runacts">'
             + interrupt
-            + '<button class="runclose" data-close="1" title="Capture this session to your daily note — runs /aios:close-session here (do this before you kill it)" aria-label="Capture session (close-session)">'
-            + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>'
-            + '<span>capture</span></button>'
+            + '<button class="runclose" data-close="1" title="Close session — runs /aios:close-session here to capture it to your daily note (do this before you kill it)" aria-label="Close session (close-session)">'
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>'
+            + '</button>'
             + '<button class="runkill" data-kill="1" title="Close terminal — kill this session" aria-label="Close terminal (kill)">'
-            + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
-            + '<span>kill</span></button>'
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
+            + '</button>'
             + '</span></div>';
         }).join('');
       }
@@ -919,8 +919,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           return '<div class="runitem" role="button" tabindex="0" data-tpid="' + (t.pid||0) + '" title="Click to focus this terminal">'
             + '<span class="dot unk"></span><span class="rname">' + nm + '</span>'
             + '<span class="runacts"><button class="runkill" data-tclose="1" title="Close this terminal" aria-label="Close terminal">'
-            + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
-            + '<span>close</span></button></span></div>';
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
+            + '</button></span></div>';
         }).join('');
       }
       applyTermOpen();
