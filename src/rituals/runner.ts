@@ -348,6 +348,17 @@ export async function closeSessionInTerminal(name: string, pid?: number): Promis
 }
 
 /**
+ * Interrupt a running session — send Esc to its terminal, exactly like pressing
+ * Escape, stopping Claude mid-task. Doesn't steal focus (the row's status dot
+ * flips busy→idle on the next poll). No-op-with-notice if it's not in this window.
+ */
+export async function interruptSessionTerminal(name: string, pid?: number): Promise<void> {
+  const t = await findAgentTerminal(name, pid);
+  if (t) { t.sendText('\u001b', false); return; } // ESC, no newline
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" isn't a terminal in this window.`);
+}
+
+/**
  * Close a running session's terminal — like clicking the IDE terminal's trash.
  * Disposing the terminal SIGHUPs the shell + its children (claude + respawn
  * loop), so it stops cleanly. Falls back to `spawn-kill` only when the session
