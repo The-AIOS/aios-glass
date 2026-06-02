@@ -335,6 +335,19 @@ export async function revealAgentTerminal(name: string, pid?: number): Promise<v
 }
 
 /**
+ * Run /aios:close-session in a specific running session's terminal — captures the
+ * session (daily-note block / project report) BEFORE you kill it, so the work
+ * isn't lost. Reveals + focuses the terminal (close-session is interactive — it
+ * asks for a label etc.) and sends the command into its live Claude. Falls back to
+ * a notice if it isn't an integrated terminal in this window.
+ */
+export async function closeSessionInTerminal(name: string, pid?: number): Promise<void> {
+  const t = await findAgentTerminal(name, pid);
+  if (t) { t.show(); t.sendText('/aios:close-session'); return; }
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" isn't a terminal in this window — open it there to run /aios:close-session.`);
+}
+
+/**
  * Close a running session's terminal — like clicking the IDE terminal's trash.
  * Disposing the terminal SIGHUPs the shell + its children (claude + respawn
  * loop), so it stops cleanly. Falls back to `spawn-kill` only when the session

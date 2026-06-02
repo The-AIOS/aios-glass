@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, initFrequentTasks } from './tasks/frequent';
 import { runReports } from './tasks/reports';
@@ -221,6 +221,12 @@ export function activate(context: vscode.ExtensionContext): void {
     // Close a running session's terminal (kill) directly from the Home list.
     vscode.commands.registerCommand('aios.closeAgent', (name?: string, pid?: number) => {
       if (typeof name === 'string') return disposeAgentTerminal(name, typeof pid === 'number' ? pid : undefined);
+    }),
+
+    // Capture a running session (/aios:close-session) in its OWN terminal — the
+    // ritual you'd want before killing it, so the session's work gets logged.
+    vscode.commands.registerCommand('aios.closeSessionAgent', (name?: string, pid?: number) => {
+      if (typeof name === 'string') return closeSessionInTerminal(name, typeof pid === 'number' ? pid : undefined);
     }),
 
     // Open an observed file at the exact entry (from the "What Claude's learned"

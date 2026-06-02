@@ -448,6 +448,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runkill{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
   .runitem:hover .runkill{opacity:1}
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
+  /* Sessions-only "capture session" (close-session) action — sits just left of the kill. */
+  .runclose{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer; opacity:0; display:flex; align-items:center}
+  .runitem:hover .runclose{opacity:1}
+  .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
+  .runclose + .runkill{margin-left:0}
   .runitem .k{margin-left:0; font-size:11px}
   .runitem .dot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}
   .runitem .dot.busy{background:#f5a623; box-shadow:0 0 0 2px color-mix(in srgb, #f5a623 22%, transparent)}
@@ -747,6 +752,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const reveal = (el) => { if (!el) return; const { n, p } = itemNP(el); if (n) run('aios.revealAgent', n, p); };
     runningList.addEventListener('click', (ev) => {
       const item = ev.target.closest('.runitem'); if (!item) return;
+      if (ev.target.closest('.runclose')) { const { n, p } = itemNP(item); if (n) run('aios.closeSessionAgent', n, p); return; }
       if (ev.target.closest('.runkill')) { const { n, p } = itemNP(item); if (n) { if (p) killed.add(p); run('aios.closeAgent', n, p); item.remove(); applyRunOpen(); } return; }
       reveal(item);
     });
@@ -867,6 +873,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           const nm = (a.name || '(unnamed)').replace(/</g,'&lt;');
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + s.label + '</span>'
+            + '<button class="runclose" data-close="1" title="Capture this session — runs /aios:close-session here (do this before you kill it)" aria-label="Capture session (close-session)">'
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>'
+            + '</button>'
             + '<button class="runkill" data-kill="1" title="Close terminal (kill)" aria-label="Close terminal">'
             + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
             + '</button></div>';
