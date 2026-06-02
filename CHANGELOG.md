@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-06-01
+
+### Added
+- **Contextual ritual nudge banner** — a single, warm, time-aware prompt at the top of the panel: plan your day (no today-note), the note's own 💡 suggested ritual (morning), wrap open sessions (daytime), close the day (evening). Per-kind dismiss (session-scoped) and a cog toggle (`aiosGlass.showNudges`, default on). The morning nudge renders the command in bold (`Run /7plan`) with the note's own one-liner clamped to two rows, and normalizes bare/legacy commands to `/aios:` on click.
+- **Weekly-plan nudge** — on Mon/Tue, if this ISO week's `{YYYY}-W{WW}-plan.md` doesn't exist yet, the banner nudges `/7plan`. File-existence based, so it's reliable regardless of what the daily note suggests. _(helpers adapted from an external contribution, PR #7)_
+- **Terminals hub** — the Sessions card became **Running** with **Sessions** and **Terminals** sub-lists. Manage plain terminals inline (focus / close), a ＋ per list header to spawn, and an optional **hide native terminal tabs** toggle.
+- **`⌘⌥G` keyboard chord system** — a leader chord (`⌘⌥G` then a key) for 18 actions, with an on-panel collapsible 2-column cheat-sheet (column-major, persisted open/closed state independent of the hints toggle). Cards are arrow-navigable (focus, expand/collapse, toggle). `⌘⌥G H` shows/hides Glass (auto-detecting whether it's docked in the secondary or primary bar); `⌘⌥G M` minimizes/expands all cards.
+
+### Changed
+- **Foam is now a soft dependency, not a hard one** — Glass no longer refuses to activate on a stock editor that doesn't have Foam installed. The graph button guards on Foam's presence and offers a one-time install recommendation instead. _(first-run blocker on stock Antigravity)_
+
+### Fixed
+- **Symlinked vault paths** — `expandHome` now resolves symlinks, so the file watcher tracks the canonical path and live-refresh works when the vault is reached through a symlink.
+- Spawned Claude sessions no longer appear in **both** the Sessions and Terminals lists (registration race — reconciled on the refresh poll).
+
 ## [0.1.3] — 2026-05-31
 
 ### Added

@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -67,7 +67,10 @@
       {
         "command": "aios.openHome",
         "title": "AIOS: Open Home",
-        "icon": { "light": "media/aios-color.svg", "dark": "media/aios-color.svg" }
+        "icon": {
+          "light": "media/aios-color.svg",
+          "dark": "media/aios-color.svg"
+        }
       },
       {
         "command": "aios.openWalkthrough",
@@ -159,24 +162,96 @@
       }
     ],
     "keybindings": [
-      { "command": "aios.frequentMenu", "mac": "cmd+alt+g f", "key": "ctrl+alt+g f" },
-      { "command": "aios.spawnAgent", "mac": "cmd+alt+g a", "key": "ctrl+alt+g a" },
-      { "command": "aios.spawnWorker", "mac": "cmd+alt+g s", "key": "ctrl+alt+g s" },
-      { "command": "aios.newTerminal", "mac": "cmd+alt+g t", "key": "ctrl+alt+g t" },
-      { "command": "aios.skillsPicker", "mac": "cmd+alt+g k", "key": "ctrl+alt+g k" },
-      { "command": "aios.runRitualPicker", "mac": "cmd+alt+g c", "key": "ctrl+alt+g c" },
-      { "command": "aios.ingest", "mac": "cmd+alt+g i", "key": "ctrl+alt+g i" },
-      { "command": "aios.runningPicker", "mac": "cmd+alt+g r", "key": "ctrl+alt+g r" },
-      { "command": "aios.dailyPicker", "mac": "cmd+alt+g d", "key": "ctrl+alt+g d" },
-      { "command": "aios.workspacesPicker", "mac": "cmd+alt+g w", "key": "ctrl+alt+g w" },
-      { "command": "aios.personalizationsPicker", "mac": "cmd+alt+g p", "key": "ctrl+alt+g p" },
-      { "command": "aios.goWithAgents", "mac": "cmd+alt+g g", "key": "ctrl+alt+g g" },
-      { "command": "aios.minimizeCards", "mac": "cmd+alt+g m", "key": "ctrl+alt+g m" },
-      { "command": "aios.toggleHome", "mac": "cmd+alt+g h", "key": "ctrl+alt+g h" },
-      { "command": "aios.contextPicker", "mac": "cmd+alt+g x", "key": "ctrl+alt+g x" },
-      { "command": "aios.reports", "mac": "cmd+alt+g e", "key": "ctrl+alt+g e" },
-      { "command": "aios.openConfigMenu", "mac": "cmd+alt+g ,", "key": "ctrl+alt+g ," },
-      { "command": "aios.openToday", "mac": "cmd+alt+g y", "key": "ctrl+alt+g y" }
+      {
+        "command": "aios.frequentMenu",
+        "mac": "cmd+alt+g f",
+        "key": "ctrl+alt+g f"
+      },
+      {
+        "command": "aios.spawnAgent",
+        "mac": "cmd+alt+g a",
+        "key": "ctrl+alt+g a"
+      },
+      {
+        "command": "aios.spawnWorker",
+        "mac": "cmd+alt+g s",
+        "key": "ctrl+alt+g s"
+      },
+      {
+        "command": "aios.newTerminal",
+        "mac": "cmd+alt+g t",
+        "key": "ctrl+alt+g t"
+      },
+      {
+        "command": "aios.skillsPicker",
+        "mac": "cmd+alt+g k",
+        "key": "ctrl+alt+g k"
+      },
+      {
+        "command": "aios.runRitualPicker",
+        "mac": "cmd+alt+g c",
+        "key": "ctrl+alt+g c"
+      },
+      {
+        "command": "aios.ingest",
+        "mac": "cmd+alt+g i",
+        "key": "ctrl+alt+g i"
+      },
+      {
+        "command": "aios.runningPicker",
+        "mac": "cmd+alt+g r",
+        "key": "ctrl+alt+g r"
+      },
+      {
+        "command": "aios.dailyPicker",
+        "mac": "cmd+alt+g d",
+        "key": "ctrl+alt+g d"
+      },
+      {
+        "command": "aios.workspacesPicker",
+        "mac": "cmd+alt+g w",
+        "key": "ctrl+alt+g w"
+      },
+      {
+        "command": "aios.personalizationsPicker",
+        "mac": "cmd+alt+g p",
+        "key": "ctrl+alt+g p"
+      },
+      {
+        "command": "aios.goWithAgents",
+        "mac": "cmd+alt+g g",
+        "key": "ctrl+alt+g g"
+      },
+      {
+        "command": "aios.minimizeCards",
+        "mac": "cmd+alt+g m",
+        "key": "ctrl+alt+g m"
+      },
+      {
+        "command": "aios.toggleHome",
+        "mac": "cmd+alt+g h",
+        "key": "ctrl+alt+g h"
+      },
+      {
+        "command": "aios.contextPicker",
+        "mac": "cmd+alt+g x",
+        "key": "ctrl+alt+g x"
+      },
+      {
+        "command": "aios.reports",
+        "mac": "cmd+alt+g e",
+        "key": "ctrl+alt+g e"
+      },
+      {
+        "command": "aios.openConfigMenu",
+        "mac": "cmd+alt+g ,",
+        "key": "ctrl+alt+g ,"
+      },
+      {
+        "command": "aios.openToday",
+        "mac": "cmd+alt+g y",
+        "key": "ctrl+alt+g y"
+      }
     ],
     "menus": {
       "editor/title": [
@@ -223,7 +298,11 @@
         },
         "aiosGlass.openNotesIn": {
           "type": "string",
-          "enum": ["preview", "editor", "previewToSide"],
+          "enum": [
+            "preview",
+            "editor",
+            "previewToSide"
+          ],
           "enumDescriptions": [
             "Rendered Markdown preview (Foam renders [[wikilinks]]) — Obsidian-style reading view",
             "Source editor (raw Markdown)",
@@ -234,7 +313,10 @@
         },
         "aiosGlass.terminalMode": {
           "type": "string",
-          "enum": ["ask", "active"],
+          "enum": [
+            "ask",
+            "active"
+          ],
           "enumDescriptions": [
             "Ask each time which terminal to use (existing ones, or a new one)",
             "Use the focused terminal (assumed to have a live Claude session), else open a new one"
@@ -264,53 +346,85 @@
             "id": "welcome",
             "title": "Welcome to AIOS Glass",
             "description": "AIOS Glass is a friendly window onto your AIOS. It surfaces and runs what you already have — slash commands, agents, companies — from clickable panels.\n\nOpen the **AIOS** icon in the activity bar anytime.",
-            "media": { "image": "media/icon.png", "altText": "AIOS" }
+            "media": {
+              "image": "media/icon.png",
+              "altText": "AIOS"
+            }
           },
           {
             "id": "frameworkPath",
             "title": "Point Glass at your AIOS",
             "description": "Tell Glass where your framework lives (the folder containing `plugins/aios/commands`).\n[Set framework path](command:aios.setFrameworkPath)",
-            "media": { "image": "media/icon.png", "altText": "AIOS" },
-            "completionEvents": ["onCommand:aios.setFrameworkPath"]
+            "media": {
+              "image": "media/icon.png",
+              "altText": "AIOS"
+            },
+            "completionEvents": [
+              "onCommand:aios.setFrameworkPath"
+            ]
           },
           {
             "id": "home",
             "title": "Open your Home dashboard",
             "description": "Your command center: today's plan, calendar, agents, capabilities, spaces.\n[Open AIOS Home](command:aios.openHome)",
-            "media": { "image": "media/icon.png", "altText": "AIOS Home" },
-            "completionEvents": ["onCommand:aios.openHome"]
+            "media": {
+              "image": "media/icon.png",
+              "altText": "AIOS Home"
+            },
+            "completionEvents": [
+              "onCommand:aios.openHome"
+            ]
           },
           {
             "id": "ritual",
             "title": "Plan your day",
             "description": "In Home, click **Plan my day** — or run any ritual from the Rituals panel. It launches native Claude for you.\n[Open AIOS Home](command:aios.openHome)",
-            "media": { "image": "media/icon.png", "altText": "Rituals" },
-            "completionEvents": ["onCommand:aios.runRitual"]
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Rituals"
+            },
+            "completionEvents": [
+              "onCommand:aios.runRitual"
+            ]
           },
           {
             "id": "agent",
             "title": "Spawn an agent",
             "description": "Pick a specialist and a task; Glass spawns a native-Claude worker for you.\n[Spawn an agent](command:aios.spawnAgent)",
-            "media": { "image": "media/icon.png", "altText": "Agents" },
-            "completionEvents": ["onCommand:aios.spawnAgent"]
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Agents"
+            },
+            "completionEvents": [
+              "onCommand:aios.spawnAgent"
+            ]
           },
           {
             "id": "capabilities",
             "title": "Explore your capabilities",
             "description": "Browse the skills, MCPs and plugins your AIOS can use.\n[Browse capabilities](command:aios.capabilities.focus)",
-            "media": { "image": "media/icon.png", "altText": "Capabilities" }
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Capabilities"
+            }
           },
           {
             "id": "spaces",
             "title": "Companies & collaboration",
             "description": "Mount a company, sync context, or open a collaboration space — no flags to memorize.\n[Company actions](command:aios.companyAction)",
-            "media": { "image": "media/icon.png", "altText": "Spaces" }
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Spaces"
+            }
           },
           {
             "id": "coldstart",
             "title": "Brand-new clone? Run the full interview",
             "description": "If this is a fresh AIOS, run `/aios:cold-start-interview` from the Rituals panel to set everything up end-to-end.\n[Open AIOS Home](command:aios.openHome)",
-            "media": { "image": "media/icon.png", "altText": "Cold start" }
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Cold start"
+            }
           }
         ]
       }
