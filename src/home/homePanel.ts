@@ -281,6 +281,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   }
 
   private postState(): void {
+    const now = new Date();
     this.post({
       type: 'state',
       operator: operatorName(),
@@ -299,7 +300,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       projects: countNotes('projects'),
       goAgents: countAgentSuggestions(),
       learnings: recentLearnings(4).map((l) => ({ title: l.title, date: l.date, source: l.source, file: l.file, line: l.line })),
-      nudge: showNudges() ? nudgeState(new Date().getHours(), this.lastRunningCount) : null,
+      nudge: showNudges() ? nudgeState(now.getHours(), now.getDay(), this.lastRunningCount) : null,
       outputs: recentOutputs(6).map((o) => ({ name: o.name, group: o.group, path: o.path })),
       reports: recentReports(5).map((r) => ({ name: r.name, path: r.path }))
     });
