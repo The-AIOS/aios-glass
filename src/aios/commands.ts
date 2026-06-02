@@ -32,11 +32,27 @@ const CADENCE_BY_TAG: Record<string, Cadence> = {
   monthly: 'Monthly'
 };
 
-/** Expand a leading `~` to the user's home directory. */
+/**
+ * Expand a leading `~` to the user's home directory, then resolve symlinks to
+ * the canonical path. The realpath step matters: operators land their AIOS
+ * wherever they want (e.g. `~/obsidian`) with `~/aios` symlinked to it, so the
+ * configured `frameworkPath` is often a symlink. VS Code's macOS file watcher
+ * doesn't fire for external (Obsidian MCP / git) writes that arrive through a
+ * symlinked path — the editor/preview then goes stale until a manual window
+ * reload. Resolving to the canonical path here (a no-op when there's no
+ * symlink) makes the watcher track the SAME path the MCP writes to, so live
+ * refresh works. Guarded: falls back to the plain expansion if the path
+ * doesn't exist yet.
+ */
 export function expandHome(p: string): string {
-  if (p === '~') return os.homedir();
-  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2));
-  return p;
+  let out = p;
+  if (p === '~') out = os.homedir();
+  else if (p.startsWith('~/')) out = path.join(os.homedir(), p.slice(2));
+  try {
+    return fs.realpathSync(out);
+  } catch {
+    return out;
+  }
 }
 
 /**
