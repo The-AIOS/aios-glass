@@ -597,7 +597,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>M</kbd>minimize cards</div>
       <div><kbd>H</kbd>toggle glass</div>
       <div><kbd>,</kbd>open config</div>
-      <div><kbd>F</kbd>frequent tasks</div>
       <div><kbd>A</kbd>launch agent</div>
       <div><kbd>K</kbd>load skill</div>
       <div><kbd>C</kbd>run command</div>
@@ -606,6 +605,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>S</kbd>new session</div>
       <div><kbd>T</kbd>new terminal</div>
       <div><kbd>E</kbd>generate report</div>
+      <div><kbd>F</kbd>frequent tasks</div>
     </div>
   </section>
 
