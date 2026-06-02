@@ -150,6 +150,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'toggleAllCards' });
   }
 
+  /** Show/hide Glass (the ⌘⌥G H chord): reveal+focus when closed, hide when open.
+   *  Hide assumes the secondary side bar (the recommended dock); falls back to
+   *  the primary sidebar toggle if Glass isn't currently visible there. */
+  toggleHome(): void {
+    if (this.view?.visible) void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+    else void vscode.commands.executeCommand('aios.home.focus');
+  }
+
   /** Re-pull live state: counts, running sessions, and the update-status badge. */
   private recheck(): void {
     if (!this.view) return;
@@ -585,8 +593,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>R</kbd>running sessions</div><div><kbd>D</kbd>daily ritual</div>
       <div><kbd>W</kbd>workspaces</div><div><kbd>P</kbd>personalizations</div>
       <div><kbd>X</kbd>context</div><div><kbd>E</kbd>generate report</div>
-      <div><kbd>G</kbd>go-with-agents</div><div><kbd>M</kbd>minimize cards</div>
-      <div><kbd>Y</kbd>today's note</div><div><kbd>,</kbd>open config</div>
+      <div><kbd>G</kbd>go-with-agents</div><div><kbd>Y</kbd>today's note</div>
+      <div><kbd>H</kbd>show / hide Glass</div><div><kbd>M</kbd>minimize cards</div>
+      <div><kbd>,</kbd>open config</div>
     </div>
   </section>
 

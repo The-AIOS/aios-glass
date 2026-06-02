@@ -117,6 +117,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // ── Keyboard-chord targets (⌘⌥G …) — small pickers/actions behind the leader ──
     vscode.commands.registerCommand('aios.newTerminal', () => { vscode.window.createTerminal().show(); }),
     vscode.commands.registerCommand('aios.minimizeCards', () => HomeViewProvider.current?.toggleCards()),
+    vscode.commands.registerCommand('aios.toggleHome', () => HomeViewProvider.current?.toggleHome()),
 
     vscode.commands.registerCommand('aios.openToday', async () => {
       const d = new Date();
