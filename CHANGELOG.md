@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-06-01
+
+### Fixed
+- **Update badge no longer goes stale after a terminal-side sync.** The framework update indicator (the ↓ / ✓ in the panel header) previously only re-checked on initial load and on a hidden→visible toggle — so running `/aios:update` in a terminal while the panel stayed visible left the badge showing "behind" even though the vault was current. Added a `FileSystemWatcher` on `<vault>/.aios-update`, so the badge re-checks live the moment the tracker hash changes, regardless of where the sync ran.
+
 ## [0.1.4] — 2026-06-01
 
 ### Added

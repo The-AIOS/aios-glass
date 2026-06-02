@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {

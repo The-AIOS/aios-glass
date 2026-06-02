@@ -118,6 +118,19 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       uw.onDidCreate(onUser);
       uw.onDidDelete(onUser);
       webviewView.onDidDispose(() => uw.dispose());
+
+      // Refresh the update badge the moment `.aios-update` changes — a sync run
+      // in a terminal (or any session outside Glass) bumps the tracker hash, so
+      // the badge re-checks live instead of waiting for a hide→show visibility
+      // flip (which leaves it stale-showing "behind" when you're actually current).
+      const auw = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(vscode.Uri.file(fwRoot), '.aios-update')
+      );
+      const onTracker = () => this.recheck();
+      auw.onDidChange(onTracker);
+      auw.onDidCreate(onTracker);
+      auw.onDidDelete(onTracker);
+      webviewView.onDidDispose(() => auw.dispose());
     }
     webviewView.onDidDispose(() => { if (this.refreshTimer) { clearTimeout(this.refreshTimer); this.refreshTimer = undefined; } });
   }
