@@ -150,12 +150,21 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'toggleAllCards' });
   }
 
-  /** Show/hide Glass (the ⌘⌥G H chord): reveal+focus when closed, hide when open.
-   *  Hide assumes the secondary side bar (the recommended dock); falls back to
-   *  the primary sidebar toggle if Glass isn't currently visible there. */
+  /** Show/hide Glass (the ⌘⌥G H chord). Closed → reveal+focus. Open → hide.
+   *  VS Code doesn't expose which bar a view sits in, so we detect it: try the
+   *  secondary-bar toggle (Glass's recommended dock); if Glass is still visible
+   *  a beat later it wasn't there (it's in the primary sidebar) — so undo the
+   *  empty bar we opened and toggle the primary sidebar instead. Net: a clean
+   *  show/hide wherever Glass is docked. */
   toggleHome(): void {
-    if (this.view?.visible) void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
-    else void vscode.commands.executeCommand('aios.home.focus');
+    if (!this.view?.visible) { void vscode.commands.executeCommand('aios.home.focus'); return; }
+    void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+    setTimeout(() => {
+      if (this.view?.visible) {
+        void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar'); // undo: Glass wasn't in the aux bar
+        void vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility'); // hide the primary sidebar instead
+      }
+    }, 120);
   }
 
   /** Re-pull live state: counts, running sessions, and the update-status badge. */
