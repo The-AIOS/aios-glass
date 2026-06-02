@@ -452,6 +452,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runacts button{display:inline-flex; align-items:center; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer}
   .runint:hover{color:#e0a13a; background:color-mix(in srgb, #e0a13a 18%, transparent)}
   .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
+  .runkill{color:#f5564a}  /* trash is always red — destructive affordance */
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
   .runitem .k{margin-left:0; font-size:11px}
   .runitem .dot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}
@@ -874,7 +875,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           const nm = (a.name || '(unnamed)').replace(/</g,'&lt;');
           // Interrupt (Esc) — only meaningful while the session is actively working.
           const interrupt = s.cls === 'busy'
-            ? '<button class="runint" data-int="1" title="Interrupt — send Esc to stop Claude mid-task" aria-label="Interrupt (Esc)">'
+            ? '<button class="runint" data-int="1" title="Interrupt (Esc)" aria-label="Interrupt (Esc)">'
               + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
               + '</button>'
             : '';
@@ -882,10 +883,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + s.label + '</span>'
             + '<span class="runacts">'
             + interrupt
-            + '<button class="runclose" data-close="1" title="Close session — runs /aios:close-session here to capture it to your daily note (do this before you kill it)" aria-label="Close session (close-session)">'
+            + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
             + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>'
             + '</button>'
-            + '<button class="runkill" data-kill="1" title="Close terminal — kill this session" aria-label="Close terminal (kill)">'
+            + '<button class="runkill" data-kill="1" title="Kill terminal" aria-label="Kill terminal">'
             + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
             + '</button>'
             + '</span></div>';
