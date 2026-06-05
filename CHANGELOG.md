@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-06-05
+
+### Added
+- **Routines** — named, soft-scheduled bundles of frequent tasks (e.g. *"Thinkers Symposium — Wednesdays 9am → [symposium + reflection, ingest, infographic]"*). Live in the Quick menu above Tasks; due routines float first with a chip; *Add a routine* walks name → cadence (daily / weekly-on-a-weekday / monthly, optional due-from hour) → tasks picked one-at-a-time in run order. Scheduling is glass-pure: a routine becomes **due** when its cadence window opens and hasn't run inside it (a missed Wednesday stays due Thursday) — no background daemon. Running one assembles the tasks' fixed assignments into **one ordered instruction fired into a single fresh session**.
+- **`⌘⌥G *` — the wildcard palette.** One fuzzy picker over *everything* launchable: live sessions, routines, tasks, agents, commands, skills — grouped, matched on descriptions, Enter routes to the right launcher (commands keep their argument prompts). The per-kind chords stay for muscle memory.
+- **Per-session actions** on the Sessions list (hover): **interrupt** (send Esc — only while working), **close session** (runs `/aios:close-session` in that exact terminal, capturing the session before you kill it — door/exit icon), and **kill** (always red, destructive affordance). One-line tooltips name each action.
+- **Frequent tasks are one-click.** The per-run question is gone — an optional **fixed assignment** is *sent* on every run (blank = launch bare; the agent interviews you, the command/skill guides). Legacy tasks migrate automatically: the text typed into the old "question" field becomes the assignment it fires. Built-in defaults updated; the variable "about me" prompts now self-elicit their specifics after launch.
+
+### Changed
+- **Richer session rows** — `name · working 2m · project` (duration = time in current state; project = the session's working-directory name, omitted for the vault itself). Full detail in the hover tooltip: started, path, Claude version. All from fields the session registry already carries.
+- Cheat-sheet grows to 10 rows; `*` (palette) leads column 1.
+
 ## [0.1.5] — 2026-06-01
 
 ### Fixed
