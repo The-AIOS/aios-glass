@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
+import * as fs from 'fs';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
@@ -272,7 +273,24 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const quota = rl
       ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, showSwap, to: multi ? nextAccount() : '' }
       : { has: false, fiveHour: 0, sevenDay: 0, showSwap: false, to: '' };
-    this.post({ type: 'running', running: running.map((a) => ({ name: a.name, pid: a.pid, status: a.status })), quota });
+    // Project label = the session cwd's basename; omitted when it's just the
+    // framework root (the default vault session — labeling it adds no signal).
+    let fwReal = '';
+    try { fwReal = fs.realpathSync(frameworkRoot() || ''); } catch { /* ignore */ }
+    const projOf = (cwd: string): string => {
+      if (!cwd) return '';
+      let real = cwd;
+      try { real = fs.realpathSync(cwd); } catch { /* keep raw */ }
+      return fwReal && real === fwReal ? '' : path.basename(real);
+    };
+    this.post({
+      type: 'running',
+      running: running.map((a) => ({
+        name: a.name, pid: a.pid, status: a.status,
+        proj: projOf(a.cwd), cwd: a.cwd, startedAt: a.startedAt, updatedAt: a.updatedAt, version: a.version,
+      })),
+      quota,
+    });
     void this.postTerminals(new Set(running.map((a) => a.name))); // reconcile Terminals vs the live registry each poll
   }
 
@@ -879,8 +897,20 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
               + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
               + '</button>'
             : '';
-          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
-            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + s.label + '</span>'
+          // Richer status — free fields the session registry already carries:
+          // inline "status + duration · project", full detail in the hover tooltip
+          // (click stays = reveal terminal, so the tooltip IS the detail view).
+          const dur = fmtAgo(a.updatedAt);
+          const proj = String(a.proj || '').replace(/</g,'&lt;');
+          const statusTxt = s.label + (dur ? ' ' + dur : '');
+          const tip = [
+            s.title,
+            a.startedAt ? 'started ' + fmtAgo(a.startedAt) + ' ago' : '',
+            a.cwd || '',
+            a.version ? 'v' + a.version : ''
+          ].filter(Boolean).join(' · ').replace(/"/g, '&quot;') + ' — click to reveal';
+          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + tip + '">'
+            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + '<span class="runacts">'
             + interrupt
             + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
@@ -938,6 +968,17 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }
   });
+
+  // Compact "time since" for session rows — 'now', '4m', '2h 5m', '3d'.
+  function fmtAgo(ts){
+    if (!ts) return '';
+    const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    if (m < 1) return 'now';
+    if (m < 60) return m + 'm';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
+    return Math.floor(h / 24) + 'd';
+  }
 
   // Map a session's registry status → {dot color class, friendly label, tooltip}.
   // Claude currently emits only 'busy' / 'idle'; the input/error buckets are

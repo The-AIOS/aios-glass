@@ -13,6 +13,12 @@ export interface RunningAgent {
   cwd: string;
   /** true when this looks like a spawn-managed/named session (spawn-kill applies). */
   spawned: boolean;
+  /** Session start (epoch ms; 0 if the registry didn't record it). */
+  startedAt: number;
+  /** Last status change / activity (epoch ms; 0 if unknown). */
+  updatedAt: number;
+  /** Claude Code version running the session (may be empty). */
+  version: string;
 }
 
 /**
@@ -60,6 +66,9 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
           // heuristic: a named session is treated as spawn-managed (kill by
           // name via spawn-kill). Plain unnamed sessions aren't.
           spawned: name !== '(unnamed)',
+          startedAt: Number(d?.startedAt) || 0,
+          updatedAt: Number(d?.updatedAt) || 0,
+          version: String(d?.version ?? '').trim(),
         });
       }
 
