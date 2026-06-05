@@ -175,7 +175,7 @@ async function runTask(t: FreqTask): Promise<void> {
   }
 }
 
-type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean };
+type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean; createNew?: string };
 
 /** Open the Quick menu: routines (due-first) + tasks — pick to run, trash to remove, add either. */
 export async function openFrequentMenu(): Promise<void> {
@@ -207,9 +207,15 @@ export async function openFrequentMenu(): Promise<void> {
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
     items.push({ label: '$(add) Add a frequent task', add: true });
     items.push({ label: '$(add) Add a routine', addRoutine: true });
+    // Type-to-create: whatever's typed becomes a one-Enter task seed. alwaysShow
+    // keeps it visible even when the filter matches nothing — so an unmatched
+    // search turns into "create it" instead of a dead end.
+    const typed = qp.value.trim();
+    if (typed) items.push({ label: `$(add) Create task "${typed}"`, alwaysShow: true, createNew: typed });
     qp.items = items;
   };
   refresh();
+  qp.onDidChangeValue(() => refresh());
 
   qp.onDidTriggerItemButton(async (e) => {
     if (e.item.routine) {
@@ -228,6 +234,7 @@ export async function openFrequentMenu(): Promise<void> {
     const sel = qp.selectedItems[0];
     if (!sel) return;
     if (sel.add) { qp.hide(); await addFrequentTask(); return; }
+    if (sel.createNew) { qp.hide(); await addFrequentTask(sel.createNew); return; }
     if (sel.addRoutine) { qp.hide(); await addRoutineFlow(); await openFrequentMenu(); return; }
     if (sel.routine) { qp.hide(); await runRoutine(sel.routine.id); return; }
     if (sel.task) { qp.hide(); await runTask(sel.task); }
@@ -237,12 +244,14 @@ export async function openFrequentMenu(): Promise<void> {
   qp.show();
 }
 
-/** Add a custom frequent task — pick a real agent / command / skill as its target. */
-async function addFrequentTask(): Promise<void> {
+/** Add a custom frequent task — pick a real agent / command / skill as its target.
+ *  `prefill` seeds the label (type-to-create from the Quick menu) — still editable. */
+async function addFrequentTask(prefill?: string): Promise<void> {
   const label = await vscode.window.showInputBox({
     title: 'Add a frequent task',
     prompt: 'Button label',
     placeHolder: 'e.g. Summarize a PDF',
+    value: prefill,
     ignoreFocusOut: true,
   });
   if (!label?.trim()) return;
