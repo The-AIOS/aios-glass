@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { openDailyNote } from './home/calendar';
-import { runFrequentTask, openFrequentMenu, initFrequentTasks } from './tasks/frequent';
+import { runFrequentTask, openFrequentMenu, initFrequentTasks, listFrequentTasks } from './tasks/frequent';
+import { initRoutines, listRoutines, runRoutine, routineDue, cadenceLabel } from './tasks/routines';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
@@ -30,6 +31,7 @@ const DOC_FILES: Record<string, string> = {
 export function activate(context: vscode.ExtensionContext): void {
   const home = new HomeViewProvider(context.extensionUri);
   initFrequentTasks(context); // wire frequent-tasks persistence (globalState)
+  initRoutines(context); // wire routines persistence (globalState)
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(HomeViewProvider.viewId, home, {

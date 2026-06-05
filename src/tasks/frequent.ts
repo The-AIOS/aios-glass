@@ -3,6 +3,7 @@ import { launchAios, launchSkill, launchInSession } from '../rituals/runner';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { discoverCommands } from '../aios/commands';
 import { discoverSkills } from '../capabilities/capabilities';
+import { Routine, listRoutines, routineDue, cadenceLabel, runRoutine, removeRoutine, addRoutineFlow } from './routines';
 
 /**
  * Frequent tasks: intent-first launchers. The operator picks *what they want
@@ -89,7 +90,7 @@ const STORE_KEY = 'aios.frequentTasks.v1';
 const STORE_REMOVED = 'aios.frequentTasks.removed.v1';
 let store: vscode.Memento | undefined;
 
-function slug(s: string): string {
+export function slug(s: string): string {
   return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'task';
 }
 
@@ -132,6 +133,11 @@ export function frequentTaskCount(): number {
   return getTasks().length;
 }
 
+/** The live task list (custom + kept defaults) — consumed by routines + the palette. */
+export function listFrequentTasks(): FreqTask[] {
+  return getTasks();
+}
+
 async function saveTasks(list: FreqTask[]): Promise<void> {
   await store?.update(STORE_KEY, list);
 }
@@ -169,25 +175,48 @@ async function runTask(t: FreqTask): Promise<void> {
   }
 }
 
-type MenuItem = vscode.QuickPickItem & { task?: FreqTask; add?: boolean };
+type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean };
 
-/** Open the frequent-tasks menu: pick to run, trash-button to remove, "add" to create. */
+/** Open the Quick menu: routines (due-first) + tasks — pick to run, trash to remove, add either. */
 export async function openFrequentMenu(): Promise<void> {
   const qp = vscode.window.createQuickPick<MenuItem>();
-  qp.title = 'Frequent tasks';
-  qp.placeholder = 'Pick a task to run — trash to remove, or add your own';
-  const removeBtn: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Remove this task' };
+  qp.title = 'Frequent tasks & routines';
+  qp.placeholder = 'Pick to run — trash to remove, or add your own';
+  const removeBtn: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Remove' };
 
   const refresh = () => {
-    const tasks = getTasks();
-    const items: MenuItem[] = tasks.map((t) => ({ label: t.label, description: t.hint, task: t, buttons: [removeBtn] }));
+    const items: MenuItem[] = [];
+    // Routines first — due ones float to the top with a chip.
+    const routines = listRoutines()
+      .map((r) => ({ r, due: routineDue(r) }))
+      .sort((a, b) => Number(b.due) - Number(a.due));
+    if (routines.length) {
+      items.push({ label: 'Routines', kind: vscode.QuickPickItemKind.Separator });
+      for (const { r, due } of routines) {
+        const n = r.taskIds.length;
+        items.push({
+          label: (due ? '$(circle-filled) ' : '$(calendar) ') + r.label,
+          description: `${cadenceLabel(r.cadence)} · ${n} task${n === 1 ? '' : 's'}${due ? ' · due' : ''}`,
+          routine: r,
+          buttons: [removeBtn],
+        });
+      }
+      items.push({ label: 'Tasks', kind: vscode.QuickPickItemKind.Separator });
+    }
+    items.push(...getTasks().map((t) => ({ label: t.label, description: t.hint, task: t, buttons: [removeBtn] })));
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
     items.push({ label: '$(add) Add a frequent task', add: true });
+    items.push({ label: '$(add) Add a routine', addRoutine: true });
     qp.items = items;
   };
   refresh();
 
   qp.onDidTriggerItemButton(async (e) => {
+    if (e.item.routine) {
+      await removeRoutine(e.item.routine.id);
+      refresh();
+      return;
+    }
     const t = e.item.task;
     if (!t) return;
     await saveTasks(getTasks().filter((x) => x.id !== t.id));
@@ -199,6 +228,8 @@ export async function openFrequentMenu(): Promise<void> {
     const sel = qp.selectedItems[0];
     if (!sel) return;
     if (sel.add) { qp.hide(); await addFrequentTask(); return; }
+    if (sel.addRoutine) { qp.hide(); await addRoutineFlow(); await openFrequentMenu(); return; }
+    if (sel.routine) { qp.hide(); await runRoutine(sel.routine.id); return; }
     if (sel.task) { qp.hide(); await runTask(sel.task); }
   });
 
