@@ -1,18 +1,18 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runRitual, launchAios, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, initFrequentTasks, listFrequentTasks } from './tasks/frequent';
 import { initRoutines, listRoutines, runRoutine, routineDue, cadenceLabel } from './tasks/routines';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
-import { AiosCommand, resolveCommandsDir } from './aios/commands';
+import { AiosCommand, resolveCommandsDir, discoverCommands } from './aios/commands';
 import { HomeViewProvider } from './home/homePanel';
 import { spawnAgentFlow, spawnWorker } from './agents/spawn';
-import { Agent } from './agents/agents';
-import { Capability, skillsPicker } from './capabilities/capabilities';
+import { Agent, discoverAgents, iconForAgent } from './agents/agents';
+import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
 import { companyAction, collaborateAction } from './spaces/spacesActions';
 import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode } from './home/config';
@@ -234,6 +234,76 @@ export function activate(context: vscode.ExtensionContext): void {
     // Interrupt a working session — send Esc to its terminal (stop Claude mid-task).
     vscode.commands.registerCommand('aios.interruptAgent', (name?: string, pid?: number) => {
       if (typeof name === 'string') return interruptSessionTerminal(name, typeof pid === 'number' ? pid : undefined);
+    }),
+
+    // ⌘⌥G * — the wildcard palette: fuzzy-search EVERYTHING launchable (live
+    // sessions, routines, tasks, agents, commands, skills) in one place. This is
+    // the discovery surface; the per-kind chord pickers stay for muscle memory.
+    // Custom discriminator is `pk` — QuickPickItem.kind is reserved for separators.
+    vscode.commands.registerCommand('aios.palette', async () => {
+      type PalItem = vscode.QuickPickItem & {
+        pk?: 'session' | 'routine' | 'task' | 'agent' | 'command' | 'skill';
+        id?: string;
+        name?: string;
+        pid?: number;
+        cmd?: AiosCommand;
+      };
+      const sep = (label: string): PalItem => ({ label, kind: vscode.QuickPickItemKind.Separator });
+      const items: PalItem[] = [];
+
+      const sessions = await listRunningAgents();
+      if (sessions.length) {
+        items.push(sep('Sessions'));
+        items.push(...sessions.map((s) => ({
+          label: '$(terminal) ' + s.name, description: s.status || 'session', pk: 'session' as const, name: s.name, pid: s.pid,
+        })));
+      }
+      const routines = listRoutines();
+      if (routines.length) {
+        items.push(sep('Routines'));
+        items.push(...routines.map((r) => ({
+          label: '$(calendar) ' + r.label,
+          description: cadenceLabel(r.cadence) + (routineDue(r) ? ' · due' : ''),
+          pk: 'routine' as const, id: r.id,
+        })));
+      }
+      const tasks = listFrequentTasks();
+      if (tasks.length) {
+        items.push(sep('Tasks'));
+        items.push(...tasks.map((t) => ({ label: '$(star) ' + t.label, description: t.hint, pk: 'task' as const, id: t.id })));
+      }
+      const agents = discoverAgents();
+      if (agents.length) {
+        items.push(sep('Agents'));
+        items.push(...agents.map((a) => ({ label: '$(person) ' + a.name, description: a.group, detail: a.description, pk: 'agent' as const, name: a.name })));
+      }
+      const cmds = discoverCommands();
+      if (cmds.length) {
+        items.push(sep('Commands'));
+        items.push(...cmds.map((c) => ({ label: '$(terminal-bash) /aios:' + c.name, description: c.description, pk: 'command' as const, cmd: c })));
+      }
+      const skills = discoverSkills();
+      if (skills.length) {
+        items.push(sep('Skills'));
+        items.push(...skills.map((s) => ({ label: '$(sparkle) ' + s.name, description: s.description, pk: 'skill' as const, name: s.name })));
+      }
+
+      const pick = await vscode.window.showQuickPick<PalItem>(items, {
+        title: 'AIOS — everything',
+        placeHolder: 'Type to find a session, routine, task, agent, command, or skill',
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+      if (!pick || !pick.pk) return;
+      if (pick.pk === 'session' && pick.name) return revealAgentTerminal(pick.name, pick.pid);
+      if (pick.pk === 'routine' && pick.id) return runRoutine(pick.id);
+      if (pick.pk === 'task' && pick.id) return runFrequentTask(pick.id);
+      if (pick.pk === 'agent' && pick.name) {
+        const a = discoverAgents().find((x) => x.name === pick.name);
+        return launchAios('agent', pick.name, { name: pick.name, icon: iconForAgent(a ?? { name: pick.name }), color: 'terminal.ansiCyan' });
+      }
+      if (pick.pk === 'command' && pick.cmd) return runRitual(pick.cmd); // honors arg-hint prompts
+      if (pick.pk === 'skill' && pick.name) return launchSkill(pick.name);
     }),
 
     // Open an observed file at the exact entry (from the "What Claude's learned"

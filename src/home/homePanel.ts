@@ -416,7 +416,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .scbar .scsub{font-size:10.5px; font-family:var(--mono); display:inline-flex; align-items:center; gap:2px}
   .scbar .scsub .dim{color:var(--subtle); opacity:.65; margin-left:3px}
   .scbar .lead{display:inline-block; min-width:13px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:4px; padding:0 4px; font-family:var(--mono); font-size:10px}
-  .scgrid{display:grid; grid-template-rows:repeat(9, auto); grid-auto-flow:column; grid-auto-columns:1fr; gap:4px 16px; margin:7px 0 0; font-size:11px; color:var(--subtle); font-family:var(--mono)}
+  .scgrid{display:grid; grid-template-rows:repeat(10, auto); grid-auto-flow:column; grid-auto-columns:1fr; gap:4px 16px; margin:7px 0 0; font-size:11px; color:var(--subtle); font-family:var(--mono)}
   .scgrid.collapsed{display:none}
   .scgrid kbd{display:inline-block; min-width:14px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-family:var(--mono); font-size:10.5px; margin-right:5px}
   /* Compact density — tightens spacing so more actionables fit in one view. */
@@ -637,6 +637,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   <section class="shortcuts">
     <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub"><kbd class="lead">⌘</kbd><kbd class="lead">⌥</kbd><kbd class="lead">G</kbd><span class="dim">then a key</span></span></button>
     <div class="scgrid collapsed" id="scGrid">
+      <div><kbd>*</kbd>palette</div>
       <div><kbd>D</kbd>daily ritual</div>
       <div><kbd>Y</kbd>today's note</div>
       <div><kbd>G</kbd>go-with-agents</div>

@@ -163,6 +163,11 @@
     ],
     "keybindings": [
       {
+        "command": "aios.palette",
+        "mac": "cmd+alt+g shift+8",
+        "key": "ctrl+alt+g shift+8"
+      },
+      {
         "command": "aios.frequentMenu",
         "mac": "cmd+alt+g f",
         "key": "ctrl+alt+g f"
