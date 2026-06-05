@@ -287,7 +287,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       type: 'running',
       running: running.map((a) => ({
         name: a.name, pid: a.pid, status: a.status,
-        proj: projOf(a.cwd), cwd: a.cwd, startedAt: a.startedAt, updatedAt: a.updatedAt, version: a.version,
+        proj: projOf(a.cwd), updatedAt: a.updatedAt,
       })),
       quota,
     });
@@ -898,19 +898,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
               + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
               + '</button>'
             : '';
-          // Richer status — free fields the session registry already carries:
-          // inline "status + duration · project", full detail in the hover tooltip
-          // (click stays = reveal terminal, so the tooltip IS the detail view).
+          // Richer status, inline only: "status + duration · project" (webview
+          // tooltips render unreliably in Antigravity, so no hover detail).
           const dur = fmtAgo(a.updatedAt);
           const proj = String(a.proj || '').replace(/</g,'&lt;');
           const statusTxt = s.label + (dur ? ' ' + dur : '');
-          const tip = [
-            s.title,
-            a.startedAt ? 'started ' + fmtAgo(a.startedAt) + ' ago' : '',
-            a.cwd || '',
-            a.version ? 'v' + a.version : ''
-          ].filter(Boolean).join(' · ').replace(/"/g, '&quot;') + ' — click to reveal';
-          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + tip + '">'
+          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + '<span class="runacts">'
             + interrupt

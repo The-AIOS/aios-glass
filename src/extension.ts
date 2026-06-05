@@ -242,7 +242,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Custom discriminator is `pk` — QuickPickItem.kind is reserved for separators.
     vscode.commands.registerCommand('aios.palette', async () => {
       type PalItem = vscode.QuickPickItem & {
-        pk?: 'session' | 'routine' | 'task' | 'agent' | 'command' | 'skill';
+        pk?: 'session' | 'routine' | 'task' | 'agent' | 'command' | 'skill' | 'ask';
         id?: string;
         name?: string;
         pid?: number;
@@ -288,22 +288,47 @@ export function activate(context: vscode.ExtensionContext): void {
         items.push(...skills.map((s) => ({ label: '$(sparkle) ' + s.name, description: s.description, pk: 'skill' as const, name: s.name })));
       }
 
-      const pick = await vscode.window.showQuickPick<PalItem>(items, {
-        title: 'AIOS — everything',
-        placeHolder: 'Type to find a session, routine, task, agent, command, or skill',
-        matchOnDescription: true,
-        matchOnDetail: true,
+      const qp = vscode.window.createQuickPick<PalItem>();
+      qp.title = 'AIOS — everything';
+      qp.placeholder = 'Type to find a session, routine, task, agent, command, or skill';
+      qp.matchOnDescription = true;
+      qp.matchOnDetail = true;
+      // Semantic fallback: the picker's fuzzy match is lexical (names +
+      // descriptions). When intent doesn't match words, hand the words to Claude
+      // — the engine that CAN search by meaning — instead of bundling an
+      // embedding model into a glass layer. alwaysShow keeps it reachable even
+      // when the filter matches nothing.
+      const refresh = () => {
+        const v = qp.value.trim();
+        qp.items = v
+          ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude picks + runs the best-matching action', alwaysShow: true, pk: 'ask' as const, name: v }]
+          : items;
+      };
+      refresh();
+      qp.onDidChangeValue(refresh);
+      qp.onDidAccept(() => {
+        const pick = qp.selectedItems[0];
+        qp.hide();
+        if (!pick || !pick.pk) return;
+        if (pick.pk === 'session' && pick.name) return void revealAgentTerminal(pick.name, pick.pid);
+        if (pick.pk === 'routine' && pick.id) return void runRoutine(pick.id);
+        if (pick.pk === 'task' && pick.id) return void runFrequentTask(pick.id);
+        if (pick.pk === 'agent' && pick.name) {
+          const a = discoverAgents().find((x) => x.name === pick.name);
+          return void launchAios('agent', pick.name, { name: pick.name, icon: iconForAgent(a ?? { name: pick.name }), color: 'terminal.ansiCyan' });
+        }
+        if (pick.pk === 'command' && pick.cmd) return void runRitual(pick.cmd); // honors arg-hint prompts
+        if (pick.pk === 'skill' && pick.name) return void launchSkill(pick.name);
+        if (pick.pk === 'ask' && pick.name) {
+          return void runInPrimarySession(
+            `Find the right AIOS action for this intent and run it: "${pick.name}". ` +
+            `Search my agents, /aios: commands, skills, and frequent tasks; pick the best match, ` +
+            `tell me in one line which you chose and why, then execute it. If nothing fits, say so and suggest the 2-3 closest options.`
+          );
+        }
       });
-      if (!pick || !pick.pk) return;
-      if (pick.pk === 'session' && pick.name) return revealAgentTerminal(pick.name, pick.pid);
-      if (pick.pk === 'routine' && pick.id) return runRoutine(pick.id);
-      if (pick.pk === 'task' && pick.id) return runFrequentTask(pick.id);
-      if (pick.pk === 'agent' && pick.name) {
-        const a = discoverAgents().find((x) => x.name === pick.name);
-        return launchAios('agent', pick.name, { name: pick.name, icon: iconForAgent(a ?? { name: pick.name }), color: 'terminal.ansiCyan' });
-      }
-      if (pick.pk === 'command' && pick.cmd) return runRitual(pick.cmd); // honors arg-hint prompts
-      if (pick.pk === 'skill' && pick.name) return launchSkill(pick.name);
+      qp.onDidHide(() => qp.dispose());
+      qp.show();
     }),
 
     // Open an observed file at the exact entry (from the "What Claude's learned"
