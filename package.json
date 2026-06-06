@@ -168,6 +168,11 @@
         "key": "ctrl+alt+g shift+8"
       },
       {
+        "command": "aios.askAios",
+        "mac": "cmd+alt+g q",
+        "key": "ctrl+alt+g q"
+      },
+      {
         "command": "aios.frequentMenu",
         "mac": "cmd+alt+g f",
         "key": "ctrl+alt+g f"

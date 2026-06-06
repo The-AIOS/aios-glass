@@ -666,6 +666,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   <section class="shortcuts">
     <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub"><kbd class="lead">⌘</kbd><kbd class="lead">⌥</kbd><kbd class="lead">G</kbd><span class="dim">then a key</span></span></button>
     <div class="scgrid collapsed" id="scGrid">
+      <div><kbd>Q</kbd>ask aios</div>
       <div><kbd>D</kbd>daily ritual</div>
       <div><kbd>Y</kbd>today's note</div>
       <div><kbd>G</kbd>go-with-agents</div>
@@ -675,7 +676,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>M</kbd>minimize cards</div>
       <div><kbd>H</kbd>toggle glass</div>
       <div><kbd>,</kbd>open config</div>
-      <div></div><!-- spacer: keeps col1 at 10 slots so col2 grouping holds -->
       <div><kbd>A</kbd>launch agent</div>
       <div><kbd>K</kbd>load skill</div>
       <div><kbd>C</kbd>run command</div>
