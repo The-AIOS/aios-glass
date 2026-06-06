@@ -396,6 +396,13 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .ctitle{cursor:pointer}
   .ctitle:focus-visible{outline:1.5px solid var(--accent-line); outline-offset:3px; border-radius:4px}
   .ctitle::after{content:'▾'; margin-left:auto; font-size:10px; color:var(--subtle); opacity:.5; font-weight:400; letter-spacing:0}
+  /* Card reorder (1-column is the canonical teammate layout): ↑↓ appear on the
+     title on hover/focus; they take over the caret's auto-push while visible. */
+  .cmove{margin-left:auto; display:none; align-items:center; gap:1px}
+  .ctitle:hover .cmove, .card:focus-within .cmove{display:inline-flex}
+  .ctitle:hover::after, .card:focus-within .ctitle::after{margin-left:6px}
+  .cmove button{background:transparent; border:0; color:var(--subtle); padding:0 4px; cursor:pointer; border-radius:4px; font-size:12px; line-height:1.3}
+  .cmove button:hover{color:var(--ink); background:var(--surface-2)}
   .card.collapsed .ctitle::after{content:'▸'}
   .card.collapsed .ctitle{margin-bottom:0}
   .card.collapsed > :not(.ctitle){display:none}
@@ -708,27 +715,75 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   function persistCollapsed(){ const s = (vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, s, { collapsed: Array.from(collapsed) })); }
   const titleEls = Array.from(document.querySelectorAll('.card .ctitle'));
   function setCollapsed(card, key, on){ card.classList.toggle('collapsed', on); if (on) collapsed.add(key); else collapsed.delete(key); persistCollapsed(); }
-  titleEls.forEach((ct, i) => {
+  titleEls.forEach((ct) => {
     const card = ct.closest('.card');
+    // Stable identity BEFORE injecting the move buttons (textContent would drift).
     const key = (ct.textContent || '').trim().slice(0, 40);
+    card.dataset.key = key;
     ct.tabIndex = 0;
     ct.setAttribute('role', 'button');
     if (collapsed.has(key)) card.classList.add('collapsed');
     ct.addEventListener('click', () => setCollapsed(card, key, !card.classList.contains('collapsed')));
+    // ↑↓ move buttons — every card except the pinned Daily (hero).
+    if (!card.classList.contains('hero')){
+      const mv = document.createElement('span');
+      mv.className = 'cmove';
+      mv.innerHTML = '<button data-mv="-1" title="Move card up" aria-label="Move card up">↑</button><button data-mv="1" title="Move card down" aria-label="Move card down">↓</button>';
+      mv.addEventListener('click', (e) => { e.stopPropagation(); const b = e.target.closest('button'); if (b) moveCard(card, Number(b.getAttribute('data-mv'))); });
+      ct.appendChild(mv);
+    }
     ct.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowDown'){ e.preventDefault(); (titleEls[i + 1] || titleEls[0]).focus(); }
-      else if (e.key === 'ArrowUp'){ e.preventDefault(); (titleEls[i - 1] || titleEls[titleEls.length - 1]).focus(); }
+      // Alt+arrows MOVE the card; plain arrows navigate (recomputed in DOM order,
+      // so navigation follows reorders).
+      if (e.altKey && e.key === 'ArrowUp'){ e.preventDefault(); if (!card.classList.contains('hero')) moveCard(card, -1); }
+      else if (e.altKey && e.key === 'ArrowDown'){ e.preventDefault(); if (!card.classList.contains('hero')) moveCard(card, 1); }
+      else if (e.key === 'ArrowDown'){ e.preventDefault(); const ts = Array.from(document.querySelectorAll('.card .ctitle')); const ci = ts.indexOf(ct); (ts[ci + 1] || ts[0]).focus(); }
+      else if (e.key === 'ArrowUp'){ e.preventDefault(); const ts = Array.from(document.querySelectorAll('.card .ctitle')); const ci = ts.indexOf(ct); (ts[ci - 1] || ts[ts.length - 1]).focus(); }
       else if (e.key === 'ArrowRight'){ e.preventDefault(); setCollapsed(card, key, false); }
       else if (e.key === 'ArrowLeft'){ e.preventDefault(); setCollapsed(card, key, true); }
       else if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setCollapsed(card, key, !card.classList.contains('collapsed')); }
     });
   });
+
+  // ── Card reordering ── the 1-column stacking (col1→col2→col3) is the canonical
+  // order; moving across a column boundary reparents the card, which is the
+  // operator's explicit choice. Daily (hero) is pinned: excluded from the movable
+  // list, and since it precedes the first movable slot, nothing can pass above it.
+  const movableCards = () => Array.from(document.querySelectorAll('.card')).filter((c) => !c.classList.contains('hero'));
+  function persistOrder(){ const s = (vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, s, { cardOrder: movableCards().map((c) => c.dataset.key) })); }
+  function moveCard(card, dir){
+    const list = movableCards();
+    const i = list.indexOf(card);
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const ref = list[j];
+    if (dir < 0) ref.parentNode.insertBefore(card, ref);
+    else ref.parentNode.insertBefore(card, ref.nextSibling);
+    persistOrder();
+    const t = card.querySelector('.ctitle'); if (t) t.focus();
+  }
+  // Boot-apply the saved order. Only moves what's out of place — a never-reordered
+  // panel keeps its curated default layout untouched. Cards added by future
+  // versions (unknown keys) keep their natural slot at the end.
+  (function applyOrder(){
+    const saved = cstate0.cardOrder || [];
+    if (!saved.length) return;
+    const domKeys = movableCards().map((c) => c.dataset.key);
+    const target = saved.filter((k) => domKeys.includes(k)).concat(domKeys.filter((k) => !saved.includes(k)));
+    for (let i = 0; i < target.length; i++){
+      const cur = movableCards();
+      if (cur[i].dataset.key !== target[i]){
+        const node = cur.find((c) => c.dataset.key === target[i]);
+        if (node) cur[i].parentNode.insertBefore(node, cur[i]);
+      }
+    }
+  })();
   // Minimize / expand ALL cards (⌘⌥G M): if any is open, collapse all; else expand all.
   function toggleAllCards(){
     const titles = Array.from(document.querySelectorAll('.card .ctitle'));
     const anyOpen = titles.some((ct) => !ct.closest('.card').classList.contains('collapsed'));
     titles.forEach((ct) => {
-      const card = ct.closest('.card'); const key = (ct.textContent || '').trim().slice(0, 40);
+      const card = ct.closest('.card'); const key = card.dataset.key || '';
       if (anyOpen) { card.classList.add('collapsed'); collapsed.add(key); }
       else { card.classList.remove('collapsed'); collapsed.delete(key); }
     });
