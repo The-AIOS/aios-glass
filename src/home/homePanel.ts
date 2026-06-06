@@ -679,6 +679,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>T</kbd>new terminal</div>
       <div><kbd>E</kbd>create report</div>
       <div><kbd>F</kbd>frequent tasks</div>
+      <div><kbd>⌥↑↓</kbd>move card</div>
     </div>
   </section>
 
