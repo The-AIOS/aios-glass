@@ -389,7 +389,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .col.minor .card{background:transparent}
   .card{background:var(--surface-1); border:1px solid var(--line); border-radius:16px; padding:18px;
     /* glass cues: a 1px top edge catching light + a soft float off the background */
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.045), 0 10px 26px -18px rgba(0,0,0,.5)}
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 30px -14px rgba(0,0,0,.7)}
   .card.hero{border-color:var(--accent-line)}
   .ctitle{font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--subtle);
     margin:0 0 14px; display:flex; align-items:center; gap:8px}
@@ -514,7 +514,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .btn.ask{margin:-2px 0 0; padding:12px 14px; text-align:center; font-weight:650; color:var(--ink);
     border:2px solid transparent;
     background:
-      linear-gradient(155deg, rgba(255,255,255,.05), transparent 38%) padding-box,
+      linear-gradient(155deg, rgba(255,255,255,.11), transparent 45%) padding-box,
       linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
       linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 30%, var(--line)) 50%, var(--accent)) border-box}
   .btn.ask:hover{
