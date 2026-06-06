@@ -427,7 +427,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .scgrid.collapsed{display:none}
   .scgrid kbd{display:inline-block; min-width:14px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-family:var(--mono); font-size:10.5px; margin-right:5px}
   /* full-width footer row of the grid (spans both columns, collapses with it) */
-  .scgrid .scwide{grid-row:11; grid-column:1 / -1; display:flex; align-items:center; margin-top:3px}
+  /* note: auto-flow grids have no explicit column tracks, so '1 / -1' collapses
+     to one column — span to line 3 explicitly */
+  .scgrid .scwide{grid-row:11; grid-column:1 / 3; display:flex; align-items:center; margin-top:3px}
   .scgrid .scwide kbd{margin-right:3px}
   .scgrid .scwide kbd:last-of-type{margin-right:6px}
   /* Compact density — tightens spacing so more actionables fit in one view. */
@@ -664,7 +666,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   <section class="shortcuts">
     <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub"><kbd class="lead">⌘</kbd><kbd class="lead">⌥</kbd><kbd class="lead">G</kbd><span class="dim">then a key</span></span></button>
     <div class="scgrid collapsed" id="scGrid">
-      <div><kbd>*</kbd>palette</div>
       <div><kbd>D</kbd>daily ritual</div>
       <div><kbd>Y</kbd>today's note</div>
       <div><kbd>G</kbd>go-with-agents</div>
@@ -674,6 +675,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>M</kbd>minimize cards</div>
       <div><kbd>H</kbd>toggle glass</div>
       <div><kbd>,</kbd>open config</div>
+      <div></div><!-- spacer: keeps col1 at 10 slots so col2 grouping holds -->
       <div><kbd>A</kbd>launch agent</div>
       <div><kbd>K</kbd>load skill</div>
       <div><kbd>C</kbd>run command</div>
@@ -683,6 +685,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>T</kbd>new terminal</div>
       <div><kbd>E</kbd>create report</div>
       <div><kbd>F</kbd>frequent tasks</div>
+      <div><kbd>*</kbd>palette</div>
       <div class="scwide"><kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd>move selected card</div>
     </div>
   </section>
