@@ -277,8 +277,56 @@ export async function launchPrimary(name: string): Promise<void> {
 }
 
 /** Resume a Claude conversation — always a new terminal with the session picker. */
+/**
+ * Resume picker. The operator picks the session INSIDE Claude's TUI, so Glass
+ * can't name the terminal up front — but once picked, the session registers in
+ * `~/.claude/sessions` with its real name and its pid descends from this
+ * terminal's shell. Poll for that match and adopt the name as the terminal name
+ * too. Best-effort vanity: renameWithArg only acts on the ACTIVE terminal, so we
+ * rename the moment the match lands while the operator is still in it (retrying
+ * while they are elsewhere); give up silently after 3 min or on terminal close.
+ */
 export async function launchResume(): Promise<void> {
-  runNew(`${claudeBin()} --resume`, { name: 'resume', icon: 'history', color: 'terminal.ansiBlue' });
+  const t = newTerminal({ name: 'resume', icon: 'history', color: 'terminal.ansiBlue' });
+  t.show(true);
+  t.sendText(`${claudeBin()} --resume`);
+
+  const shellPid = await t.processId;
+  if (!shellPid) return;
+  let closed = false;
+  const sub = vscode.window.onDidCloseTerminal((x) => { if (x === t) { closed = true; sub.dispose(); } });
+  const started = Date.now();
+
+  const tick = async (): Promise<void> => {
+    if (closed || Date.now() - started > 180000) { sub.dispose(); return; }
+    try {
+      const agents = await listRunningAgents();
+      const ppidOf = await getPpidMap();
+      for (const a of agents) {
+        if (!a.name || a.name === '(unnamed)') continue;
+        // Walk the session pid's ancestry — if it passes through our shell, it's
+        // the session the operator just resumed in this terminal.
+        let cur = a.pid;
+        let ours = false;
+        for (let i = 0; i < 64; i++) {
+          if (cur === shellPid) { ours = true; break; }
+          const pp = ppidOf.get(cur);
+          if (pp === undefined || pp <= 1) break;
+          cur = pp;
+        }
+        if (ours) {
+          if (vscode.window.activeTerminal === t) {
+            try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: a.name }); } catch { /* best effort */ }
+            sub.dispose();
+            return;
+          }
+          break; // matched but terminal not active — retry next tick
+        }
+      }
+    } catch { /* best effort */ }
+    setTimeout(() => { void tick(); }, 2000);
+  };
+  setTimeout(() => { void tick(); }, 3000);
 }
 
 /** Kill a running spawned worker via spawn-kill. */
