@@ -393,10 +393,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     transition:border-color .18s, box-shadow .18s, background .18s}
   /* Ask-button-family hover, each card in its own palette: neutral panes catch
      more light (white-ward), the Daily hero glows its accent. */
-  .card:hover{border-color:color-mix(in srgb, var(--ink) 16%, var(--line));
+  /* :focus-within keeps the highlight while a card title is SELECTED — without it,
+     keyboard reordering (Alt+↑↓) has no visible target once the mouse leaves. */
+  .card:hover, .card:focus-within{border-color:color-mix(in srgb, var(--ink) 16%, var(--line));
     background:color-mix(in srgb, var(--ink) 2.5%, var(--surface-1));
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 16px 34px -12px rgba(0,0,0,.75), 0 0 14px rgba(255,255,255,.035)}
-  .card.hero:hover{border-color:var(--accent);
+  .card.hero:hover, .card.hero:focus-within{border-color:var(--accent);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 16px color-mix(in srgb, var(--accent) 22%, transparent), 0 16px 34px -14px rgba(0,0,0,.7)}
   .card.hero{border-color:var(--accent-line)}
   .ctitle{font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--subtle);
