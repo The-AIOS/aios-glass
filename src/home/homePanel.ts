@@ -532,7 +532,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     box-shadow:0 0 14px color-mix(in srgb, var(--accent) 22%, transparent)}
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
-  .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:800; text-align:center; padding:14px}
+  .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:400; text-align:center; padding:14px}
   .btn.primary:hover{background:var(--accent-soft); border-color:var(--accent-soft);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent)}
   .btn.ghost{text-align:center; color:var(--muted)}
