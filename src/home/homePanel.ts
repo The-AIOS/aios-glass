@@ -389,7 +389,15 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .col.minor .card{background:transparent}
   .card{background:var(--surface-1); border:1px solid var(--line); border-radius:16px; padding:18px;
     /* glass cues: a 1px top edge catching light + a soft float off the background */
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 30px -14px rgba(0,0,0,.7)}
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 30px -14px rgba(0,0,0,.7);
+    transition:border-color .18s, box-shadow .18s, background .18s}
+  /* Ask-button-family hover, each card in its own palette: neutral panes catch
+     more light (white-ward), the Daily hero glows its accent. */
+  .card:hover{border-color:color-mix(in srgb, var(--ink) 16%, var(--line));
+    background:color-mix(in srgb, var(--ink) 2.5%, var(--surface-1));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 16px 34px -12px rgba(0,0,0,.75), 0 0 14px rgba(255,255,255,.035)}
+  .card.hero:hover{border-color:var(--accent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 16px color-mix(in srgb, var(--accent) 22%, transparent), 0 16px 34px -14px rgba(0,0,0,.7)}
   .card.hero{border-color:var(--accent-line)}
   .ctitle{font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--subtle);
     margin:0 0 14px; display:flex; align-items:center; gap:8px}
