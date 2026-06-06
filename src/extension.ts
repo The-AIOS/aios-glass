@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, initFrequentTasks, listFrequentTasks } from './tasks/frequent';
-import { initRoutines, listRoutines, runRoutine, routineDue, cadenceLabel } from './tasks/routines';
+import { initRoutines, listRoutines, runRoutine } from './tasks/routines';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
@@ -275,8 +275,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (routines.length) {
         items.push(sep('Routines'));
         items.push(...routines.map((r) => ({
-          label: '$(calendar) ' + r.label,
-          description: cadenceLabel(r.cadence) + (routineDue(r) ? ' · due' : ''),
+          label: '$(run-all) ' + r.label,
+          description: `routine · ${r.taskIds.length} tasks`,
           pk: 'routine' as const, id: r.id,
         })));
       }

@@ -3,7 +3,7 @@ import { launchAios, launchSkill, launchInSession, askAios } from '../rituals/ru
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { discoverCommands } from '../aios/commands';
 import { discoverSkills } from '../capabilities/capabilities';
-import { Routine, listRoutines, routineDue, cadenceLabel, runRoutine, removeRoutine, addRoutineFlow } from './routines';
+import { Routine, listRoutines, runRoutine, removeRoutine, addRoutineFlow } from './routines';
 
 /**
  * Frequent tasks: intent-first launchers. The operator picks *what they want
@@ -186,17 +186,15 @@ export async function openFrequentMenu(): Promise<void> {
 
   const refresh = () => {
     const items: MenuItem[] = [];
-    // Routines first — due ones float to the top with a chip.
-    const routines = listRoutines()
-      .map((r) => ({ r, due: routineDue(r) }))
-      .sort((a, b) => Number(b.due) - Number(a.due));
+    // Routines first — bundled tasks, one click runs the whole sequence.
+    const routines = listRoutines();
     if (routines.length) {
       items.push({ label: 'Routines', kind: vscode.QuickPickItemKind.Separator });
-      for (const { r, due } of routines) {
+      for (const r of routines) {
         const n = r.taskIds.length;
         items.push({
-          label: (due ? '$(circle-filled) ' : '$(calendar) ') + r.label,
-          description: `${cadenceLabel(r.cadence)} · ${n} task${n === 1 ? '' : 's'}${due ? ' · due' : ''}`,
+          label: '$(run-all) ' + r.label,
+          description: `${n} task${n === 1 ? '' : 's'} in one click`,
           routine: r,
           buttons: [removeBtn],
         });

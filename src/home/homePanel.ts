@@ -458,7 +458,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink); padding:3px 6px; border-radius:6px; cursor:pointer}
   .runitem:hover{background:var(--surface-2)}
   .runitem:focus-visible{outline:1px solid var(--accent); outline-offset:0}
-  .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
   .lhead .btn{flex:1; margin-bottom:0}
   .lhead-add{flex:0 0 auto; width:30px; height:30px; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
@@ -472,7 +472,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
   .runkill{color:#f5564a}  /* trash is always red — destructive affordance */
   .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
-  .runitem .k{margin-left:0; font-size:11px}
+  /* status/project text trims with ellipsis — a session row NEVER wraps to 2 lines
+     (the hover action buttons take their space from the text, not a new line) */
+  .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   .runitem .dot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}
   .runitem .dot.busy{background:#f5a623; box-shadow:0 0 0 2px color-mix(in srgb, #f5a623 22%, transparent)}
   .runitem .dot.idle{background:#3ec77a}
@@ -484,9 +486,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .btn.accent .val{color:var(--accent)}
   .btn.dim{opacity:.5}
   .launch{display:flex; gap:8px; margin-bottom:2px}
-  /* Ask AIOS — the intent line: full-width, accent-tinted, sits under Launch/Resume. */
-  .btn.ask{margin:8px 0 2px; border-color:color-mix(in srgb, var(--accent) 45%, var(--line)); background:color-mix(in srgb, var(--accent) 9%, var(--surface-1))}
-  .btn.ask:hover{background:color-mix(in srgb, var(--accent) 17%, var(--surface-1))}
+  /* Ask AIOS — the intent line: full-width, INVERTED like the Launch button
+     (filled accent, dark text) — a primary action, not a tinted nudge. */
+  .btn.ask{margin:8px 0 2px; background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:700; text-align:center}
+  .btn.ask .k{color:#0a0a0a; opacity:.62}
+  .btn.ask:hover{background:var(--accent-soft); border-color:var(--accent-soft)}
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
   .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:700; text-align:center; padding:14px}
