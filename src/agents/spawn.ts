@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { Agent, discoverAgents, iconForAgent } from './agents';
-import { launchSpawn, launchAios, revealAgentTerminal } from '../rituals/runner';
+import { launchSpawn, launchAios, revealAgentTerminal, pickWithAsk } from '../rituals/runner';
 import { listRunningAgents } from './running';
 
 /**
@@ -18,14 +18,16 @@ export async function spawnAgentFlow(preselected?: Agent): Promise<void> {
       void vscode.window.showWarningMessage('AIOS Glass: no agents found under agents/.');
       return;
     }
-    const pick = await vscode.window.showQuickPick(
+    const pick = await pickWithAsk(
       agents.map((a) => ({
         label: a.name,
         description: a.group,
-        detail: a.description,
+        // keywords ride in the matched detail so intent words ("social media")
+        // land on the agent that declares them
+        detail: a.description + (a.keywords ? ` · ${a.keywords}` : ''),
         agent: a
       })),
-      { title: 'Launch an agent (wear its hat)', placeHolder: 'Pick an agent', matchOnDescription: true, matchOnDetail: true }
+      { title: 'Launch an agent (wear its hat)', placeHolder: 'Pick an agent — or type what you need', matchOnDescription: true, matchOnDetail: true }
     );
     if (!pick) return;
     agent = pick.agent;

@@ -484,6 +484,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .btn.accent .val{color:var(--accent)}
   .btn.dim{opacity:.5}
   .launch{display:flex; gap:8px; margin-bottom:2px}
+  /* Ask AIOS — the intent line: full-width, accent-tinted, sits under Launch/Resume. */
+  .btn.ask{margin:8px 0 2px; border-color:color-mix(in srgb, var(--accent) 45%, var(--line)); background:color-mix(in srgb, var(--accent) 9%, var(--surface-1))}
+  .btn.ask:hover{background:color-mix(in srgb, var(--accent) 17%, var(--surface-1))}
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
   .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:700; text-align:center; padding:14px}
@@ -541,6 +544,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn primary" id="launchPrimary">▶ Launch <span id="vPrimary">aios</span></button>
         <button class="btn ghost" id="resume">Resume</button>
       </div>
+      <button class="btn ask" id="askBtn" title="Type what you need — Claude finds and runs the right AIOS action">✨ Ask AIOS <span class="k">find + run by meaning</span></button>
 
       <section class="card hero">
         <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>
@@ -781,6 +785,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   }
 
   document.getElementById('launchPrimary').addEventListener('click', () => run('aios.launchPrimary'));
+  document.getElementById('askBtn').addEventListener('click', () => run('aios.askAios'));
   document.getElementById('spawnWorker').addEventListener('click', () => run('aios.spawnWorker'));
   document.getElementById('resume').addEventListener('click', () => run('aios.resume'));
   document.getElementById('cmdPicker').addEventListener('click', () => run('aios.runRitualPicker'));

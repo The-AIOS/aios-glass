@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { launchAios, launchSkill, launchInSession } from '../rituals/runner';
+import { launchAios, launchSkill, launchInSession, askAios } from '../rituals/runner';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { discoverCommands } from '../aios/commands';
 import { discoverSkills } from '../capabilities/capabilities';
@@ -175,7 +175,7 @@ async function runTask(t: FreqTask): Promise<void> {
   }
 }
 
-type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean; createNew?: string };
+type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean; createNew?: string; ask?: string };
 
 /** Open the Quick menu: routines (due-first) + tasks — pick to run, trash to remove, add either. */
 export async function openFrequentMenu(): Promise<void> {
@@ -207,11 +207,14 @@ export async function openFrequentMenu(): Promise<void> {
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
     items.push({ label: '$(add) Add a frequent task', add: true });
     items.push({ label: '$(add) Add a routine', addRoutine: true });
-    // Type-to-create: whatever's typed becomes a one-Enter task seed. alwaysShow
-    // keeps it visible even when the filter matches nothing — so an unmatched
-    // search turns into "create it" instead of a dead end.
+    // Type-to-act: whatever's typed becomes one-Enter actions. alwaysShow keeps
+    // them visible even when the filter matches nothing — an unmatched search
+    // turns into "create it" or "ask AIOS" instead of a dead end.
     const typed = qp.value.trim();
-    if (typed) items.push({ label: `$(add) Create task "${typed}"`, alwaysShow: true, createNew: typed });
+    if (typed) {
+      items.push({ label: `$(add) Create task "${typed}"`, alwaysShow: true, createNew: typed });
+      items.push({ label: `$(sparkle) Ask AIOS: "${typed}"`, description: 'Claude picks + runs the best-matching action', alwaysShow: true, ask: typed });
+    }
     qp.items = items;
   };
   refresh();
@@ -235,6 +238,7 @@ export async function openFrequentMenu(): Promise<void> {
     if (!sel) return;
     if (sel.add) { qp.hide(); await addFrequentTask(); return; }
     if (sel.createNew) { qp.hide(); await addFrequentTask(sel.createNew); return; }
+    if (sel.ask) { qp.hide(); askAios(sel.ask); return; }
     if (sel.addRoutine) { qp.hide(); await addRoutineFlow(); await openFrequentMenu(); return; }
     if (sel.routine) { qp.hide(); await runRoutine(sel.routine.id); return; }
     if (sel.task) { qp.hide(); await runTask(sel.task); }

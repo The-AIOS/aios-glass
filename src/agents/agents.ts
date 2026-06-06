@@ -15,6 +15,9 @@ export interface Agent {
   group: string;
   /** codicon id declared in the agent's frontmatter `icon:` (if any) */
   icon?: string;
+  /** search synonyms from frontmatter `keywords:` — e.g. content-writer can
+   *  declare "social media, posts, linkedin" so intent words find it in pickers */
+  keywords?: string;
   filePath: string;
 }
 
@@ -108,7 +111,7 @@ export function discoverAgents(): Agent[] {
     const dirName = path.basename(path.dirname(rel)) || 'agents';
     const group = groupLabel(dirName === 'agents' ? 'general' : dirName);
     const name = fm.name || base.replace(/\.md$/, '');
-    agents.push({ name, description: fm.description ?? '', group, icon: fm.icon, filePath });
+    agents.push({ name, description: fm.description ?? '', group, icon: fm.icon, keywords: fm.keywords, filePath });
   }
 
   return agents.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));

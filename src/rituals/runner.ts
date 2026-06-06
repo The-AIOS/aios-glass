@@ -243,9 +243,9 @@ export async function runInActiveClaude(slash: string): Promise<void> {
 /** Quick-pick across all commands, then run the chosen one. */
 export async function runRitualPicker(): Promise<void> {
   const cmds = discoverCommands();
-  const pick = await vscode.window.showQuickPick(
+  const pick = await pickWithAsk(
     cmds.map((c) => ({ label: `/aios:${c.name}`, description: c.cadence, detail: c.description, cmd: c })),
-    { title: 'Run an AIOS command', placeHolder: 'Pick a command', matchOnDetail: true }
+    { title: 'Run an AIOS command', placeHolder: 'Pick a command — or type what you need', matchOnDetail: true }
   );
   if (pick) await runRitual(pick.cmd);
 }
@@ -373,6 +373,61 @@ export async function disposeAgentTerminal(name: string, pid?: number): Promise<
 /** Launch native Claude with a natural-language prompt — fresh terminal. */
 export async function launchPrompt(text: string): Promise<void> {
   runNew(`${claudeBin()} ${shellQuote(text)}`, { name: 'AIOS', icon: 'aios-mark' });
+}
+
+/**
+ * "Ask AIOS" — route a natural-language intent to a FRESH session that finds and
+ * runs the best-matching AIOS action (agent / command / skill / task). Claude is
+ * the semantic engine; Glass just hands it the words. Terminal + session are
+ * named from the intent (e.g. `ask-social-media`) so the Running list reads
+ * what it's about.
+ */
+export function askAios(intent: string): void {
+  const t = intent.trim();
+  if (!t) return;
+  const name = ('ask-' + t.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/-+$/, '').slice(0, 28).replace(/-+$/, '');
+  const prompt =
+    `Find the right AIOS action for this intent and run it: "${t}". ` +
+    `Search my agents, /aios: commands, skills, and frequent tasks; pick the best match, ` +
+    `tell me in one line which you chose and why, then execute it. If nothing fits, say so and suggest the 2-3 closest options.`;
+  runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' });
+}
+
+/**
+ * QuickPick wrapper with the "Ask AIOS" fallback: whatever's typed becomes an
+ * alwaysShow ask-item, so a search that matches nothing still resolves — Claude
+ * picks the action by MEANING instead of the picker's lexical fuzzy match.
+ * Resolves the chosen item, or undefined (cancelled / routed to Ask AIOS).
+ */
+export function pickWithAsk<T extends vscode.QuickPickItem>(
+  items: T[],
+  opts: { title?: string; placeHolder?: string; matchOnDescription?: boolean; matchOnDetail?: boolean }
+): Promise<T | undefined> {
+  type AskItem = vscode.QuickPickItem & { __ask?: string };
+  return new Promise((resolve) => {
+    const qp = vscode.window.createQuickPick<T | AskItem>();
+    qp.title = opts.title;
+    qp.placeholder = opts.placeHolder;
+    qp.matchOnDescription = !!opts.matchOnDescription;
+    qp.matchOnDetail = !!opts.matchOnDetail;
+    let done = false;
+    const finish = (val: T | undefined) => { if (!done) { done = true; resolve(val); } qp.hide(); };
+    const refresh = () => {
+      const v = qp.value.trim();
+      qp.items = v
+        ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude picks + runs the best-matching action', alwaysShow: true, __ask: v } as AskItem]
+        : items;
+    };
+    refresh();
+    qp.onDidChangeValue(refresh);
+    qp.onDidAccept(() => {
+      const s = qp.selectedItems[0] as (T & AskItem) | undefined;
+      if (s && s.__ask) { askAios(s.__ask); finish(undefined); return; }
+      finish(s as T | undefined);
+    });
+    qp.onDidHide(() => { if (!done) { done = true; resolve(undefined); } qp.dispose(); });
+    qp.show();
+  });
 }
 
 /** Run a bare claude subcommand (e.g. `auth login`) in a fresh, named terminal. */

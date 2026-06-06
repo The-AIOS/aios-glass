@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, initFrequentTasks, listFrequentTasks } from './tasks/frequent';
 import { initRoutines, listRoutines, runRoutine, routineDue, cadenceLabel } from './tasks/routines';
@@ -112,6 +112,19 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.launchPrimary', () => launchPrimary(primaryName())),
     vscode.commands.registerCommand('aios.resume', () => launchResume()),
+
+    // Ask AIOS — type an intent, Claude finds + runs the best-matching action in
+    // a fresh session named from the intent. The panel's full-width button and
+    // every picker's no-match fallback both land here.
+    vscode.commands.registerCommand('aios.askAios', async () => {
+      const intent = await vscode.window.showInputBox({
+        title: 'Ask AIOS',
+        prompt: 'What do you need? Claude finds and runs the right action',
+        placeHolder: "e.g. 'prep tomorrow's investor call' · 'post about our launch'",
+        ignoreFocusOut: true,
+      });
+      if (intent?.trim()) askAios(intent.trim());
+    }),
 
     // Reports: pick type + period → generate.
     vscode.commands.registerCommand('aios.reports', () => runReports()),
@@ -275,7 +288,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const agents = discoverAgents();
       if (agents.length) {
         items.push(sep('Agents'));
-        items.push(...agents.map((a) => ({ label: '$(person) ' + a.name, description: a.group, detail: a.description, pk: 'agent' as const, name: a.name })));
+        items.push(...agents.map((a) => ({ label: '$(person) ' + a.name, description: a.group, detail: a.description + (a.keywords ? ' · ' + a.keywords : ''), pk: 'agent' as const, name: a.name })));
       }
       const cmds = discoverCommands();
       if (cmds.length) {
@@ -319,13 +332,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         if (pick.pk === 'command' && pick.cmd) return void runRitual(pick.cmd); // honors arg-hint prompts
         if (pick.pk === 'skill' && pick.name) return void launchSkill(pick.name);
-        if (pick.pk === 'ask' && pick.name) {
-          return void runInPrimarySession(
-            `Find the right AIOS action for this intent and run it: "${pick.name}". ` +
-            `Search my agents, /aios: commands, skills, and frequent tasks; pick the best match, ` +
-            `tell me in one line which you chose and why, then execute it. If nothing fits, say so and suggest the 2-3 closest options.`
-          );
-        }
+        if (pick.pk === 'ask' && pick.name) return void askAios(pick.name); // fresh session named from the intent
       });
       qp.onDidHide(() => qp.dispose());
       qp.show();

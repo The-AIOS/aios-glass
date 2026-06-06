@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from '../home/vault';
 import { parseFrontmatter } from '../aios/commands';
-import { launchSkill } from '../rituals/runner';
+import { launchSkill, pickWithAsk } from '../rituals/runner';
 
 export type CapabilityKind = 'skill' | 'mcp' | 'plugin';
 
@@ -147,9 +147,9 @@ export async function skillsPicker(): Promise<void> {
     void vscode.window.showWarningMessage('AIOS Glass: no skills found under skills/.');
     return;
   }
-  const pick = await vscode.window.showQuickPick(
+  const pick = await pickWithAsk(
     skills.map((s) => ({ label: s.name, description: s.group, detail: s.description, cap: s })),
-    { title: 'Run a skill', placeHolder: 'Pick a skill to invoke', matchOnDescription: true, matchOnDetail: true }
+    { title: 'Run a skill', placeHolder: 'Pick a skill to invoke — or type what you need', matchOnDescription: true, matchOnDetail: true }
   );
   if (pick) await launchSkill(pick.cap.name);
 }

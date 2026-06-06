@@ -135,6 +135,9 @@ interface Frontmatter {
   argumentHint?: string;
   /** Optional codicon id an element can declare to style its terminal/UI. */
   icon?: string;
+  /** Optional search synonyms (`keywords: social media, posts, linkedin`) —
+   *  folded into pickers' matched detail so intent words find the element. */
+  keywords?: string;
   tags: string[];
 }
 
@@ -171,6 +174,7 @@ export function parseFrontmatter(content: string): Frontmatter {
     if (key === 'name') fm.name = value;
     else if (key === 'description') fm.description = value;
     else if (key === 'icon') fm.icon = value;
+    else if (key === 'keywords') fm.keywords = value.replace(/^\[|\]$/g, '').trim();
     else if (key === 'argument-hint') fm.argumentHint = value;
     else if (key === 'tags' && value) {
       // inline list form: tags: [a, b]
