@@ -415,7 +415,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
      subtitles for a label-only view. Scoped to .btn/.ctitle so functional labels
      elsewhere stay — the 5h-usage label (.quotarow .k) and session-item status
      (.runitem .k). Counts (.val) and helper lines (.muted) are also unaffected. */
-  body.no-hints .btn .k, body.no-hints .ctitle .sub{display:none}
+  body.no-hints .btn .k, body.no-hints .ctitle .sub, body.no-hints #runHint{display:none}
   /* Keyboard shortcuts — its own collapsible section (independent of the hints toggle). */
   .shortcuts{margin:18px 2px 6px}
   .scbar{display:flex; align-items:center; gap:6px; width:100%; background:transparent; border:0; color:var(--subtle); font-size:11.5px; font-family:var(--font); cursor:pointer; padding:4px 0; text-align:left}
@@ -624,7 +624,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)">＋</button>
         </div>
         <div class="runlist" id="termList"></div>
-        <p class="muted" id="runHint">Click: reveal · Hover: interrupt, close session or kill.</p>
+        <p class="muted" id="runHint">Click to reveal.<br>Hover to interrupt, close session or kill.</p>
       </section>
 
       <section class="card">
