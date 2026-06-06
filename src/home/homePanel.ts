@@ -494,7 +494,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
   .lhead .btn{flex:1; margin-bottom:0}
-  .lhead-add{flex:0 0 auto; width:30px; height:30px; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
+  /* stretch to the toggle pill's exact height — flush top and bottom, any mode */
+  .lhead-add{flex:0 0 auto; width:30px; align-self:stretch; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
   /* Row actions — icon-only, hidden at rest, revealed on hover. Tooltips (title)
      carry the meaning; close-session uses a door/exit icon so it reads clearly. */
