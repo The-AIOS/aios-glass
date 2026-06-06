@@ -972,7 +972,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       // Self-clean: once the registry no longer lists a killed pid, stop filtering it.
       for (const pid of Array.from(killed)) { if (!raw.some((a) => a.pid === pid)) killed.delete(pid); }
       const r = raw.filter((a) => !killed.has(a.pid));
-      const v = document.getElementById('vRunning'); v.textContent = r.length + '';
+      const v = document.getElementById('vRunning'); v.textContent = r.length ? r.length + '' : '';
       v.className = r.length ? 'val' : 'k';
       const list = document.getElementById('runningList');
       if (list){
@@ -1023,7 +1023,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       } else { qw.style.display = 'none'; }
     } else if (msg.type === 'terminals'){
       const terms = msg.terminals || [];
-      const vt = document.getElementById('vTerms'); vt.textContent = terms.length + ''; vt.className = terms.length ? 'val' : 'k';
+      const vt = document.getElementById('vTerms'); vt.textContent = terms.length ? terms.length + '' : ''; vt.className = terms.length ? 'val' : 'k';
       const tl = document.getElementById('termList');
       if (tl){
         tl.innerHTML = terms.map((t) => {
