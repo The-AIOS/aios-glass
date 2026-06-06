@@ -389,7 +389,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .col.minor .card{background:transparent}
   .card{background:var(--surface-1); border:1px solid var(--line); border-radius:16px; padding:18px;
     /* glass cues: a 1px top edge catching light + a soft float off the background */
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 14px 30px -14px rgba(0,0,0,.7);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 14px 30px -14px rgba(0,0,0,.7);
     transition:border-color .18s, box-shadow .18s, background .18s}
   /* Ask-button-family hover, each card in its own palette: neutral panes catch
      more light (white-ward), the Daily hero glows its accent. */
@@ -533,8 +533,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
   .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:800; text-align:center; padding:14px}
-  .btn.primary:hover{background:var(--accent-soft); border-color:var(--accent-soft)}
+  .btn.primary:hover{background:var(--accent-soft); border-color:var(--accent-soft);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent)}
   .btn.ghost{text-align:center; color:var(--muted)}
+  .btn.ghost:hover{color:var(--ink); border-color:color-mix(in srgb, var(--ink) 22%, var(--line));
+    background:color-mix(in srgb, var(--ink) 3%, var(--surface-2)); box-shadow:0 0 12px rgba(255,255,255,.04)}
   .muted{color:var(--muted); font-size:13px; margin:8px 0 0}
   .badge{display:inline-block; font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--subtle)}
   .badge.ok{color:var(--ok); border-color:rgba(90,209,154,.4)}
