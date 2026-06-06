@@ -71,7 +71,7 @@ export async function addRoutineFlow(): Promise<boolean> {
   const label = await vscode.window.showInputBox({
     title: 'Add a routine',
     prompt: 'Routine name — a bundle of tasks that runs in one click',
-    placeHolder: 'e.g. Thinkers Symposium',
+    placeHolder: 'e.g. Monday Kickoff — plan the day, prep the meetings, draft the posts',
     ignoreFocusOut: true,
   });
   if (!label?.trim()) return false;
