@@ -463,7 +463,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .nudge{display:flex; align-items:center; gap:6px; width:100%; background:color-mix(in srgb, var(--ink) 4%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--ink) 14%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; margin-bottom:16px;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
   .nudge:hover{background:color-mix(in srgb, var(--ink) 7%, var(--surface-1)); border-color:color-mix(in srgb, var(--ink) 22%, var(--line))}
-  .nudgebody{flex:1; min-width:0; text-align:left; background:transparent; border:0; color:var(--ink); font-size:13.5px; line-height:1.35; cursor:pointer; font-family:var(--font); padding:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .nudgebody{flex:1; min-width:0; text-align:left; background:transparent; border:0; color:var(--ink); font-size:12px; line-height:1.35; cursor:pointer; font-family:var(--font); padding:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .nudgebody .nicon{font-size:10.5px}
   .nudgex{flex:0 0 auto; background:transparent; border:0; color:var(--subtle); font-size:12px; line-height:1; cursor:pointer; padding:3px 5px; border-radius:6px; opacity:.55}
   .nudgex:hover{opacity:1; color:var(--ink); background:color-mix(in srgb, var(--ink) 10%, transparent)}
   .quota{display:block; width:100%; text-align:left; background:color-mix(in srgb, #f5a623 16%, var(--surface-1)); border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:var(--ink); border-radius:10px; padding:9px 12px; font-size:13px; cursor:pointer; margin-bottom:10px; font-family:var(--font)}
@@ -841,7 +842,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const card=document.getElementById('nudgeCard'), act=document.getElementById('nudgeAction');
     if(!n || nudgeDismissed.has(n.kind)){ card.style.display='none'; act.dataset.kind=''; return; }
     act.textContent='';
-    act.append(document.createTextNode(n.icon + ' '));
+    const ic=document.createElement('span'); ic.className='nicon'; ic.textContent=n.icon + ' '; act.append(ic);
     if(n.cmdLabel){ const b=document.createElement('b'); b.textContent=n.cmdLabel; act.append(b, document.createTextNode(' ')); }
     act.append(document.createTextNode(n.label));
     act.dataset.kind = n.kind;
