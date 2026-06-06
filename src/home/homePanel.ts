@@ -426,6 +426,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .scgrid{display:grid; grid-template-rows:repeat(10, auto); grid-auto-flow:column; grid-auto-columns:1fr; gap:4px 16px; margin:7px 0 0; font-size:11px; color:var(--subtle); font-family:var(--mono)}
   .scgrid.collapsed{display:none}
   .scgrid kbd{display:inline-block; min-width:14px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-family:var(--mono); font-size:10.5px; margin-right:5px}
+  /* full-width footer row of the grid (spans both columns, collapses with it) */
+  .scgrid .scwide{grid-row:11; grid-column:1 / -1; display:flex; align-items:center; margin-top:3px}
+  .scgrid .scwide kbd{margin-right:3px}
+  .scgrid .scwide kbd:last-of-type{margin-right:6px}
   /* Compact density — tightens spacing so more actionables fit in one view. */
   body.compact .cols{gap:10px}
   body.compact .col{gap:10px}
@@ -679,7 +683,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       <div><kbd>T</kbd>new terminal</div>
       <div><kbd>E</kbd>create report</div>
       <div><kbd>F</kbd>frequent tasks</div>
-      <div><kbd>⌥↑↓</kbd>move card</div>
+      <div class="scwide"><kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd>move selected card</div>
     </div>
   </section>
 
