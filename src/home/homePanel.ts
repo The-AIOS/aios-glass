@@ -597,7 +597,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn primary" id="launchPrimary">▶ Launch <span id="vPrimary">aios</span></button>
         <button class="btn ghost" id="resume">Resume</button>
       </div>
-      <button class="btn ask" id="askBtn" title="Type what you need — Claude searches your whole AIOS and runs the best semantic match">✨ Ask AIOS anything you need</button>
+      <button class="btn ask" id="askBtn" title="Type what you need — Claude matches your ask to the right context & tools in your AIOS — and puts them to work">✨ Ask AIOS anything you need</button>
 
       <section class="card hero">
         <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>

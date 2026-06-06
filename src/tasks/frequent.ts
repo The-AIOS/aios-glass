@@ -211,7 +211,7 @@ export async function openFrequentMenu(): Promise<void> {
     const typed = qp.value.trim();
     if (typed) {
       items.push({ label: `$(add) Create task "${typed}"`, alwaysShow: true, createNew: typed });
-      items.push({ label: `$(sparkle) Ask AIOS: "${typed}"`, description: 'Claude searches your whole AIOS and runs the best semantic match', alwaysShow: true, ask: typed });
+      items.push({ label: `$(sparkle) Ask AIOS: "${typed}"`, description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, ask: typed });
     }
     qp.items = items;
   };

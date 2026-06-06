@@ -119,7 +119,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.askAios', async () => {
       const intent = await vscode.window.showInputBox({
         title: 'Ask AIOS',
-        prompt: 'What do you need? Claude searches your whole AIOS and runs the best semantic match',
+        prompt: 'What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work',
         placeHolder: "e.g. 'prep tomorrow's investor call' · 'post about our launch'",
         ignoreFocusOut: true,
       });
@@ -314,7 +314,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const refresh = () => {
         const v = qp.value.trim();
         qp.items = v
-          ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude searches your whole AIOS and runs the best semantic match', alwaysShow: true, pk: 'ask' as const, name: v }]
+          ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, pk: 'ask' as const, name: v }]
           : items;
       };
       refresh();
