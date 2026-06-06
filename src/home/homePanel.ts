@@ -451,6 +451,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   body.compact .btn{padding:7px 11px; font-size:13px; margin-bottom:6px}
   body.compact .muted{margin-top:5px; font-size:11.5px}
   body.compact .runitem{padding:2px 6px}
+  body.compact .calhead{margin-bottom:6px}
+  body.compact .calhead .label{font-size:.9rem}
+  body.compact .nav{width:24px; height:24px; font-size:13px}
+  body.compact .vtoggle{padding:1px 6px; font-size:10px}
+  body.compact th{padding:3px 0; font-size:10px}
+  body.compact .cell{min-height:24px; font-size:12px; border-radius:6px}
   .cog.active{color:var(--accent)}
   .nudge{display:flex; align-items:center; gap:6px; width:100%; background:color-mix(in srgb, var(--accent) 14%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; margin-bottom:16px}
   .nudge:hover{background:color-mix(in srgb, var(--accent) 22%, var(--surface-1))}
@@ -591,7 +597,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn primary" id="launchPrimary">▶ Launch <span id="vPrimary">aios</span></button>
         <button class="btn ghost" id="resume">Resume</button>
       </div>
-      <button class="btn ask" id="askBtn" title="Type what you need — Claude finds and runs the right AIOS action">✨ Ask AIOS anything you need</button>
+      <button class="btn ask" id="askBtn" title="Type what you need — AIOS searches your agents, commands, skills & tasks and runs the best match">✨ Ask AIOS anything you need</button>
 
       <section class="card hero">
         <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>
@@ -1106,7 +1112,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       pendingWeek = null;
       weekIdx = Math.max(0, Math.min(weekIdx, weeks.length - 1));
       weeks = [weeks[weekIdx]];
-      label = data.label + ' · week';
     }
     document.getElementById('calLabel').textContent = label;
     document.getElementById('dow').innerHTML = data.weekdays.map((w) => '<th>' + w + '</th>').join('');

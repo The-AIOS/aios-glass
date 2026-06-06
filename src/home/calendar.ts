@@ -94,7 +94,7 @@ export function getMonthData(year: number, month: number): MonthData {
   return {
     year,
     month,
-    label: `${MONTH_NAMES[month - 1]} ${year}`,
+    label: `${MONTH_NAMES[month - 1].slice(0, 3)} ${year}`, // MMM YYYY — compact, same in month + week views
     weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     weeks
   };

@@ -468,7 +468,7 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
     const refresh = () => {
       const v = qp.value.trim();
       qp.items = v
-        ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude picks + runs the best-matching action', alwaysShow: true, __ask: v } as AskItem]
+        ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'matches it across your agents, commands, skills & tasks — runs the best one', alwaysShow: true, __ask: v } as AskItem]
         : items;
     };
     refresh();
