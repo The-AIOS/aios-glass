@@ -489,16 +489,18 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
      (the hover action buttons take their space from the text, not a new line) */
   .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   .runitem .dot{--dc:var(--subtle); width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--dc)}
-  .runitem .dot.busy{--dc:#f5a623; box-shadow:0 0 0 2px color-mix(in srgb, #f5a623 22%, transparent)}
+  .runitem .dot.busy{--dc:#f5a623; animation:dotpulse 2s ease-out infinite}
   .runitem .dot.idle{--dc:#3ec77a}
-  .runitem .dot.input{--dc:#4aa3ff; box-shadow:0 0 0 2px color-mix(in srgb, #4aa3ff 24%, transparent)}
+  .runitem .dot.input{--dc:#4aa3ff; animation:dotpulse 1.4s ease-out infinite}
+  /* not-ready dots breathe — a soft expanding glow, faster when waiting on you */
+  @keyframes dotpulse{
+    0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--dc) 50%, transparent)}
+    70%{box-shadow:0 0 0 5px transparent}
+    100%{box-shadow:0 0 0 0 transparent}
+  }
+  @media (prefers-reduced-motion: reduce){ .runitem .dot{animation:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dc) 22%, transparent)} }
   .runitem .dot.error{--dc:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
   .runitem .dot.unk{--dc:var(--subtle)}
-  /* Ask-born sessions (ask-…): gradient lineage ring — same family as the ✨ button,
-     marking "the magic in flight". Status color stays as the core. */
-  .runitem .dot.askborn{width:11px; height:11px; border:2px solid transparent;
-    background:linear-gradient(var(--dc), var(--dc)) padding-box,
-               linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 30%, var(--line)) 50%, var(--accent)) border-box}
   .btn.accent{border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background:color-mix(in srgb, var(--accent) 12%, var(--surface-2))}
   .btn.accent:hover{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2))}
   .btn.accent .val{color:var(--accent)}
@@ -622,7 +624,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)">＋</button>
         </div>
         <div class="runlist" id="termList"></div>
-        <p class="muted" id="runHint">Click a session to reveal · trash to kill.</p>
+        <p class="muted" id="runHint">Click: reveal · Hover: interrupt, close session or kill.</p>
       </section>
 
       <section class="card">
@@ -989,7 +991,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           const proj = String(a.proj || '').replace(/</g,'&lt;');
           const statusTxt = s.label + (dur ? ' ' + dur : '');
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
-            + '<span class="dot ' + s.cls + (nm.indexOf('ask-') === 0 ? ' askborn' : '') + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
+            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + '<span class="runacts">'
             + interrupt
             + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
