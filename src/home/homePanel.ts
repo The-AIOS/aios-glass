@@ -537,7 +537,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent)}
   .btn.ghost{text-align:center; color:var(--muted)}
   .btn.ghost:hover{color:var(--ink); border-color:color-mix(in srgb, var(--ink) 22%, var(--line));
-    background:color-mix(in srgb, var(--ink) 3%, var(--surface-2)); box-shadow:0 0 12px rgba(255,255,255,.04)}
+    background:color-mix(in srgb, var(--ink) 3%, var(--surface-2));
+    box-shadow:0 0 0 1px color-mix(in srgb, var(--ink) 22%, var(--line)), 0 0 12px rgba(255,255,255,.04)}
   .muted{color:var(--muted); font-size:13px; margin:8px 0 0}
   .badge{display:inline-block; font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--subtle)}
   .badge.ok{color:var(--ok); border-color:rgba(90,209,154,.4)}
