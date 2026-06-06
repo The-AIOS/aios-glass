@@ -425,7 +425,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
      subtitles for a label-only view. Scoped to .btn/.ctitle so functional labels
      elsewhere stay — the 5h-usage label (.quotarow .k) and session-item status
      (.runitem .k). Counts (.val) and helper lines (.muted) are also unaffected. */
-  body.no-hints .btn .k, body.no-hints .ctitle .sub, body.no-hints #runHint{display:none}
+  body.no-hints .btn .k, body.no-hints .ctitle .sub, body.no-hints #runHint, body.no-hints #calHint{display:none}
   /* Keyboard shortcuts — its own collapsible section (independent of the hints toggle). */
   .shortcuts{margin:18px 2px 6px}
   .scbar{display:flex; align-items:center; gap:6px; width:100%; background:transparent; border:0; color:var(--subtle); font-size:11.5px; font-family:var(--font); cursor:pointer; padding:4px 0; text-align:left}
@@ -597,7 +597,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn primary" id="launchPrimary">▶ Launch <span id="vPrimary">aios</span></button>
         <button class="btn ghost" id="resume">Resume</button>
       </div>
-      <button class="btn ask" id="askBtn" title="Type what you need — AIOS searches your agents, commands, skills & tasks and runs the best match">✨ Ask AIOS anything you need</button>
+      <button class="btn ask" id="askBtn" title="Type what you need — Claude searches your whole AIOS and runs the best semantic match">✨ Ask AIOS anything you need</button>
 
       <section class="card hero">
         <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>
@@ -616,7 +616,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
           <button class="vtoggle" id="calToggle" title="Switch month / week view">Week</button>
         </div>
         <table><thead><tr id="dow"></tr></thead><tbody id="cal"></tbody></table>
-        <p class="muted">Click to read · ⌘-click to edit.</p>
+        <p class="muted" id="calHint">Click to read · ⌘-click to edit.</p>
       </section>
     </div>
 
