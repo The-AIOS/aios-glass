@@ -39,7 +39,9 @@ function parseAgentSection(md: string): Suggestion[] {
     if (/^##\s+.*Agents can handle/i.test(line)) { inSection = true; continue; }
     if (inSection && /^##\s/.test(line)) break;
     if (!inSection) continue;
-    if (/^\s*[-*]\s*\[[xX]\]/.test(line)) continue; // skip done/checked suggestions
+    if (/^\s*[-*]\s*\[[xX]\]/.test(line)) continue; // done: checkbox form
+    if (/^\s*[-*]\s*(?:\u{1F916}\s*)*~~/u.test(line)) continue; // done: the ledger's strike-the-title form
+    if (line.includes('\u{1F680}')) continue; // already spawned from Glass (in flight)
     const agents = [...line.matchAll(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g)].map((m) => m[1].trim());
     if (!agents.length) continue;
     const bold = line.match(/\*\*(.+?)\*\*/);
@@ -97,4 +99,19 @@ export async function goWithAgents(): Promise<void> {
   for (const p of picks) {
     await launchSpawn(p.s.agents[0], p.s.task); // first-listed agent; one terminal each
   }
+
+  // Mark each spawned line in the note (\u{1F680} = in flight): the badge count drops
+  // immediately (calendar watcher refires postState) and the daily note records
+  // that an agent has the ball. Mechanical bookkeeping; the ledger still owns
+  // the real done-marking (~~strike~~ \u{2705}) when the work actually completes.
+  try {
+    let cur = fs.readFileSync(note, 'utf8');
+    for (const p of picks) {
+      const idx = cur.indexOf(p.s.raw);
+      if (idx >= 0 && !p.s.raw.includes('\u{1F680}')) {
+        cur = cur.slice(0, idx) + p.s.raw + ' \u{1F680}' + cur.slice(idx + p.s.raw.length);
+      }
+    }
+    fs.writeFileSync(note, cur);
+  } catch { /* best effort — the count simply stays until the ledger marks it */ }
 }
