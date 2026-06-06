@@ -489,8 +489,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   /* Ask AIOS — the magic entry. NOT a second solid fill (it would fight Launch):
      dark body + coral gradient hairline + soft glow on hover. One bold centered
      line, symmetric margins. */
-  .btn.ask{margin:-8px 0 0; padding:12px 14px; text-align:center; font-weight:650; color:var(--ink);
-    border:1px solid transparent;
+  .btn.ask{margin:-2px 0 0; padding:12px 14px; text-align:center; font-weight:650; color:var(--ink);
+    border:2px solid transparent;
     background:
       linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
       linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 30%, var(--line)) 50%, var(--accent)) border-box}
