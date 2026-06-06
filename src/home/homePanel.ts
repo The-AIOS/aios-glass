@@ -733,9 +733,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   const vscode = acquireVsCodeApi();
   let cur = { year: 0, month: 0 };
   const killed = new Set();  // pids killed via 🗑, filtered from the list until the registry confirms
-  let calView = 'month';   // 'month' | 'week'
-  let weekIdx = 0;         // which week-row to show in week view
+  // View persists across reloads (webview state, like collapsed cards). On a
+  // week-view restore, weekIdx -1 makes the first render pick today's week.
+  let calView = (cstate0.calView === 'week') ? 'week' : 'month';
+  let weekIdx = calView === 'week' ? -1 : 0; // -1 → render() picks today's week
   let lastData = null;     // last month payload, for re-render on toggle/week-nav
+  document.getElementById('calToggle').textContent = calView === 'month' ? 'Week' : 'Month';
   let pendingWeek = null;  // 'first' | 'last' — pick edge week after a cross-month nav
   const run = (command, ...args) => vscode.postMessage({ type: 'cmd', command, args });
 
@@ -949,6 +952,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   document.getElementById('calToggle').addEventListener('click', () => {
     calView = calView === 'month' ? 'week' : 'month';
     document.getElementById('calToggle').textContent = calView === 'month' ? 'Week' : 'Month';
+    { const st=(vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, st, { calView })); }
     if (calView === 'week') { pendingWeek = null; weekIdx = -1; } // -1 → render() picks today's week
     if (lastData) render(lastData);
   });
