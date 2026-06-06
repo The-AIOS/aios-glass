@@ -23,7 +23,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The panel looks like its name** — glass cues across the board: a top edge that catches light on every card, soft depth shadows, a static specular on the Ask button, and one shared hover language (each surface brightens in its own palette; the Daily hero glows accent). Nudges went **grey** — they whisper; coral now belongs exclusively to actions.
 - **Resume adopts the picked session's name** — after you choose a session inside Claude's TUI, the `resume` terminal renames itself to match (best-effort, while the terminal is active).
 - **"Go with agents" count is live** — it now recognizes the ledger's `~~struck-title~~ ✅` done-convention, and spawning a suggestion stamps the line `🚀` (in flight) so the badge drops the moment an agent has the ball.
-- Cheat-sheet: 20 entries — `Q ask aios` leads column 1, `*` palette closes column 2, and a full-width `⌥ ↑ ↓ move selected card` footer row. Calendar header is always `MMM YYYY` (both views) and compact mode now actually compacts the grid.
+- Cheat-sheet: 20 entries — `Q ask aios` leads column 1, `*` palette closes column 2, and a full-width `⌥ ↑ ↓ move selected card` footer row. Calendar header is always `MMM YYYY` (both views), the month/week view choice is remembered across reloads, and compact mode now actually compacts the grid.
 
 ## [0.1.5] — 2026-06-01
 
