@@ -486,11 +486,19 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .btn.accent .val{color:var(--accent)}
   .btn.dim{opacity:.5}
   .launch{display:flex; gap:8px; margin-bottom:2px}
-  /* Ask AIOS — the intent line: full-width, INVERTED like the Launch button
-     (filled accent, dark text) — a primary action, not a tinted nudge. */
-  .btn.ask{margin:8px 0 2px; background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:700; text-align:center}
-  .btn.ask .k{color:#0a0a0a; opacity:.62}
-  .btn.ask:hover{background:var(--accent-soft); border-color:var(--accent-soft)}
+  /* Ask AIOS — the magic entry. NOT a second solid fill (it would fight Launch):
+     dark body + coral gradient hairline + soft glow on hover. One bold centered
+     line, symmetric margins. */
+  .btn.ask{margin:10px 0; padding:12px 14px; text-align:center; font-weight:650; color:var(--ink);
+    border:1px solid transparent;
+    background:
+      linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+      linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 30%, var(--line)) 50%, var(--accent)) border-box}
+  .btn.ask:hover{
+    background:
+      linear-gradient(color-mix(in srgb, var(--accent) 9%, var(--surface-1)), color-mix(in srgb, var(--accent) 9%, var(--surface-1))) padding-box,
+      linear-gradient(120deg, var(--accent), var(--accent-soft), var(--accent)) border-box;
+    box-shadow:0 0 14px color-mix(in srgb, var(--accent) 22%, transparent)}
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
   .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:700; text-align:center; padding:14px}
@@ -548,7 +556,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="btn primary" id="launchPrimary">▶ Launch <span id="vPrimary">aios</span></button>
         <button class="btn ghost" id="resume">Resume</button>
       </div>
-      <button class="btn ask" id="askBtn" title="Type what you need — Claude finds and runs the right AIOS action">✨ Ask AIOS <span class="k">find + run by meaning</span></button>
+      <button class="btn ask" id="askBtn" title="Type what you need — Claude finds and runs the right AIOS action">✨ Ask AIOS anything you need</button>
 
       <section class="card hero">
         <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>
