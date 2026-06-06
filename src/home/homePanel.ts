@@ -410,7 +410,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
      title on hover/focus; they take over the caret's auto-push while visible. */
   .cmove{margin-left:auto; display:none; align-items:center; gap:1px}
   .ctitle:hover .cmove, .card:focus-within .cmove{display:inline-flex}
-  .ctitle:hover::after, .card:focus-within .ctitle::after{margin-left:6px}
+  .card:not(.hero) .ctitle:hover::after, .card:not(.hero):focus-within .ctitle::after{margin-left:6px}
   .cmove button{background:transparent; border:0; color:var(--subtle); padding:0 4px; cursor:pointer; border-radius:4px; font-size:12px; line-height:1.3}
   .cmove button:hover{color:var(--ink); background:var(--surface-2)}
   .card.collapsed .ctitle::after{content:'▸'}
@@ -494,8 +494,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
   .lhead .btn{flex:1; margin-bottom:0}
-  /* stretch to the toggle pill's exact height — flush top and bottom, any mode */
-  .lhead-add{flex:0 0 auto; width:30px; align-self:stretch; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center}
+  /* same vertical box recipe as .btn (padding + font + border) → identical height
+     to the toggle pill in BOTH modes, no stretching, glyph flex-centered */
+  .lhead-add{flex:0 0 auto; width:32px; padding:12px 0; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center}
+  body.compact .lhead-add{padding:7px 0; font-size:13px}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
   /* Row actions — icon-only, hidden at rest, revealed on hover. Tooltips (title)
      carry the meaning; close-session uses a door/exit icon so it reads clearly. */
