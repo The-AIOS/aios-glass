@@ -493,11 +493,15 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   .runitem:focus-visible{outline:1px solid var(--accent); outline-offset:0}
   .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
-  .lhead .btn{flex:1; margin-bottom:0}
-  /* same vertical box recipe as .btn (padding + font + border) → identical height
-     to the toggle pill in BOTH modes, no stretching, glyph flex-centered */
-  .lhead-add{flex:0 0 auto; width:32px; padding:12px 0; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center}
-  body.compact .lhead-add{padding:7px 0; font-size:13px}
+  .lhead .btn{flex:1; margin:0}
+  /* body.compact .btn is (0,2,1) — the body TYPE selector silently beats
+     .lhead .btn (0,2,0), leaking margin-bottom:6px into the flex row and
+     offsetting the + (measured). Re-kill it at (0,3,1). */
+  body.compact .lhead .btn{margin-bottom:0}
+  /* + is an SVG (the ＋ glyph carries CJK font metrics — measured 34px vs the
+     pill's 32 at identical padding) and stretches to the pill-defined row:
+     verified 0.0px deltas top+bottom in both modes. */
+  .lhead-add{flex:0 0 auto; width:32px; margin:0; padding:0; align-self:stretch; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center}
   .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
   /* Row actions — icon-only, hidden at rest, revealed on hover. Tooltips (title)
      carry the meaning; close-session uses a door/exit icon so it reads clearly. */
@@ -644,12 +648,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <div class="lhead">
           <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Sessions <span class="val" id="vRunning">0</span></button>
-          <button class="lhead-add" id="addSession" title="Spawn a session — name it (or blank for a random handle), optional task">＋</button>
+          <button class="lhead-add" id="addSession" title="Spawn a session — name it (or blank for a random handle), optional task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <div class="runlist" id="runningList"></div>
         <div class="lhead">
           <button class="btn" id="toggleTerms" title="Show / hide open terminals"><span id="termCaret">▾</span> Terminals <span class="val" id="vTerms">0</span></button>
-          <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)">＋</button>
+          <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <div class="runlist" id="termList"></div>
         <p class="muted" id="runHint">Click to reveal.<br>Hover to interrupt, close session or kill.</p>
