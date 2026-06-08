@@ -2,9 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
-import { launchSpawn } from '../rituals/runner';
+import { launchSpawn, launchCommandInNewSession } from '../rituals/runner';
 
-interface Suggestion { task: string; agents: string[]; raw: string; }
+interface Suggestion { task: string; agents: string[]; command?: string; arg?: string; raw: string; }
 
 /**
  * Newest `YYYY-MM-DD.md` under `<vault>/01 - calendar/YYYY-MM/`, **ignoring
@@ -38,8 +38,20 @@ function latestDailyNote(): string | undefined {
   return undefined;
 }
 
-/** Extract the "Agents can handle" section's suggestions: each line that names
- *  one or more `[[agent]]` links, with the bolded task as its label. */
+/**
+ * Extract the "Agents can handle" section's suggestions. A line is a suggestion
+ * when it routes a task to EITHER one or more `[[agent]]` links (→ spawn that
+ * agent) OR a backticked `/command` (e.g. `` `/aios:ingest` `` — the most common
+ * case). The bolded span is the task label; for command-routed lines we also
+ * grab a best-effort argument (the first URL — markdown-link target or bare
+ * https), so `/aios:ingest https://youtu.be/…` dispatches with its source
+ * already filled in.
+ *
+ * Why both shapes: `/today` is LLM-generated and legitimately writes either form
+ * (`→ agent: [[name]]` vs `→ \`/aios:command\``), so the deterministic reader
+ * must tolerate both — otherwise command-routed tasks (ingests) are silently
+ * invisible to the Home badge and to "Go with agents".
+ */
 function parseAgentSection(md: string): Suggestion[] {
   const lines = md.split(/\r?\n/);
   const out: Suggestion[] = [];
@@ -52,10 +64,17 @@ function parseAgentSection(md: string): Suggestion[] {
     if (/^\s*[-*]\s*(?:\u{1F916}\s*)*~~/u.test(line)) continue; // done: the ledger's strike-the-title form
     if (line.includes('\u{1F680}')) continue; // already spawned from Glass (in flight)
     const agents = [...line.matchAll(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g)].map((m) => m[1].trim());
-    if (!agents.length) continue;
+    const cmd = line.match(/`(\/[a-z][\w:-]*)`/i); // backticked `/aios:ingest` etc.
+    if (!agents.length && !cmd) continue; // not a routed task (e.g. the section's count header)
     const bold = line.match(/\*\*(.+?)\*\*/);
     const task = (bold ? bold[1] : line.replace(/[-*🤖_]/g, '')).trim();
-    out.push({ task, agents, raw: line.trim() });
+    const sug: Suggestion = { task, agents, raw: line.trim() };
+    if (!agents.length && cmd) {
+      sug.command = cmd[1];
+      const mdLink = line.match(/\]\((https?:\/\/[^)]+)\)/); // [label](url) — already delimited
+      sug.arg = mdLink ? mdLink[1] : line.match(/https?:\/\/\S+/)?.[0]?.replace(/[)*_.,]+$/, '');
+    }
+    out.push(sug);
   }
   return out;
 }
@@ -95,7 +114,7 @@ export async function goWithAgents(): Promise<void> {
   // dispatches many parallel workers — you can't wear multiple hats at once —
   // so it always opens a terminal per task.
   const picks = await vscode.window.showQuickPick(
-    suggestions.map((s) => ({ label: s.task || s.agents[0], description: s.agents.join(' / '), detail: s.raw, picked: true, s })),
+    suggestions.map((s) => ({ label: s.task || s.agents[0] || s.command || 'task', description: s.agents.length ? s.agents.join(' / ') : (s.command ?? ''), detail: s.raw, picked: true, s })),
     {
       title: `Go with agents — ${path.basename(note, '.md')}`,
       placeHolder: 'Each spawns its agent in its own terminal — uncheck any to skip',
@@ -106,7 +125,12 @@ export async function goWithAgents(): Promise<void> {
   if (!picks || picks.length === 0) return;
 
   for (const p of picks) {
-    await launchSpawn(p.s.agents[0], p.s.task); // first-listed agent; one terminal each
+    const s = p.s;
+    if (s.agents.length) {
+      await launchSpawn(s.agents[0], s.task);                     // agent-routed → spawn the first-listed worker
+    } else if (s.command) {
+      await launchCommandInNewSession(s.command, s.arg, s.task);  // command-routed (e.g. ingest) → its own session
+    }
   }
 
   // Mark each spawned line in the note (\u{1F680} = in flight): the badge count drops

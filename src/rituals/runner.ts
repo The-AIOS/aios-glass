@@ -264,6 +264,25 @@ export async function launchSpawn(name: string, task?: string): Promise<void> {
 }
 
 /**
+ * Dispatch a COMMAND-routed task (e.g. `/aios:ingest <url>`) in its OWN fresh
+ * terminal+session — the command-shaped sibling of {@link launchSpawn}. Some
+ * "Agents can handle" tasks route to a `/command` (ingests especially) rather
+ * than a named `[[agent]]`; go-with-agents dispatches those here so they get the
+ * same one-terminal-per-task treatment. Named (`--name`) from the task label when
+ * it reduces to a clean token, so it shows in the Running list; the source `arg`
+ * (a URL) is appended to the slash. Flag-with-value before the prompt is safe
+ * (`--name` takes its value, the slash is the positional initial-prompt).
+ */
+export async function launchCommandInNewSession(command: string, arg?: string, label?: string): Promise<void> {
+  const slash = `${command}${arg && arg.trim() ? ` ${arg.trim()}` : ''}`;
+  const base = (label || command.replace(/^\/(?:aios:)?/, ''))
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const name = base && /^[a-z0-9]/.test(base) ? base.slice(0, 28).replace(/-+$/, '') : '';
+  const nameArg = name ? `--name ${name} ` : '';
+  runNew(`${claudeBin()} ${nameArg}${shellQuote(slash)}`, { name: name || 'AIOS', icon: 'play', color: 'terminal.ansiCyan' });
+}
+
+/**
  * Launch the primary session: if it's already running, focus it; otherwise run
  * the named primary wrapper in a fresh terminal to begin everything.
  */

@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-06-08
+
+### Fixed
+- **Contextual nudge no longer sticks on a future-dated note.** `/aios:7plan` pre-creates skeleton notes for the days ahead, and `latestDailyNote()` returned the highest-*dated* file — so a future skeleton (e.g. `2026-06-12` while today is `2026-06-08`) masqueraded as "latest", `isToday` went false, and "Plan your day" fired forever even after a window reload. Both resolvers (`insights` + `goWithAgents`) now cap at today, so "latest" means the *most recent actual daily note*. The week-calendar view still shows future skeletons; close-day detection reads the right note again. (#9)
+- **"Go with agents" sees command-routed tasks again.** The daily note's *Agents can handle* section routes each task either to a named `[[agent]]` or to a backticked `/command` (ingests use `` `/aios:ingest` ``). The reader only understood the `[[agent]]` shape, so command-routed tasks — the most common kind — were invisible: the Home badge read **0** and "Go with agents" found nothing. It now recognizes both shapes (lifting a source URL from the line when present) and dispatches accordingly: agent tasks via `spawn`, command tasks into their own fresh `claude "/aios:ingest <url>"` session — one terminal per task.
+
 ## [0.1.6] — 2026-06-05
 
 ### Added
