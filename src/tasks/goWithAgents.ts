@@ -6,11 +6,17 @@ import { launchSpawn } from '../rituals/runner';
 
 interface Suggestion { task: string; agents: string[]; raw: string; }
 
-/** Newest `YYYY-MM-DD.md` under `<vault>/01 - calendar/YYYY-MM/`. */
+/**
+ * Newest `YYYY-MM-DD.md` under `<vault>/01 - calendar/YYYY-MM/`, **ignoring
+ * future-dated notes** (e.g. `/7plan` skeletons for the days ahead). We want the
+ * most recent *actual* daily note to read agent suggestions from, not a plan.
+ */
 function latestDailyNote(): string | undefined {
   const v = vaultRoot();
   if (!v) return undefined;
   const cal = path.join(v, '01 - calendar');
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   let months: string[];
   try {
     months = fs.readdirSync(cal).filter((d) => /^\d{4}-\d{2}$/.test(d)).sort();
@@ -20,7 +26,10 @@ function latestDailyNote(): string | undefined {
   for (const m of months.reverse()) {
     let files: string[];
     try {
-      files = fs.readdirSync(path.join(cal, m)).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort();
+      files = fs
+        .readdirSync(path.join(cal, m))
+        .filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f) && f.slice(0, 10) <= today)
+        .sort();
     } catch {
       continue;
     }

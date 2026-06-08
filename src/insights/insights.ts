@@ -85,15 +85,25 @@ function todayLocalIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Latest daily note path under <vault>/01 - calendar/. */
+/**
+ * Latest daily note path under <vault>/01 - calendar/, **ignoring future-dated
+ * notes**. `/7plan` can pre-create skeleton notes for the days ahead; those are
+ * plans, not the most recent *actual* daily note. Counting a future skeleton as
+ * "latest" breaks the nudge engine (its basename ≠ today → "Plan your day" fires
+ * forever) and close-day detection. Cap at today so "latest" = "most recent so far".
+ */
 function latestDailyNote(): string | undefined {
   const v = vaultRoot();
   if (!v) return undefined;
   const cal = path.join(v, '01 - calendar');
+  const today = todayLocalIso();
   try {
     const months = fs.readdirSync(cal).filter((d) => /^\d{4}-\d{2}$/.test(d)).sort();
     for (const mo of months.reverse()) {
-      const files = fs.readdirSync(path.join(cal, mo)).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort();
+      const files = fs
+        .readdirSync(path.join(cal, mo))
+        .filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f) && f.slice(0, 10) <= today)
+        .sort();
       if (files.length) return path.join(cal, mo, files[files.length - 1]);
     }
   } catch { /* ignore */ }
