@@ -6,6 +6,10 @@ import { discoverSkills } from '../capabilities/capabilities';
 import { Routine, listRoutines, runRoutine, removeRoutine, addRoutineFlow } from './routines';
 import { swallow } from '../log';
 import { stateGet, stateSet } from '../state';
+import { FreqTask, slug, migrateTask } from '../core/taskModel';
+// Re-exported: routines.ts + extension.ts import these from here.
+export { slug } from '../core/taskModel';
+export type { FreqTask } from '../core/taskModel';
 
 /**
  * Frequent tasks: intent-first launchers. The operator picks *what they want
@@ -16,22 +20,6 @@ import { stateGet, stateSet } from '../state';
  * git-synced across machines). The built-ins below seed it; the operator can add
  * their own (picking a real agent/command/skill) and remove any — including defaults.
  */
-export interface FreqTask {
-  id: string;
-  label: string;
-  kind: 'agent' | 'command' | 'skill' | 'prompt';
-  /** agent/command/skill name, or (kind 'prompt') the free-form instruction itself */
-  target: string;
-  /** tooltip — says plainly what happens */
-  hint: string;
-  /**
-   * Optional fixed task SENT on every run (agent / command / skill). One click
-   * shoots — there is no run-time question. Blank → launch bare: the agent
-   * self-interviews, the command/skill guides. (kind 'prompt' carries its
-   * instruction in `target`, so it ignores this.)
-   */
-  assignment?: string;
-}
 
 export const FREQUENT_TASKS: FreqTask[] = [
   { id: 'email',       label: 'Draft an email',      kind: 'agent',   target: 'email-drafter',       hint: 'Wear the email-drafter agent — it interviews you for who + purpose' },
@@ -91,24 +79,7 @@ export const FREQUENT_TASKS: FreqTask[] = [
 const STORE_KEY = 'aios.frequentTasks.v1';
 const STORE_REMOVED = 'aios.frequentTasks.removed.v1';
 
-export function slug(s: string): string {
-  return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'task';
-}
 
-/**
- * Migrate legacy tasks. The old run-time question lived in `prompt`; the model is
- * now a fixed `assignment` that's SENT. For a USER-authored agent/command/skill
- * task, the text they typed into that "question" field was really the task they
- * wanted to fire — so promote it to `assignment` (this silently fixes tasks made
- * under the old flow). Defaults and prompt-kind tasks just drop the stale question.
- */
-function migrateTask(t: FreqTask & { prompt?: string }): FreqTask {
-  const { prompt, ...rest } = t;
-  if (rest.assignment === undefined && prompt && rest.kind !== 'prompt' && String(rest.id).startsWith('u-')) {
-    rest.assignment = prompt;
-  }
-  return rest;
-}
 
 function getTasks(): FreqTask[] {
   // The operator's list (custom + kept defaults), then APPEND any built-in

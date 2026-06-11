@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { launchInSession } from '../rituals/runner';
 import { listFrequentTasks, slug, FreqTask } from './frequent';
 import { stateGet, stateSet } from '../state';
+import { stepText } from '../core/taskModel';
 
 /**
  * Routines: named, ORDERED bundles of frequent tasks — "Thinkers Symposium →
@@ -34,14 +35,6 @@ export async function removeRoutine(id: string): Promise<void> {
   await saveRoutines(listRoutines().filter((r) => r.id !== id));
 }
 
-/** One ordered step of the combined instruction, phrased per task mechanism. */
-function stepText(t: FreqTask, n: number): string {
-  const a = (t.assignment ?? (t as { prompt?: string }).prompt)?.trim() || '';
-  if (t.kind === 'agent') return `${n}. Wear the ${t.target} agent hat (load it via /aios:agent ${t.target}) and ${a || 'complete its core task for today'}.`;
-  if (t.kind === 'command') return `${n}. Run /aios:${t.target}${a ? ` with: ${a}` : ''}.`;
-  if (t.kind === 'skill') return `${n}. Use the ${t.target} skill${a ? `: ${a}` : ''}.`;
-  return `${n}. ${t.target}`; // prompt-kind carries its full instruction in target
-}
 
 /** Run a routine: assemble its tasks into one ordered instruction, fire one session. */
 export async function runRoutine(id: string): Promise<void> {

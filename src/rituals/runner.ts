@@ -8,6 +8,7 @@ import { listRunningAgents } from '../agents/running';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow } from '../log';
+import { askSessionName } from '../core/taskModel';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -453,12 +454,7 @@ export async function launchPrompt(text: string): Promise<void> {
 export function askAios(intent: string): void {
   const t = intent.trim();
   if (!t) return;
-  // Name from the intent's CONTENT words, not its filler — "i need a social
-  // media strategy" → ask-social-media-strategy, not ask-i-need-a-social-….
-  const STOP = new Set(['i', 'a', 'an', 'the', 'to', 'for', 'of', 'on', 'in', 'at', 'by', 'my', 'me', 'our', 'we', 'us', 'you', 'your', 'it', 'is', 'are', 'am', 'and', 'or', 'with', 'about', 'need', 'needs', 'want', 'wants', 'please', 'can', 'could', 'should', 'would', 'like', 'help', 'make', 'create', 'do', 'get', 'give', 'let', 'lets', 'some', 'this', 'that', 'new', 'have', 'has']);
-  const words = t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w && !STOP.has(w));
-  const core = (words.length ? words : ['intent']).slice(0, 3).join('-');
-  const name = ('ask-' + core).slice(0, 28).replace(/-+$/, '');
+  const name = askSessionName(t);
   const prompt =
     `Find the right AIOS action for this intent and run it: "${t}". ` +
     `Search my agents, /aios: commands, skills, and frequent tasks; pick the best match, ` +

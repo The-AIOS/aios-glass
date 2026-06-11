@@ -28,6 +28,9 @@ jobs:
       - name: Type-check & compile
         run: npm run compile
 
+      - name: Unit tests (pure core)
+        run: node --test out/test/*.test.js
+
       - name: Smoke test (panel must BOOT — tsc can't see into the webview JS)
         run: npm run smoke
 

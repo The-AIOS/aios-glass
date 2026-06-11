@@ -10,3 +10,5 @@ CLAUDE.md
 CONTRIBUTING.md
 PUBLISHING.md
 .vscodeignore
+scripts/**
+out/test/**

@@ -448,7 +448,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "test": "npm run compile && node --test out/test/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.x",
