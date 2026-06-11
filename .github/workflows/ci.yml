@@ -28,6 +28,9 @@ jobs:
       - name: Type-check & compile
         run: npm run compile
 
+      - name: Smoke test (panel must BOOT — tsc can't see into the webview JS)
+        run: npm run smoke
+
       - name: Package (validate the .vsix builds)
         run: npx --yes @vscode/vsce package --no-dependencies -o aios-glass.vsix
 

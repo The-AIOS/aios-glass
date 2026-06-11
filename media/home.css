@@ -1,0 +1,226 @@
+  :root{
+    --canvas:#0a0a0a; --surface-1:#111111; --surface-2:#181818; --surface-3:#1f1f1f;
+    --line:#262626; --ink:#fafafa; --muted:#c4c4c4; --subtle:#707070;
+    --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.18); --accent-soft:#ffb3a8; --accent-line:rgba(255,93,77,.45);
+    --ok:#5ad19a;
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","SF Mono",Menlo,Monaco,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font);
+    padding:30px clamp(20px,5vw,56px); line-height:1.6; -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01","ss03";}
+  ::selection{background:var(--accent); color:var(--canvas)}
+  header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px}
+  .brand{display:flex; align-items:center; gap:11px}
+  .brand .mark{display:inline-flex}
+  .brand .mark .o{stroke:var(--accent)} .brand .mark .i{fill:var(--accent)}
+  h1{font-weight:700; font-size:clamp(1.5rem,2.4vw,2.1rem); letter-spacing:-.022em; line-height:1; margin:0}
+  .headright{display:flex; align-items:center; gap:14px}
+  .greet{color:var(--muted); font-size:14px}
+  .cog{background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:9px;
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s}
+  .cog:hover{border-color:var(--accent-line); color:var(--accent)}
+  .hbadge{background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:9px;
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:default; transition:border-color .15s,color .15s}
+  .hbadge.ok{color:var(--ok); border-color:rgba(90,209,154,.4)}
+  .hbadge.upd{color:var(--accent); border-color:var(--accent-line); cursor:pointer}
+  .hbadge.upd:hover{background:var(--accent-glow)}
+  .cols{display:grid; grid-template-columns:1fr; gap:16px; align-items:start}
+  @media(min-width:760px){ .cols{grid-template-columns:1fr 1fr} }
+  @media(min-width:1100px){ .cols{grid-template-columns:1.25fr 1.25fr 0.7fr} }
+  .col{display:flex; flex-direction:column; gap:16px; min-width:0}
+  .col.minor .ctitle{color:var(--subtle)}
+  .col.minor .card{background:transparent}
+  .card{background:var(--surface-1); border:1px solid var(--line); border-radius:16px; padding:18px;
+    /* glass cues: a 1px top edge catching light + a soft float off the background */
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 14px 30px -14px rgba(0,0,0,.7);
+    transition:border-color .18s, box-shadow .18s, background .18s}
+  /* Ask-button-family hover, each card in its own palette: neutral panes catch
+     more light (white-ward), the Daily hero glows its accent. */
+  /* :focus-within keeps the highlight while a card title is SELECTED — without it,
+     keyboard reordering (Alt+↑↓) has no visible target once the mouse leaves. */
+  .card:hover, .card:focus-within{border-color:color-mix(in srgb, var(--ink) 16%, var(--line));
+    background:color-mix(in srgb, var(--ink) 2.5%, var(--surface-1));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 16px 34px -12px rgba(0,0,0,.75), 0 0 14px rgba(255,255,255,.035)}
+  .card.hero:hover, .card.hero:focus-within{border-color:var(--accent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), 0 0 16px color-mix(in srgb, var(--accent) 22%, transparent), 0 16px 34px -14px rgba(0,0,0,.7)}
+  .card.hero{border-color:var(--accent-line)}
+  .ctitle{font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--subtle);
+    margin:0 0 14px; display:flex; align-items:center; gap:8px}
+  .ctitle:not(:first-child){margin-top:22px}
+  .ctitle::before{content:""; width:6px;height:6px;border-radius:50%; background:var(--accent); flex:0 0 auto}
+  .ctitle{cursor:pointer}
+  .ctitle:focus-visible{outline:1.5px solid var(--accent-line); outline-offset:3px; border-radius:4px}
+  .ctitle::after{content:'▾'; margin-left:auto; font-size:10px; color:var(--subtle); opacity:.5; font-weight:400; letter-spacing:0}
+  /* Card reorder (1-column is the canonical teammate layout): ↑↓ appear on the
+     title on hover/focus; they take over the caret's auto-push while visible. */
+  .cmove{margin-left:auto; display:none; align-items:center; gap:1px}
+  .ctitle:hover .cmove, .card:focus-within .cmove{display:inline-flex}
+  .card:not(.hero) .ctitle:hover::after, .card:not(.hero):focus-within .ctitle::after{margin-left:6px}
+  .cmove button{background:transparent; border:0; color:var(--subtle); padding:0 4px; cursor:pointer; border-radius:4px; font-size:12px; line-height:1.3}
+  .cmove button:hover{color:var(--ink); background:var(--surface-2)}
+  .card.collapsed .ctitle::after{content:'▸'}
+  .card.collapsed .ctitle{margin-bottom:0}
+  .card.collapsed > :not(.ctitle){display:none}
+  .ctitle .sub{text-transform:none; letter-spacing:0; font-weight:400; font-size:12px; color:var(--subtle); font-style:italic}
+  .btn{display:block; width:100%; text-align:left; background:var(--surface-2); color:var(--ink);
+    border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:14px; cursor:pointer;
+    transition:border-color .15s, background .15s; margin-bottom:10px; font-family:var(--font)}
+  .btn:last-child{margin-bottom:0}
+  /* Secondary-hints toggle (cog → Secondary hints): hide button hints + header
+     subtitles for a label-only view. Scoped to .btn/.ctitle so functional labels
+     elsewhere stay — the 5h-usage label (.quotarow .k) and session-item status
+     (.runitem .k). Counts (.val) and helper lines (.muted) are also unaffected. */
+  body.no-hints .btn .k, body.no-hints .ctitle .sub, body.no-hints #runHint, body.no-hints #calHint{display:none}
+  /* Keyboard shortcuts — its own collapsible section (independent of the hints toggle). */
+  .shortcuts{margin:18px 2px 6px}
+  .scbar{display:flex; align-items:center; gap:6px; width:100%; background:transparent; border:0; color:var(--subtle); font-size:11.5px; font-family:var(--font); cursor:pointer; padding:4px 0; text-align:left}
+  .scbar:hover{color:var(--ink)}
+  .scbar .scsub{font-size:10.5px; font-family:var(--mono); display:inline-flex; align-items:center; gap:2px}
+  .scbar .scsub .dim{color:var(--subtle); opacity:.65; margin-left:3px}
+  .scbar .lead{display:inline-block; min-width:13px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:4px; padding:0 4px; font-family:var(--mono); font-size:10px}
+  .scgrid{display:grid; grid-template-rows:repeat(10, auto); grid-auto-flow:column; grid-auto-columns:1fr; gap:4px 16px; margin:7px 0 0; font-size:11px; color:var(--subtle); font-family:var(--mono)}
+  .scgrid.collapsed{display:none}
+  .scgrid kbd{display:inline-block; min-width:14px; text-align:center; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-family:var(--mono); font-size:10.5px; margin-right:5px}
+  /* full-width footer row of the grid (spans both columns, collapses with it) */
+  /* note: auto-flow grids have no explicit column tracks, so '1 / -1' collapses
+     to one column — span to line 3 explicitly */
+  .scgrid .scwide{grid-row:11; grid-column:1 / 3; display:flex; align-items:center; margin-top:3px}
+  .scgrid .scwide kbd{margin-right:3px}
+  .scgrid .scwide kbd:last-of-type{margin-right:6px}
+  /* Compact density — tightens spacing so more actionables fit in one view. */
+  body.compact .cols{gap:10px}
+  body.compact .col{gap:10px}
+  body.compact .card{padding:11px}
+  body.compact .ctitle{margin:0 0 8px}
+  body.compact .ctitle:not(:first-child){margin-top:13px}
+  body.compact .btn{padding:7px 11px; font-size:13px; margin-bottom:6px}
+  body.compact .muted{margin-top:5px; font-size:11.5px}
+  body.compact .runitem{padding:2px 6px}
+  body.compact .calhead{margin-bottom:6px}
+  body.compact .calhead .label{font-size:.9rem}
+  body.compact .nav{width:24px; height:24px; font-size:13px}
+  body.compact .vtoggle{padding:1px 6px; font-size:10px}
+  body.compact th{padding:3px 0; font-size:10px}
+  body.compact .cell{min-height:24px; font-size:12px; border-radius:6px}
+  .cog.active{color:var(--accent)}
+  /* Nudges whisper, they don't shout: grey glass, no accent — the coral belongs
+     to actions (Launch/Ask), not reminders. */
+  .nudge{display:flex; align-items:center; gap:6px; width:100%; background:color-mix(in srgb, var(--ink) 4%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--ink) 14%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; margin-bottom:16px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+  .nudge:hover{background:color-mix(in srgb, var(--ink) 7%, var(--surface-1)); border-color:color-mix(in srgb, var(--ink) 22%, var(--line))}
+  .nudgebody{flex:1; min-width:0; text-align:left; background:transparent; border:0; color:var(--ink); font-size:12px; line-height:1.35; cursor:pointer; font-family:var(--font); padding:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .nudgebody .nicon{font-size:10.5px}
+  .nudgex{flex:0 0 auto; background:transparent; border:0; color:var(--subtle); font-size:12px; line-height:1; cursor:pointer; padding:3px 5px; border-radius:6px; opacity:.55}
+  .nudgex:hover{opacity:1; color:var(--ink); background:color-mix(in srgb, var(--ink) 10%, transparent)}
+  .quota{display:block; width:100%; text-align:left; background:color-mix(in srgb, #f5a623 16%, var(--surface-1)); border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:var(--ink); border-radius:10px; padding:9px 12px; font-size:13px; cursor:pointer; margin-bottom:10px; font-family:var(--font)}
+  .quota:hover{background:color-mix(in srgb, #f5a623 26%, var(--surface-1))}
+  .quotarow{display:flex; align-items:center; gap:8px; margin:2px 0 9px}
+  .quotarow .k{flex:0 0 auto; color:var(--subtle); font-size:11px; font-family:var(--mono)}
+  .quotabar{height:4px; flex:1; background:var(--surface-2); border-radius:3px; overflow:hidden; cursor:default}
+  .quotabar .qfill{height:100%; width:0; border-radius:3px; transition:width .3s ease, background .3s ease; background:#3ec77a}
+  .quotabar.yellow .qfill{background:#e8c44a}
+  .quotabar.orange .qfill{background:#f5a623}
+  .quotabar.red .qfill{background:#f5564a}
+  .learnlist{display:flex; flex-direction:column; gap:5px}
+  .learnitem{display:flex; align-items:baseline; gap:7px; font-size:12.5px; cursor:pointer; padding:3px 5px; border-radius:6px}
+  .learnitem:hover{background:var(--surface-2)}
+  .learnitem .lsrc{flex:0 0 auto; font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; font-family:var(--mono); color:var(--subtle); border:1px solid var(--line); border-radius:4px; padding:1px 4px}
+  .learnitem .lsrc.growth{color:#3ec77a; border-color:color-mix(in srgb,#3ec77a 40%,var(--line))}
+  .learnitem .lsrc.rule{color:#f5a623; border-color:color-mix(in srgb,#f5a623 40%,var(--line))}
+  .learnitem .ltitle{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink)}
+  .learnitem .ldate{flex:0 0 auto; font-size:10.5px; color:var(--muted); font-family:var(--mono)}
+  .btn:hover{border-color:var(--accent-line); background:var(--surface-3)}
+  .btn .k{color:var(--subtle); font-size:12px; margin-left:6px; font-family:var(--mono)}
+  .btn .val{float:right; color:var(--accent); font-family:var(--mono); font-size:12px}
+  .runlist{margin:2px 0 8px; padding:0 2px}
+  .runitem{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink); padding:3px 6px; border-radius:6px; cursor:pointer}
+  .runitem:hover{background:var(--surface-2)}
+  .runitem:focus-visible{outline:1px solid var(--accent); outline-offset:0}
+  .runitem .rname{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
+  .lhead{display:flex; align-items:center; gap:6px; margin-bottom:6px}
+  .lhead .btn{flex:1; margin:0}
+  /* body.compact .btn is (0,2,1) — the body TYPE selector silently beats
+     .lhead .btn (0,2,0), leaking margin-bottom:6px into the flex row and
+     offsetting the + (measured). Re-kill it at (0,3,1). */
+  body.compact .lhead .btn{margin-bottom:0}
+  /* + is an SVG (the ＋ glyph carries CJK font metrics — measured 34px vs the
+     pill's 32 at identical padding) and stretches to the pill-defined row:
+     verified 0.0px deltas top+bottom in both modes. */
+  .lhead-add{flex:0 0 auto; width:32px; margin:0; padding:0; align-self:stretch; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center}
+  .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
+  /* Row actions — icon-only, hidden at rest, revealed on hover. Tooltips (title)
+     carry the meaning; close-session uses a door/exit icon so it reads clearly. */
+  .runacts{margin-left:auto; flex:0 0 auto; display:none; align-items:center; gap:3px}
+  .runitem:hover .runacts, .runitem:focus-within .runacts{display:flex}
+  .runacts button{display:inline-flex; align-items:center; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer}
+  .runint:hover{color:#e0a13a; background:color-mix(in srgb, #e0a13a 18%, transparent)}
+  .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
+  .runkill{color:#f5564a}  /* trash is always red — destructive affordance */
+  .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
+  /* status/project text trims with ellipsis — a session row NEVER wraps to 2 lines
+     (the hover action buttons take their space from the text, not a new line) */
+  .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
+  .runitem .dot{--dc:var(--subtle); width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--dc)}
+  .runitem .dot.busy{--dc:#f5a623; animation:dotpulse 2s ease-out infinite}
+  .runitem .dot.idle{--dc:#3ec77a}
+  .runitem .dot.input{--dc:#4aa3ff; animation:dotpulse 1.4s ease-out infinite}
+  /* not-ready dots breathe — a soft expanding glow, faster when waiting on you */
+  @keyframes dotpulse{
+    0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--dc) 50%, transparent)}
+    70%{box-shadow:0 0 0 5px transparent}
+    100%{box-shadow:0 0 0 0 transparent}
+  }
+  @media (prefers-reduced-motion: reduce){ .runitem .dot{animation:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dc) 22%, transparent)} }
+  .runitem .dot.error{--dc:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
+  .runitem .dot.unk{--dc:var(--subtle)}
+  .btn.accent{border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background:color-mix(in srgb, var(--accent) 12%, var(--surface-2))}
+  .btn.accent:hover{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2))}
+  .btn.accent .val{color:var(--accent)}
+  .btn.dim{opacity:.5}
+  .launch{display:flex; gap:8px; margin-bottom:2px}
+  /* Ask AIOS — the magic entry. NOT a second solid fill (it would fight Launch):
+     dark body + coral gradient hairline + soft glow on hover. One bold centered
+     line, symmetric margins. */
+  .btn.ask{margin:-2px 0 0; padding:12px 14px; text-align:center; font-weight:650; color:var(--ink);
+    border:2px solid transparent;
+    background:
+      linear-gradient(155deg, rgba(255,255,255,.11), transparent 45%) padding-box,
+      linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+      linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 30%, var(--line)) 50%, var(--accent)) border-box}
+  .btn.ask:hover{
+    background:
+      linear-gradient(color-mix(in srgb, var(--accent) 9%, var(--surface-1)), color-mix(in srgb, var(--accent) 9%, var(--surface-1))) padding-box,
+      linear-gradient(120deg, var(--accent), var(--accent-soft), var(--accent)) border-box;
+    box-shadow:0 0 14px color-mix(in srgb, var(--accent) 22%, transparent)}
+  .launch .btn{margin-bottom:0; width:auto}
+  .launch .primary{flex:1}
+  .btn.primary{background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:500; text-align:center; padding:14px}
+  .btn.primary:hover{background:var(--accent-soft); border-color:var(--accent-soft);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent)}
+  .btn.ghost{text-align:center; color:var(--muted)}
+  .btn.ghost:hover{color:var(--ink); border-color:color-mix(in srgb, var(--ink) 22%, var(--line));
+    background:color-mix(in srgb, var(--ink) 3%, var(--surface-2));
+    box-shadow:0 0 0 1px color-mix(in srgb, var(--ink) 22%, var(--line)), 0 0 12px rgba(255,255,255,.04)}
+  .muted{color:var(--muted); font-size:13px; margin:8px 0 0}
+  .badge{display:inline-block; font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--subtle)}
+  .badge.ok{color:var(--ok); border-color:rgba(90,209,154,.4)}
+  .badge.upd{color:var(--accent); border-color:var(--accent-line)}
+  .badge.live{color:var(--accent); border-color:var(--accent-line)}
+  /* calendar */
+  .calhead{display:flex; align-items:center; gap:4px; margin-bottom:12px}
+  .calhead .label{flex:1; text-align:center; font-weight:600; font-size:1.0625rem; letter-spacing:-.01em}
+  .vtoggle{background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); font-size:11px; font-family:var(--mono); padding:2px 8px; border-radius:6px; cursor:pointer; margin-left:6px}
+  .vtoggle:hover{color:var(--ink); border-color:var(--accent)}
+  .nav{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1; transition:border-color .15s,color .15s}
+  .nav:hover{border-color:var(--accent-line);color:var(--accent)}
+  table{width:100%; border-collapse:collapse}
+  th{font-size:11px; font-weight:600; color:var(--subtle); padding:6px 0; text-transform:uppercase; letter-spacing:.06em}
+  td{text-align:center; padding:1px}
+  .cell{position:relative; min-height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:13px; color:var(--ink); border:1px solid transparent}
+  .cell.has{cursor:pointer}
+  .cell.has:hover{background:var(--surface-2); border-color:var(--line)}
+  .cell.today{border-color:var(--accent-line); background:var(--accent-glow)}
+  .cell.day:not(.has) .num{color:var(--subtle); font-weight:400}
+  .cell.day.has .num{color:var(--accent-soft); font-weight:500}
+  .cell.day.today .num{color:var(--accent); font-weight:600}
