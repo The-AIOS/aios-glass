@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { ttlMemo } from '../core/memo';
 import * as path from 'path';
 import { frameworkRoot } from '../home/vault';
 import { parseFrontmatter } from '../aios/commands';
@@ -75,7 +76,7 @@ function groupLabel(seg: string): string {
 }
 
 /** Discover all agents, sorted by group then name. */
-export function discoverAgents(): Agent[] {
+function discoverAgentsUncached(): Agent[] {
   const root = agentsRoot();
   if (!root) return [];
 
@@ -127,3 +128,7 @@ export function groupAgents(agents: Agent[]): Map<string, Agent[]> {
   }
   return map;
 }
+
+// 5s TTL: rapid picker/palette/refresh re-opens reuse one scan; a new file
+// still shows within seconds. See core/memo.ts.
+export const discoverAgents = ttlMemo(discoverAgentsUncached, 5000);

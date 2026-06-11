@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { ttlMemo } from '../core/memo';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -81,7 +82,7 @@ export function resolveCommandsDir(): string | null {
 }
 
 /** Discover and parse all AIOS commands. Sorted by cadence, then name. */
-export function discoverCommands(): AiosCommand[] {
+function discoverCommandsUncached(): AiosCommand[] {
   const dir = resolveCommandsDir();
   if (!dir) return [];
 
@@ -135,3 +136,7 @@ function dirExists(p: string): boolean {
 // Moved to the pure core (unit-testable); re-exported for existing consumers.
 export { parseFrontmatter } from '../core/frontmatter';
 export type { Frontmatter } from '../core/frontmatter';
+
+// 5s TTL: rapid picker/palette/refresh re-opens reuse one scan; a new file
+// still shows within seconds. See core/memo.ts.
+export const discoverCommands = ttlMemo(discoverCommandsUncached, 5000);

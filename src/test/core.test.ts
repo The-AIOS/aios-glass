@@ -98,3 +98,17 @@ test('askSessionName: caps length without trailing dash', () => {
   assert.ok(n.length <= 28, n);
   assert.ok(!n.endsWith('-'), n);
 });
+
+// ── ttlMemo (discovery cache) ────────────────────────────────────────────────
+
+import { ttlMemo } from '../core/memo';
+
+test('ttlMemo: caches within TTL, recomputes after, injectable clock', () => {
+  let clock = 0;
+  let calls = 0;
+  const f = ttlMemo(() => ++calls, 5000, () => clock);
+  assert.equal(f(), 1);
+  clock = 4999; assert.equal(f(), 1); // within TTL → cached
+  clock = 5001; assert.equal(f(), 2); // expired → recomputed
+  clock = 5002; assert.equal(f(), 2);
+});

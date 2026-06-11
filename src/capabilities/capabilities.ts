@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { ttlMemo } from '../core/memo';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from '../home/vault';
@@ -36,7 +37,7 @@ function titleCase(seg: string): string {
 }
 
 /** Skills: skills/<bundle>/<name>/SKILL.md */
-export function discoverSkills(): Capability[] {
+function discoverSkillsUncached(): Capability[] {
   const root = frameworkRoot();
   if (!root) return [];
   const skillsDir = sub(root, 'skills');
@@ -153,3 +154,7 @@ export async function skillsPicker(): Promise<void> {
   );
   if (pick) await launchSkill(pick.cap.name);
 }
+
+// 5s TTL: rapid picker/palette/refresh re-opens reuse one scan; a new file
+// still shows within seconds. See core/memo.ts.
+export const discoverSkills = ttlMemo(discoverSkillsUncached, 5000);
