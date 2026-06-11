@@ -18,7 +18,7 @@ import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
-import { swallow, logChannel } from './log';
+import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 
@@ -31,6 +31,11 @@ const DOC_FILES: Record<string, string> = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Banner so the diagnostics channel is never blank — an empty Output pane
+  // reads as "broken", not "healthy". Everything below the banner is a failure.
+  const version = (context.extension.packageJSON as { version?: string }).version ?? '?';
+  log(`AIOS Glass ${version} activated. This channel records ACTION FAILURES (a click that did nothing, a failed launch, a state write error). Nothing below this line = everything is healthy.`);
+
   const home = new HomeViewProvider(context.extensionUri);
   initGlassState(context); // tasks/routines state: vault file, globalState as migration source
 
