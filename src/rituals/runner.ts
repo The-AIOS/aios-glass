@@ -475,7 +475,7 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
   items: T[],
   opts: { title?: string; placeHolder?: string; matchOnDescription?: boolean; matchOnDetail?: boolean }
 ): Promise<T | undefined> {
-  type AskItem = vscode.QuickPickItem & { __ask?: string };
+  type AskItem = vscode.QuickPickItem & { __ask?: boolean };
   return new Promise((resolve) => {
     const qp = vscode.window.createQuickPick<T | AskItem>();
     qp.title = opts.title;
@@ -484,17 +484,22 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
     qp.matchOnDetail = !!opts.matchOnDetail;
     let done = false;
     const finish = (val: T | undefined) => { if (!done) { done = true; resolve(val); } qp.hide(); };
-    const refresh = () => {
-      const v = qp.value.trim();
-      qp.items = v
-        ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, __ask: v } as AskItem]
-        : items;
-    };
-    refresh();
-    qp.onDidChangeValue(refresh);
+    // ONE stable Ask item (no echoed value — the input box already shows what you
+    // typed). Appended only while there's a query, and ONLY when that query toggles
+    // empty↔typed — never per keystroke. (Reassigning qp.items on each character
+    // resets the highlighted row and makes native filtering flicker — the glitch.)
+    const askItem: AskItem = { label: '$(sparkle) Ask AIOS with what you typed', description: 'no exact match? — Claude matches your ask to the right context & tools and runs it', alwaysShow: true, __ask: true };
+    qp.items = items;
+    let hasQuery = false;
+    qp.onDidChangeValue((v) => {
+      const now = v.trim().length > 0;
+      if (now === hasQuery) return;
+      hasQuery = now;
+      qp.items = now ? [...items, askItem] : items;
+    });
     qp.onDidAccept(() => {
       const s = qp.selectedItems[0] as (T & AskItem) | undefined;
-      if (s && s.__ask) { askAios(s.__ask); finish(undefined); return; }
+      if (s && s.__ask) { const v = qp.value.trim(); finish(undefined); if (v) askAios(v); return; }
       finish(s as T | undefined);
     });
     qp.onDidHide(() => { if (!done) { done = true; resolve(undefined); } qp.dispose(); });

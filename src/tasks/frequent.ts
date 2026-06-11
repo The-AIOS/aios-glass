@@ -175,7 +175,7 @@ async function runTask(t: FreqTask): Promise<void> {
   }
 }
 
-type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean; createNew?: string; ask?: string };
+type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add?: boolean; addRoutine?: boolean; createNew?: boolean; ask?: boolean };
 
 /** Open the Quick menu: routines (due-first) + tasks — pick to run, trash to remove, add either. */
 export async function openFrequentMenu(): Promise<void> {
@@ -205,18 +205,25 @@ export async function openFrequentMenu(): Promise<void> {
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
     items.push({ label: '$(add) Add a frequent task', add: true });
     items.push({ label: '$(add) Add a routine', addRoutine: true });
-    // Type-to-act: whatever's typed becomes one-Enter actions. alwaysShow keeps
-    // them visible even when the filter matches nothing — an unmatched search
-    // turns into "create it" or "ask AIOS" instead of a dead end.
-    const typed = qp.value.trim();
-    if (typed) {
-      items.push({ label: `$(add) Create task "${typed}"`, alwaysShow: true, createNew: typed });
-      items.push({ label: `$(sparkle) Ask AIOS: "${typed}"`, description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, ask: typed });
+    // Type-to-act: while there's a query, offer one-Enter create / ask fallbacks
+    // (alwaysShow → survive the filter, so an unmatched search isn't a dead end).
+    // Stable labels — no echoed value — so refresh() can run on the empty↔typed
+    // TOGGLE only, never per keystroke (per-keystroke qp.items churn resets the
+    // highlighted row + flickers the filter — the glitch).
+    if (qp.value.trim()) {
+      items.push({ label: '$(add) Create a task from what you typed', alwaysShow: true, createNew: true });
+      items.push({ label: '$(sparkle) Ask AIOS with what you typed', description: 'Claude matches your ask to the right context & tools and runs it', alwaysShow: true, ask: true });
     }
     qp.items = items;
   };
   refresh();
-  qp.onDidChangeValue(() => refresh());
+  let hasQuery = false;
+  qp.onDidChangeValue((v) => {
+    const now = v.trim().length > 0;
+    if (now === hasQuery) return; // only rebuild on the empty↔typed toggle
+    hasQuery = now;
+    refresh();
+  });
 
   qp.onDidTriggerItemButton(async (e) => {
     if (e.item.routine) {
@@ -234,9 +241,10 @@ export async function openFrequentMenu(): Promise<void> {
   qp.onDidAccept(async () => {
     const sel = qp.selectedItems[0];
     if (!sel) return;
+    const typed = qp.value.trim(); // read the live query before hiding
     if (sel.add) { qp.hide(); await addFrequentTask(); return; }
-    if (sel.createNew) { qp.hide(); await addFrequentTask(sel.createNew); return; }
-    if (sel.ask) { qp.hide(); askAios(sel.ask); return; }
+    if (sel.createNew) { qp.hide(); await addFrequentTask(typed || undefined); return; }
+    if (sel.ask) { qp.hide(); if (typed) askAios(typed); return; }
     if (sel.addRoutine) { qp.hide(); await addRoutineFlow(); await openFrequentMenu(); return; }
     if (sel.routine) { qp.hide(); await runRoutine(sel.routine.id); return; }
     if (sel.task) { qp.hide(); await runTask(sel.task); }
