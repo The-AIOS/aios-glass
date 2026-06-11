@@ -280,7 +280,7 @@
       v.className = r.length ? 'val' : 'k';
       const list = document.getElementById('runningList');
       if (list){
-        list.innerHTML = r.map((a) => {
+        const html = r.map((a) => {
           const s = statusInfo(a.status);
           const nm = (a.name || '(unnamed)').replace(/</g,'&lt;');
           // Interrupt (Esc) — only meaningful while the session is actively working.
@@ -306,6 +306,9 @@
             + '</button>'
             + '</span></div>';
         }).join('');
+        // replace only on change — the 2s poll otherwise tears down hover/tooltip
+        // state (and focus) on every tick even when nothing moved
+        if (list.dataset.html !== html) { list.innerHTML = html; list.dataset.html = html; }
       }
       applyRunOpen();
       const q = msg.quota || {};
@@ -333,9 +336,13 @@
         document.getElementById('quotaLabel').textContent = reset
           ? '5h ' + Math.round(f) + '% · resets in ' + reset
           : (s > 0 ? '5h (7d ' + Math.round(s) + '%)' : '5h');
-        qline.title = '5h ' + f + '%' + (fin ? ' (resets in ' + fin + ')' : '')
+        // assign only on change — re-setting title on a hovered element every 2s
+        // resets the native tooltip dwell, so it never appears (caught live: the
+        // session rows' tooltips worked, this one didn't)
+        const qtip = '5h ' + f + '%' + (fin ? ' (resets in ' + fin + ')' : '')
           + ' · 7d ' + s + '%' + (sin ? ' (resets in ' + sin + ')' : '')
           + ' — Anthropic rate-limit usage';
+        if (qline.title !== qtip) qline.title = qtip;
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
       const qw = document.getElementById('quotaWarn');
@@ -349,7 +356,7 @@
       const vt = document.getElementById('vTerms'); vt.textContent = terms.length ? terms.length + '' : ''; vt.className = terms.length ? 'val' : 'k';
       const tl = document.getElementById('termList');
       if (tl){
-        tl.innerHTML = terms.map((t) => {
+        const thtml = terms.map((t) => {
           const nm = (t.name || 'terminal').replace(/</g,'&lt;');
           return '<div class="runitem" role="button" tabindex="0" data-tpid="' + (t.pid||0) + '" title="Click to focus this terminal">'
             + '<span class="dot unk"></span><span class="rname">' + nm + '</span>'
@@ -357,6 +364,7 @@
             + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>'
             + '</button></span></div>';
         }).join('');
+        if (tl.dataset.html !== thtml) { tl.innerHTML = thtml; tl.dataset.html = thtml; }
       }
       applyTermOpen();
     } else if (msg.type === 'updateStatus'){
