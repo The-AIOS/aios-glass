@@ -3,8 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { openDailyNote } from './home/calendar';
-import { runFrequentTask, openFrequentMenu, initFrequentTasks, listFrequentTasks } from './tasks/frequent';
-import { initRoutines, listRoutines, runRoutine } from './tasks/routines';
+import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
+import { listRoutines, runRoutine } from './tasks/routines';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
@@ -19,6 +19,7 @@ import { TERMINAL_OPTIONS, setTerminalMode } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { swallow, logChannel } from './log';
+import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 
 const DOC_FILES: Record<string, string> = {
@@ -31,8 +32,7 @@ const DOC_FILES: Record<string, string> = {
 
 export function activate(context: vscode.ExtensionContext): void {
   const home = new HomeViewProvider(context.extensionUri);
-  initFrequentTasks(context); // wire frequent-tasks persistence (globalState)
-  initRoutines(context); // wire routines persistence (globalState)
+  initGlassState(context); // tasks/routines state: vault file, globalState as migration source
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(HomeViewProvider.viewId, home, {

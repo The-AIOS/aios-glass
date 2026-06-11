@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { launchInSession } from '../rituals/runner';
 import { listFrequentTasks, slug, FreqTask } from './frequent';
+import { stateGet, stateSet } from '../state';
 
 /**
  * Routines: named, ORDERED bundles of frequent tasks — "Thinkers Symposium →
@@ -18,21 +19,15 @@ import { listFrequentTasks, slug, FreqTask } from './frequent';
 export interface Routine { id: string; label: string; taskIds: string[]; }
 
 const STORE_KEY = 'aios.routines.v1';
-let store: vscode.Memento | undefined;
-
-/** Wire persistence — call once from activate(). */
-export function initRoutines(ctx: vscode.ExtensionContext): void {
-  store = ctx.globalState;
-}
 
 export function listRoutines(): Routine[] {
   // Saved objects may carry legacy fields (cadence/hour from the brief
   // soft-schedule era) — extra keys are simply ignored.
-  return store?.get<Routine[]>(STORE_KEY) ?? [];
+  return stateGet<Routine[]>(STORE_KEY) ?? [];
 }
 
 async function saveRoutines(list: Routine[]): Promise<void> {
-  await store?.update(STORE_KEY, list);
+  await stateSet(STORE_KEY, list);
 }
 
 export async function removeRoutine(id: string): Promise<void> {

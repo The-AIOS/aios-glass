@@ -5,15 +5,16 @@ import { discoverCommands } from '../aios/commands';
 import { discoverSkills } from '../capabilities/capabilities';
 import { Routine, listRoutines, runRoutine, removeRoutine, addRoutineFlow } from './routines';
 import { swallow } from '../log';
+import { stateGet, stateSet } from '../state';
 
 /**
  * Frequent tasks: intent-first launchers. The operator picks *what they want
  * done* (a verb) and Glass routes to the right AIOS mechanism (agent / command
  * / skill) without exposing which.
  *
- * The list is user-editable and persisted in the extension's globalState
- * (per-machine). The built-ins below seed it; the operator can add their own
- * (picking a real agent/command/skill) and remove any — including defaults.
+ * The list is user-editable and persisted in the vault (`.glass/state.json` —
+ * git-synced across machines). The built-ins below seed it; the operator can add
+ * their own (picking a real agent/command/skill) and remove any — including defaults.
  */
 export interface FreqTask {
   id: string;
@@ -89,15 +90,9 @@ export const FREQUENT_TASKS: FreqTask[] = [
 
 const STORE_KEY = 'aios.frequentTasks.v1';
 const STORE_REMOVED = 'aios.frequentTasks.removed.v1';
-let store: vscode.Memento | undefined;
 
 export function slug(s: string): string {
   return s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'task';
-}
-
-/** Wire persistence — call once from activate(). */
-export function initFrequentTasks(ctx: vscode.ExtensionContext): void {
-  store = ctx.globalState;
 }
 
 /**
@@ -119,8 +114,8 @@ function getTasks(): FreqTask[] {
   // The operator's list (custom + kept defaults), then APPEND any built-in
   // default that's new (not in their list) and that they haven't removed — so
   // pre-bundled tasks we ship later show up without clobbering customizations.
-  const saved = store?.get<FreqTask[]>(STORE_KEY);
-  const removed = new Set(store?.get<string[]>(STORE_REMOVED) || []);
+  const saved = stateGet<FreqTask[]>(STORE_KEY);
+  const removed = new Set(stateGet<string[]>(STORE_REMOVED) || []);
   const base = saved === undefined ? [] : saved.map(migrateTask);
   const have = new Set(base.map((t) => t.id));
   for (const def of FREQUENT_TASKS) {
@@ -140,15 +135,15 @@ export function listFrequentTasks(): FreqTask[] {
 }
 
 async function saveTasks(list: FreqTask[]): Promise<void> {
-  await store?.update(STORE_KEY, list);
+  await stateSet(STORE_KEY, list);
 }
 
 /** Record a removed default so the merge in getTasks() won't re-add it. */
 async function markRemoved(id: string): Promise<void> {
   if (!FREQUENT_TASKS.some((d) => d.id === id)) return; // only defaults need this
-  const removed = new Set(store?.get<string[]>(STORE_REMOVED) || []);
+  const removed = new Set(stateGet<string[]>(STORE_REMOVED) || []);
   removed.add(id);
-  await store?.update(STORE_REMOVED, Array.from(removed));
+  await stateSet(STORE_REMOVED, Array.from(removed));
 }
 
 /** Launch a task by id (looked up in the live, possibly-customized list). */
