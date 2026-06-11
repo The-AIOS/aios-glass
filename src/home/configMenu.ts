@@ -34,6 +34,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(account) Login', description: account, id: 'login' },
     { label: '$(sign-out) Logout', id: 'logout' },
     { label: '$(info) Auth status', id: 'status' },
+    { label: '', kind: vscode.QuickPickItemKind.Separator },
     { label: '$(output) Show logs', description: 'diagnostics — swallowed action failures', id: 'logs' }
   ];
   const pick = await vscode.window.showQuickPick(items, { title: 'AIOS Glass — Config', placeHolder: 'Account · model · mode · updates' });
