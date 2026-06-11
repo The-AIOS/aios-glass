@@ -354,91 +354,74 @@
       {
         "id": "aios.gettingStarted",
         "title": "Get started with AIOS Glass",
-        "description": "Operate your AIOS — rituals, agents, calendar, companies — without the terminal.",
+        "description": "Your AIOS, clickable — six steps from install to operating.",
         "steps": [
           {
-            "id": "welcome",
-            "title": "Welcome to AIOS Glass",
-            "description": "AIOS Glass is a friendly window onto your AIOS. It surfaces and runs what you already have — slash commands, agents, companies — from clickable panels.\n\nOpen the **AIOS** icon in the activity bar anytime.",
+            "id": "dock",
+            "title": "Open your panel",
+            "description": "The Glass panel is home — rituals, sessions, tasks, calendar.\n[Open AIOS Glass](command:aios.openHome)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "AIOS"
-            }
-          },
-          {
-            "id": "frameworkPath",
-            "title": "Point Glass at your AIOS",
-            "description": "Tell Glass where your framework lives (the folder containing `plugins/aios/commands`).\n[Set framework path](command:aios.setFrameworkPath)",
-            "media": {
-              "image": "media/icon.png",
-              "altText": "AIOS"
-            },
-            "completionEvents": [
-              "onCommand:aios.setFrameworkPath"
-            ]
-          },
-          {
-            "id": "home",
-            "title": "Open your Home dashboard",
-            "description": "Your command center: today's plan, calendar, agents, capabilities, spaces.\n[Open AIOS Home](command:aios.openHome)",
-            "media": {
-              "image": "media/icon.png",
-              "altText": "AIOS Home"
+              "markdown": "media/walkthrough/dock.md"
             },
             "completionEvents": [
               "onCommand:aios.openHome"
             ]
           },
           {
-            "id": "ritual",
-            "title": "Plan your day",
-            "description": "In Home, click **Plan my day** — or run any ritual from the Rituals panel. It launches native Claude for you.\n[Open AIOS Home](command:aios.openHome)",
+            "id": "vault",
+            "title": "Point Glass at your AIOS",
+            "description": "Glass reads your framework live from ~/aios. If the panel counters show numbers, you are connected.\n[Check the setting](command:toSide:workbench.action.openSettings?%5B%22aiosGlass.frameworkPath%22%5D)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "Rituals"
+              "markdown": "media/walkthrough/vault.md"
             },
             "completionEvents": [
-              "onCommand:aios.runRitual"
+              "onCommand:workbench.action.openSettings",
+              "onSettingChanged:aiosGlass.frameworkPath"
             ]
           },
           {
-            "id": "agent",
-            "title": "Spawn an agent",
-            "description": "Pick a specialist and a task; Glass spawns a native-Claude worker for you.\n[Spawn an agent](command:aios.spawnAgent)",
+            "id": "daily",
+            "title": "Run your first ritual",
+            "description": "Plan my day in the morning, Close the day in the evening — the rhythm everything else compounds on.\n[Daily rituals](command:aios.dailyPicker)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "Agents"
+              "markdown": "media/walkthrough/daily.md"
+            },
+            "completionEvents": [
+              "onCommand:aios.dailyPicker"
+            ]
+          },
+          {
+            "id": "ask",
+            "title": "Ask AIOS anything",
+            "description": "Type what you need — Claude matches it to the right context & tools and puts them to work.\n[Ask AIOS](command:aios.askAios)",
+            "media": {
+              "markdown": "media/walkthrough/ask.md"
+            },
+            "completionEvents": [
+              "onCommand:aios.askAios"
+            ]
+          },
+          {
+            "id": "agents",
+            "title": "Launch an agent",
+            "description": "Wear a specialist hat — lawyer, content-writer, researcher — or spawn parallel workers and watch them in the Running card.\n[Browse agents](command:aios.spawnAgent)",
+            "media": {
+              "markdown": "media/walkthrough/agents.md"
             },
             "completionEvents": [
               "onCommand:aios.spawnAgent"
             ]
           },
           {
-            "id": "capabilities",
-            "title": "Explore your capabilities",
-            "description": "Browse the skills, MCPs and plugins your AIOS can use.\n[Browse capabilities](command:aios.capabilities.focus)",
+            "id": "chords",
+            "title": "Learn the chords",
+            "description": "⌘⌥G then a key — twenty actions behind one leader. Q asks, D plans, * searches everything.\n[Open the cheatsheet](command:aios.cheatsheet)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "Capabilities"
-            }
-          },
-          {
-            "id": "spaces",
-            "title": "Companies & collaboration",
-            "description": "Mount a company, sync context, or open a collaboration space — no flags to memorize.\n[Company actions](command:aios.companyAction)",
-            "media": {
-              "image": "media/icon.png",
-              "altText": "Spaces"
-            }
-          },
-          {
-            "id": "coldstart",
-            "title": "Brand-new clone? Run the full interview",
-            "description": "If this is a fresh AIOS, run `/aios:cold-start-interview` from the Rituals panel to set everything up end-to-end.\n[Open AIOS Home](command:aios.openHome)",
-            "media": {
-              "image": "media/icon.png",
-              "altText": "Cold start"
-            }
+              "markdown": "media/walkthrough/chords.md"
+            },
+            "completionEvents": [
+              "onCommand:aios.cheatsheet"
+            ]
           }
         ]
       }
