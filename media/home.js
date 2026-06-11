@@ -314,7 +314,7 @@
       const q = msg.quota || {};
       const qline = document.getElementById('quotaLine');
       if (q.has) {
-        const f = q.fiveHour || 0, s = q.sevenDay || 0;
+        const f = Math.round(q.fiveHour || 0), s = Math.round(q.sevenDay || 0); // cache carries float dust (28.000…004)
         // "resets in 1h32m" — future-time formatter on the cache's resets_at epochs
         const fmtIn = (sec) => {
           if (!sec) return '';
