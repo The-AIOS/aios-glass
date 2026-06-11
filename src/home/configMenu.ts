@@ -33,12 +33,16 @@ export async function openConfigMenu(): Promise<void> {
     ...(multiAccount ? [{ label: '$(arrow-swap) Swap account', description: currentAnthropicAccount(), id: 'swap' }] : []),
     { label: '$(account) Login', description: account, id: 'login' },
     { label: '$(sign-out) Logout', id: 'logout' },
-    { label: '$(info) Auth status', id: 'status' }
+    { label: '$(info) Auth status', id: 'status' },
+    { label: '$(output) Show logs', description: 'diagnostics — swallowed action failures', id: 'logs' }
   ];
   const pick = await vscode.window.showQuickPick(items, { title: 'AIOS Glass — Config', placeHolder: 'Account · model · mode · updates' });
   if (!pick) return;
 
   switch (pick.id) {
+    case 'logs':
+      await vscode.commands.executeCommand('aios.showLogs');
+      return;
     case 'model': {
       const m = await vscode.window.showQuickPick(
         MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
