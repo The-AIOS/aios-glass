@@ -6,6 +6,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.8] — 2026-06-11
+
+> The hardening release: two live bugs fixed, the engineering debt from the
+> standalone-roadmap audit paid down, and the onboarding walkthrough — born the
+> same afternoon the audit named them.
+
+### Fixed
+- **Quick-card picks silently did nothing** (frequent tasks / skills / commands on the default `ask` terminal mode): all three menus dispatched from inside `onDidAccept`, and the dying picker's async hide/dispose dismissed the follow-up "Run in…" picker before it could render. Selections now dispatch from `onDidHide`. Same fix applied to the wildcard palette.
+- **Type-to-filter flicker** in those pickers — the item list was rebuilt on every keystroke, resetting the highlighted row; the dynamic *Create task / Ask AIOS* fallbacks are now stable items toggled only when the query goes empty↔typed.
+- **Dead surfaces removed**: the four `AIOS: Refresh …` Command-Palette entries (pre-panel relics that errored on click) and the welcome block for a view that no longer exists. Inverse bug too: **Ask AIOS, Frequent Tasks & Routines, and the palette are now actually in the Command Palette**.
+- **Tooltips and hover states survive the live poll** — the panel re-rendered the session/terminal lists and re-assigned the quota tooltip every 2s even when nothing changed, tearing down native tooltip dwell and hover mid-gesture. DOM now updates only on change.
+
+### Added
+- **Getting Started walkthrough** — six branded steps (dock the panel → connect your AIOS → first ritual → Ask AIOS → agents → chords) with one-click actions and completion tracking. Opens automatically on install and from cog → *Getting started*. (The walkthrough button had pointed at a walkthrough that never existed.)
+- **Diagnostics channel** — action failures (a click that does nothing, a failed launch, a state write error) now log to the *AIOS Glass* output channel with context. Open via cog → *Show logs* or `AIOS: Show Logs`; an activation banner explains that an empty channel = healthy.
+- **Quota reset countdown** — when 5h usage enters the amber zone (≥85%) the label itself shows when capacity returns (`5h 92% · resets in 32m`); the tooltip carries both windows, one row each.
+
+### Changed
+- **Tasks & routines now live in your vault** (`.glass/state.json`) instead of per-machine storage — they follow you across machines via the vault's own git sync. Existing values migrate automatically on first read; nothing to do.
+- **Internals hardened** (the audit's Phase 0): the panel UI extracted from a 1,160-line template literal into real `media/home.{html,css,js}` files; a **CI smoke gate** boots the actual panel in headless Chrome and fails on any script error (the bug class that shipped a dead panel can't ship again); a pure, vscode-free `src/core/` with **12 unit tests** (zero new dependencies); a 5s cache on the agents/commands/skills discovery walks.
+
 ## [0.1.7] — 2026-06-08
 
 ### Fixed

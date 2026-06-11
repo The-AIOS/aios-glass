@@ -20,6 +20,7 @@ The AIOS is powerful but lives behind the terminal: slash commands you type, the
 - **Quick tasks & routines** — one-click frequent tasks (agent / command / skill / prompt, with a baked assignment) and **routines**: ordered task bundles that run as a single session. Searches that find nothing offer *Create task*.
 - **`⌘⌥G` chords + the `*` palette** — 20 shortcuts behind one leader with an on-panel cheat-sheet, plus a wildcard palette that fuzzy-searches everything launchable: sessions, routines, tasks, agents, commands, skills.
 - **Status, live** — framework-update badge that re-checks the moment your tracker changes, rate-limit meter, company/collaborate surfaces.
+- **Guided start + diagnostics** — a six-step Getting Started walkthrough on install, and an *AIOS Glass* output channel where any action failure lands with context (cog → *Show logs*).
 
 ## Relationship to Foam
 
