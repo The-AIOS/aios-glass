@@ -57,12 +57,6 @@
         }
       }
     },
-    "viewsWelcome": [
-      {
-        "view": "aios.rituals",
-        "contents": "No AIOS commands found.\n\nAIOS Glass reads the live `commands/` directory of your AIOS framework — it never hardcodes the list.\n\nSet the framework path so it can find them.\n[Set framework path](command:aios.setFrameworkPath)"
-      }
-    ],
     "commands": [
       {
         "command": "aios.openHome",
@@ -121,18 +115,8 @@
         "title": "AIOS: Spawn Worker (adjective-animal)"
       },
       {
-        "command": "aios.refreshAgents",
-        "title": "AIOS: Refresh Agents",
-        "icon": "$(refresh)"
-      },
-      {
         "command": "aios.openCapability",
         "title": "AIOS: Open Capability"
-      },
-      {
-        "command": "aios.refreshCapabilities",
-        "title": "AIOS: Refresh Capabilities",
-        "icon": "$(refresh)"
       },
       {
         "command": "aios.companyAction",
@@ -147,22 +131,25 @@
         "title": "AIOS: Update Framework"
       },
       {
-        "command": "aios.refreshSpaces",
-        "title": "AIOS: Refresh Spaces",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "aios.refreshRituals",
-        "title": "AIOS: Refresh Rituals",
-        "icon": "$(refresh)"
-      },
-      {
         "command": "aios.setFrameworkPath",
         "title": "AIOS: Set Framework Path"
       },
       {
         "command": "aios.showLogs",
         "title": "AIOS: Show Logs"
+      },
+      {
+        "command": "aios.askAios",
+        "title": "AIOS: Ask AIOS",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "aios.frequentMenu",
+        "title": "AIOS: Frequent Tasks & Routines"
+      },
+      {
+        "command": "aios.palette",
+        "title": "AIOS: Search Everything (Palette)"
       }
     ],
     "keybindings": [
@@ -294,6 +281,16 @@
           "command": "aios.cheatsheet",
           "when": "view == aios.home",
           "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "aios.runRitual",
+          "when": "false"
+        },
+        {
+          "command": "aios.openCapability",
+          "when": "false"
         }
       ]
     },

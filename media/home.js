@@ -316,7 +316,19 @@
         document.getElementById('quotaBar').className = 'quotabar ' + lvl;
         document.getElementById('quotaFill').style.width = Math.min(100, f) + '%';
         document.getElementById('quotaLabel').textContent = s > 0 ? '5h (7d ' + Math.round(s) + '%)' : '5h';
-        qline.title = '5h ' + f + '% · 7d ' + s + '% — Anthropic rate-limit usage';
+        // "resets in 1h32m" — future-time formatter on the cache's resets_at epochs
+        const fmtIn = (sec) => {
+          if (!sec) return '';
+          const m = Math.max(0, Math.round((sec * 1000 - Date.now()) / 60000));
+          if (m < 60) return m + 'm';
+          const h = Math.floor(m / 60);
+          if (h < 24) return h + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
+          return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+        };
+        const fin = fmtIn(q.fr), sin = fmtIn(q.sr);
+        qline.title = '5h ' + f + '%' + (fin ? ' (resets in ' + fin + ')' : '')
+          + ' · 7d ' + s + '%' + (sin ? ' (resets in ' + sin + ')' : '')
+          + ' — Anthropic rate-limit usage';
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
       const qw = document.getElementById('quotaWarn');

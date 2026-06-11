@@ -55,13 +55,18 @@ export async function setAutomaticUpdates(on: boolean): Promise<void> {
 }
 
 /** Rate-limit usage from the statusline cache (~/.claude/rate-limit-cache.json). */
-export interface RateLimit { email: string; fiveHourPct: number; sevenDayPct: number; max: number; }
+export interface RateLimit { email: string; fiveHourPct: number; sevenDayPct: number; max: number; fiveHourResetsAt: number; sevenDayResetsAt: number; }
 export function rateLimit(): RateLimit | undefined {
   try {
     const d = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.claude', 'rate-limit-cache.json'), 'utf8'));
     const f = Number(d.five_hour_pct) || 0;
     const s = Number(d.seven_day_pct) || 0;
-    return { email: d.email || '', fiveHourPct: f, sevenDayPct: s, max: Math.max(f, s) };
+    return {
+      email: d.email || '', fiveHourPct: f, sevenDayPct: s, max: Math.max(f, s),
+      // epoch seconds; 0 when the cache predates the fields
+      fiveHourResetsAt: Number(d.five_hour_resets_at) || 0,
+      sevenDayResetsAt: Number(d.seven_day_resets_at) || 0,
+    };
   } catch { return undefined; }
 }
 

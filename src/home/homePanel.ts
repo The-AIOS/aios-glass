@@ -273,7 +273,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // 5h is the binding constraint; 7d only escalates at the extreme (≥99).
     const showSwap = !!rl && multi && (QUOTA_SWAP_ALWAYS || rl.fiveHourPct >= 95 || rl.sevenDayPct >= 99);
     const quota = rl
-      ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, showSwap, to: multi ? nextAccount() : '' }
+      ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, fr: rl.fiveHourResetsAt, sr: rl.sevenDayResetsAt, showSwap, to: multi ? nextAccount() : '' }
       : { has: false, fiveHour: 0, sevenDay: 0, showSwap: false, to: '' };
     // Project label = the session cwd's basename; omitted when it's just the
     // framework root (the default vault session — labeling it adds no signal).
