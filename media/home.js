@@ -339,9 +339,8 @@
         // assign only on change — re-setting title on a hovered element every 2s
         // resets the native tooltip dwell, so it never appears (caught live: the
         // session rows' tooltips worked, this one didn't)
-        const qtip = '5h ' + f + '%' + (fin ? ' (resets in ' + fin + ')' : '')
-          + ' · 7d ' + s + '%' + (sin ? ' (resets in ' + sin + ')' : '')
-          + ' — Anthropic rate-limit usage';
+        const qtip = '5h  ' + f + '%' + (fin ? ' · resets in ' + fin : '')
+          + '\n7d  ' + s + '%' + (sin ? ' · resets in ' + sin : '');
         if (qline.title !== qtip) qline.title = qtip;
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
