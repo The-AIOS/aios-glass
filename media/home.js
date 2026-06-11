@@ -312,10 +312,6 @@
       const qline = document.getElementById('quotaLine');
       if (q.has) {
         const f = q.fiveHour || 0, s = q.sevenDay || 0;
-        const lvl = (f >= 95 || s >= 99) ? 'red' : f >= 90 ? 'orange' : f >= 85 ? 'yellow' : 'green';
-        document.getElementById('quotaBar').className = 'quotabar ' + lvl;
-        document.getElementById('quotaFill').style.width = Math.min(100, f) + '%';
-        document.getElementById('quotaLabel').textContent = s > 0 ? '5h (7d ' + Math.round(s) + '%)' : '5h';
         // "resets in 1h32m" — future-time formatter on the cache's resets_at epochs
         const fmtIn = (sec) => {
           if (!sec) return '';
@@ -326,6 +322,17 @@
           return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
         };
         const fin = fmtIn(q.fr), sin = fmtIn(q.sr);
+        const lvl = (f >= 95 || s >= 99) ? 'red' : f >= 90 ? 'orange' : f >= 85 ? 'yellow' : 'green';
+        document.getElementById('quotaBar').className = 'quotabar ' + lvl;
+        document.getElementById('quotaFill').style.width = Math.min(100, f) + '%';
+        // Countdown goes INLINE once you're in the amber zone — Antigravity's
+        // webview eats title-tooltips (same quirk that killed the session hover
+        // detail in 0.1.6), and "when do I get capacity back" only matters when
+        // you're running out. Binding constraint wins: 5h≥85, else 7d≥99.
+        const reset = (f >= 85 && fin) ? fin : (s >= 99 && sin) ? sin : '';
+        document.getElementById('quotaLabel').textContent = reset
+          ? '5h ' + Math.round(f) + '% · resets in ' + reset
+          : (s > 0 ? '5h (7d ' + Math.round(s) + '%)' : '5h');
         qline.title = '5h ' + f + '%' + (fin ? ' (resets in ' + fin + ')' : '')
           + ' · 7d ' + s + '%' + (sin ? ' (resets in ' + sin + ')' : '')
           + ' — Anthropic rate-limit usage';
