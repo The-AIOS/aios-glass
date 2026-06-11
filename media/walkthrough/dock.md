@@ -1,4 +1,4 @@
-![The AIOS](../icon.png)
+![The AIOS](mark-64.png)
 
 ## Your AIOS, clickable
 
