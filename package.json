@@ -159,6 +159,10 @@
       {
         "command": "aios.setFrameworkPath",
         "title": "AIOS: Set Framework Path"
+      },
+      {
+        "command": "aios.showLogs",
+        "title": "AIOS: Show Logs"
       }
     ],
     "keybindings": [

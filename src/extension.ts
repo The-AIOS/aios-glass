@@ -18,6 +18,7 @@ import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
+import { swallow, logChannel } from './log';
 import { frameworkRoot } from './home/vault';
 
 const DOC_FILES: Record<string, string> = {
@@ -109,6 +110,9 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       await createCustom(kind);
     }),
+
+    // Diagnostics — every swallowed action failure lands in this channel.
+    vscode.commands.registerCommand('aios.showLogs', () => logChannel().show(true)),
 
     vscode.commands.registerCommand('aios.launchPrimary', () => launchPrimary(primaryName())),
     vscode.commands.registerCommand('aios.resume', () => launchResume()),
@@ -340,7 +344,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         qp.hide();
       });
-      qp.onDidHide(() => { qp.dispose(); if (go) go(); });
+      qp.onDidHide(() => { qp.dispose(); if (go) { try { go(); } catch (e) { swallow('palette dispatch', e); } } });
       qp.show();
     }),
 

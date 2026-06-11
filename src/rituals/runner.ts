@@ -7,6 +7,7 @@ import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
+import { swallow } from '../log';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -509,7 +510,7 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
     });
     qp.onDidHide(() => {
       qp.dispose();
-      if (askValue) { askAios(askValue); resolve(undefined); return; }
+      if (askValue) { try { askAios(askValue); } catch (e) { swallow('pickWithAsk → askAios', e); } resolve(undefined); return; }
       resolve(accepted); // undefined on Esc — same contract as before
     });
     qp.show();

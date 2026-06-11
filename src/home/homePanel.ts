@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
 import * as fs from 'fs';
+import { swallow } from '../log';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
@@ -39,7 +40,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     this.view = webviewView;
     webviewView.webview.options = { enableScripts: true, localResourceRoots: [this.extensionUri] };
     webviewView.webview.html = this.html(webviewView.webview);
-    webviewView.webview.onDidReceiveMessage((msg) => this.onMessage(msg));
+    webviewView.webview.onDidReceiveMessage((msg) =>
+      void Promise.resolve(this.onMessage(msg)).catch((e) => swallow('panel message ' + (msg && msg.type), e)));
     // Re-check status/running each time the view becomes visible again (e.g.
     // after running /aios:update in a terminal and switching back), and poll
     // the running list WHILE visible so newly-spawned sessions and busy⇄idle

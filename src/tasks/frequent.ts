@@ -4,6 +4,7 @@ import { discoverAgents, iconForAgent } from '../agents/agents';
 import { discoverCommands } from '../aios/commands';
 import { discoverSkills } from '../capabilities/capabilities';
 import { Routine, listRoutines, runRoutine, removeRoutine, addRoutineFlow } from './routines';
+import { swallow } from '../log';
 
 /**
  * Frequent tasks: intent-first launchers. The operator picks *what they want
@@ -256,7 +257,7 @@ export async function openFrequentMenu(): Promise<void> {
     qp.hide();
   });
 
-  qp.onDidHide(() => { qp.dispose(); if (action) void action(); });
+  qp.onDidHide(() => { qp.dispose(); if (action) void Promise.resolve(action()).catch((e) => swallow('quick-menu dispatch', e)); });
   qp.show();
 }
 
