@@ -238,19 +238,25 @@ export async function openFrequentMenu(): Promise<void> {
     refresh();
   });
 
-  qp.onDidAccept(async () => {
+  // CAPTURE the choice on accept, DISPATCH from onDidHide — launching a follow-up
+  // QuickPick/InputBox (the "Run in…" terminal picker, add-task flow, …) from
+  // inside onDidAccept races this picker's async hide/dispose, and the focus churn
+  // instantly dismisses that next UI → picks silently did nothing.
+  let action: (() => Promise<void> | void) | undefined;
+  qp.onDidAccept(() => {
     const sel = qp.selectedItems[0];
     if (!sel) return;
     const typed = qp.value.trim(); // read the live query before hiding
-    if (sel.add) { qp.hide(); await addFrequentTask(); return; }
-    if (sel.createNew) { qp.hide(); await addFrequentTask(typed || undefined); return; }
-    if (sel.ask) { qp.hide(); if (typed) askAios(typed); return; }
-    if (sel.addRoutine) { qp.hide(); await addRoutineFlow(); await openFrequentMenu(); return; }
-    if (sel.routine) { qp.hide(); await runRoutine(sel.routine.id); return; }
-    if (sel.task) { qp.hide(); await runTask(sel.task); }
+    if (sel.add) action = () => addFrequentTask();
+    else if (sel.createNew) action = () => addFrequentTask(typed || undefined);
+    else if (sel.ask) action = () => { if (typed) askAios(typed); };
+    else if (sel.addRoutine) action = async () => { await addRoutineFlow(); await openFrequentMenu(); };
+    else if (sel.routine) { const id = sel.routine.id; action = () => runRoutine(id); }
+    else if (sel.task) { const t = sel.task; action = () => runTask(t); }
+    qp.hide();
   });
 
-  qp.onDidHide(() => qp.dispose());
+  qp.onDidHide(() => { qp.dispose(); if (action) void action(); });
   qp.show();
 }
 

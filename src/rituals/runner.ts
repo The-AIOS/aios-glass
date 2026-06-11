@@ -482,12 +482,10 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
     qp.placeholder = opts.placeHolder;
     qp.matchOnDescription = !!opts.matchOnDescription;
     qp.matchOnDetail = !!opts.matchOnDetail;
-    let done = false;
-    const finish = (val: T | undefined) => { if (!done) { done = true; resolve(val); } qp.hide(); };
     // ONE stable Ask item (no echoed value — the input box already shows what you
     // typed). Appended only while there's a query, and ONLY when that query toggles
     // empty↔typed — never per keystroke. (Reassigning qp.items on each character
-    // resets the highlighted row and makes native filtering flicker — the glitch.)
+    // resets the highlighted row and makes native filtering flicker.)
     const askItem: AskItem = { label: '$(sparkle) Ask AIOS with what you typed', description: 'no exact match? — Claude matches your ask to the right context & tools and runs it', alwaysShow: true, __ask: true };
     qp.items = items;
     let hasQuery = false;
@@ -497,12 +495,23 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
       hasQuery = now;
       qp.items = now ? [...items, askItem] : items;
     });
+    // CAPTURE on accept, DISPATCH from onDidHide. Resolving (or opening any
+    // follow-up QuickPick/InputBox) from inside onDidAccept races the picker's own
+    // async hide/dispose — the dying picker's focus churn instantly dismisses the
+    // next UI (e.g. the "Run in…" terminal picker), so clicks silently did nothing.
+    let accepted: T | undefined;
+    let askValue = '';
     qp.onDidAccept(() => {
       const s = qp.selectedItems[0] as (T & AskItem) | undefined;
-      if (s && s.__ask) { const v = qp.value.trim(); finish(undefined); if (v) askAios(v); return; }
-      finish(s as T | undefined);
+      if (s && s.__ask) askValue = qp.value.trim();
+      else accepted = s as T | undefined;
+      qp.hide();
     });
-    qp.onDidHide(() => { if (!done) { done = true; resolve(undefined); } qp.dispose(); });
+    qp.onDidHide(() => {
+      qp.dispose();
+      if (askValue) { askAios(askValue); resolve(undefined); return; }
+      resolve(accepted); // undefined on Esc — same contract as before
+    });
     qp.show();
   });
 }

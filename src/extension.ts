@@ -308,33 +308,39 @@ export function activate(context: vscode.ExtensionContext): void {
       qp.matchOnDetail = true;
       // Semantic fallback: the picker's fuzzy match is lexical (names +
       // descriptions). When intent doesn't match words, hand the words to Claude
-      // — the engine that CAN search by meaning — instead of bundling an
-      // embedding model into a glass layer. alwaysShow keeps it reachable even
-      // when the filter matches nothing.
-      const refresh = () => {
-        const v = qp.value.trim();
-        qp.items = v
-          ? [...items, { label: `$(sparkle) Ask AIOS: "${v}"`, description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, pk: 'ask' as const, name: v }]
-          : items;
-      };
-      refresh();
-      qp.onDidChangeValue(refresh);
+      // — the engine that CAN search by meaning. ONE stable item, toggled only on
+      // empty↔typed (per-keystroke qp.items churn resets the highlight + flickers).
+      const askItem: PalItem = { label: '$(sparkle) Ask AIOS with what you typed', description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, pk: 'ask' as const };
+      qp.items = items;
+      let hasQuery = false;
+      qp.onDidChangeValue((v) => {
+        const now = v.trim().length > 0;
+        if (now === hasQuery) return;
+        hasQuery = now;
+        qp.items = now ? [...items, askItem] : items;
+      });
+      // Capture on accept, dispatch from onDidHide — follow-up UI (the "Run in…"
+      // terminal picker, arg-hint input) opened inside onDidAccept gets dismissed
+      // by this picker's own async hide/dispose focus churn.
+      let go: (() => void) | undefined;
       qp.onDidAccept(() => {
         const pick = qp.selectedItems[0];
-        qp.hide();
-        if (!pick || !pick.pk) return;
-        if (pick.pk === 'session' && pick.name) return void revealAgentTerminal(pick.name, pick.pid);
-        if (pick.pk === 'routine' && pick.id) return void runRoutine(pick.id);
-        if (pick.pk === 'task' && pick.id) return void runFrequentTask(pick.id);
-        if (pick.pk === 'agent' && pick.name) {
-          const a = discoverAgents().find((x) => x.name === pick.name);
-          return void launchAios('agent', pick.name, { name: pick.name, icon: iconForAgent(a ?? { name: pick.name }), color: 'terminal.ansiCyan' });
+        const typed = qp.value.trim();
+        if (pick && pick.pk) {
+          if (pick.pk === 'session' && pick.name) { const n = pick.name, p = pick.pid; go = () => void revealAgentTerminal(n, p); }
+          else if (pick.pk === 'routine' && pick.id) { const id = pick.id; go = () => void runRoutine(id); }
+          else if (pick.pk === 'task' && pick.id) { const id = pick.id; go = () => void runFrequentTask(id); }
+          else if (pick.pk === 'agent' && pick.name) {
+            const n = pick.name;
+            go = () => { const a = discoverAgents().find((x) => x.name === n); void launchAios('agent', n, { name: n, icon: iconForAgent(a ?? { name: n }), color: 'terminal.ansiCyan' }); };
+          }
+          else if (pick.pk === 'command' && pick.cmd) { const c = pick.cmd; go = () => void runRitual(c); } // honors arg-hint prompts
+          else if (pick.pk === 'skill' && pick.name) { const n = pick.name; go = () => void launchSkill(n); }
+          else if (pick.pk === 'ask' && typed) { go = () => void askAios(typed); } // fresh session named from the intent
         }
-        if (pick.pk === 'command' && pick.cmd) return void runRitual(pick.cmd); // honors arg-hint prompts
-        if (pick.pk === 'skill' && pick.name) return void launchSkill(pick.name);
-        if (pick.pk === 'ask' && pick.name) return void askAios(pick.name); // fresh session named from the intent
+        qp.hide();
       });
-      qp.onDidHide(() => qp.dispose());
+      qp.onDidHide(() => { qp.dispose(); if (go) go(); });
       qp.show();
     }),
 
