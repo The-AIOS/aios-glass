@@ -1,3 +1,5 @@
+![The AIOS](../icon.png)
+
 ## Your AIOS, clickable
 
 The **AIOS Glass panel** is home: daily rituals, live sessions, quick tasks, your calendar, what Claude's learned — every card surfaces something your AIOS already knows how to do.
