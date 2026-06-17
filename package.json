@@ -71,6 +71,11 @@
         "title": "AIOS: Open Getting Started"
       },
       {
+        "command": "aios.openFiles",
+        "title": "AIOS: Browse Files (Finder)",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "aios.openConfigMenu",
         "title": "AIOS: Config",
         "icon": "$(gear)"
@@ -252,6 +257,11 @@
         "command": "aios.openToday",
         "mac": "cmd+alt+g y",
         "key": "ctrl+alt+g y"
+      },
+      {
+        "command": "aios.openFiles",
+        "mac": "cmd+alt+g b",
+        "key": "ctrl+alt+g b"
       }
     ],
     "menus": {
@@ -263,24 +273,29 @@
       ],
       "view/title": [
         {
-          "command": "aios.showGraph",
+          "command": "aios.openFiles",
           "when": "view == aios.home",
           "group": "navigation@0"
         },
         {
-          "command": "aios.createCustom",
+          "command": "aios.showGraph",
           "when": "view == aios.home",
           "group": "navigation@1"
         },
         {
-          "command": "aios.openConfigMenu",
+          "command": "aios.createCustom",
           "when": "view == aios.home",
           "group": "navigation@2"
         },
         {
-          "command": "aios.cheatsheet",
+          "command": "aios.openConfigMenu",
           "when": "view == aios.home",
           "group": "navigation@3"
+        },
+        {
+          "command": "aios.cheatsheet",
+          "when": "view == aios.home",
+          "group": "navigation@4"
         }
       ],
       "commandPalette": [
@@ -334,6 +349,19 @@
           ],
           "default": "ask",
           "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+        },
+        "aiosGlass.theme": {
+          "type": "string",
+          "enum": [
+            "dark",
+            "light"
+          ],
+          "enumDescriptions": [
+            "Deep black canvas with the coral accent — the default Glass look",
+            "Paper-light canvas (The-AIOS light), same coral accent — legible in bright rooms / on projectors"
+          ],
+          "default": "dark",
+          "markdownDescription": "Visual theme for the Glass surfaces (Home panel + Files explorer). Toggle from the header sun/moon button or the cog menu. Terminals always stay dark."
         },
         "aiosGlass.showHints": {
           "type": "boolean",

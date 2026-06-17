@@ -27,6 +27,18 @@
     vscode.setState(Object.assign({}, (vscode.getState && vscode.getState()) || {}, { compact: c }));
   });
 
+  // Theme toggle (dark ⇄ light) — the source of truth is the aiosGlass.theme
+  // setting (shared with the Files explorer), but we apply optimistically on click
+  // so the flip is instant, then persist via the extension. The initial class is
+  // injected into <body> at render time (no dark→light flash on open).
+  const themeBtn = document.getElementById('themeToggle');
+  function applyTheme(t){ document.body.classList.toggle('light', t === 'light'); }
+  if (themeBtn) themeBtn.addEventListener('click', () => {
+    const next = document.body.classList.contains('light') ? 'dark' : 'light';
+    applyTheme(next);
+    vscode.postMessage({ type: 'setTheme', theme: next });
+  });
+
   // Collapsible cards — click a title to fold/unfold; persisted in webview state.
   const cstate0 = (vscode.getState && vscode.getState()) || {};
   const collapsed = new Set(cstate0.collapsed || []);
@@ -207,6 +219,7 @@
   document.getElementById('skillsPicker').addEventListener('click', () => run('aios.skillsPicker'));
   document.getElementById('companyAction').addEventListener('click', () => run('aios.companyAction'));
   document.getElementById('collaborateAction').addEventListener('click', () => run('aios.collaborateAction'));
+  document.getElementById('browseFiles').addEventListener('click', () => run('aios.openFiles'));
   document.getElementById('browseProjects').addEventListener('click', () => run('aios.browseContext', 'projects'));
   document.getElementById('browseDeclared').addEventListener('click', () => run('aios.browseContext', 'declared'));
   document.getElementById('browseObserved').addEventListener('click', () => run('aios.browseContext', 'observed'));
@@ -238,6 +251,7 @@
     const msg = e.data;
     if (msg.type === 'state'){
       if (msg.primary) document.getElementById('vPrimary').textContent = msg.primary;
+      if (msg.theme) applyTheme(msg.theme);
       document.body.classList.toggle('no-hints', msg.showHints === false);
       document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';

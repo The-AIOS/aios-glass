@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+> In testing with the operator — not yet versioned or published. Validate locally
+> (F5 Extension Dev Host), then cut the release.
+
+### Added
+- **Light theme** — a paper-light variant of the Glass surfaces (canvas `#f7f7f5`, ink `#0c0c0d`, the **same coral accent**, with `accent-soft` darkened to `#d6402c` for legible coral text on white). Toggle from the new header sun/moon button, the cog → *Theme*, or set `aiosGlass.theme`. One `body.light` class reskins every card and surface because every colour is now a token; the choice is a shared setting, so Home and the Files explorer stay in lockstep. Terminals stay dark, by design. (Dark remains the default — nothing changes unless you flip it.)
+- **AIOS Files** — a **Finder-style file explorer** (`AIOS: Browse Files`, `⌘⌥G B`, the *Browse files* button in Workspaces, and a title-bar icon) built for operators who find a developer file tree intimidating. Big folder tiles, breadcrumbs, single-click to open (files route through the same viewer logic as Home — `.md` → preview, `.html` → browser, etc.; ⌘-click for source). A *Places* sidebar separates **Vault** (your notes/calendar/projects), **Framework** (agents, skills, plugins, commands), and **Workspace** (any folders you add — repos, drives — persisted in `.glass/state.json`). Friendly type chips (MD/PDF/HTML/PNG/…), numbered-folder prefixes dimmed, noise (`node_modules`, dotfiles, build dirs) hidden. Path access is sandboxed to the place roots.
+
+### Changed
+- The webview smoke gate now boots **every** panel (home + files) in headless Chrome, not just Home.
+
 ## [0.1.8] — 2026-06-11
 
 > The hardening release: two live bugs fixed, the engineering debt from the

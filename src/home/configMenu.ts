@@ -8,7 +8,8 @@ import {
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
   showNudges, setShowNudges,
-  nativeTabsEnabled, setNativeTabs
+  nativeTabsEnabled, setNativeTabs,
+  currentTheme, setTheme
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -17,6 +18,7 @@ export async function openConfigMenu(): Promise<void> {
   const account = currentAccount() || 'not signed in';
   const multiAccount = anthropicAccounts().length > 1; // swap only matters with 2+
   const items: (vscode.QuickPickItem & { id?: string })[] = [
+    { label: '$(color-mode) Theme', description: currentTheme(), id: 'theme' },
     { label: '$(server) Model', description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) Permission mode', description: currentMode(), id: 'mode' },
     { label: '$(terminal) Terminal mode', description: currentTerminalMode(), id: 'terminal' },
@@ -48,6 +50,17 @@ export async function openConfigMenu(): Promise<void> {
     case 'logs':
       await vscode.commands.executeCommand('aios.showLogs');
       return;
+    case 'theme': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(circle-filled) Dark', description: 'deep black + coral — the default', value: 'dark' as const },
+          { label: '$(circle-outline) Light', description: 'paper canvas + coral — bright rooms / projectors', value: 'light' as const }
+        ],
+        { title: `Theme — currently ${currentTheme()}`, placeHolder: 'Reskins Home + Files (terminals stay dark)' }
+      );
+      if (choice) await setTheme(choice.value);
+      return;
+    }
     case 'model': {
       const m = await vscode.window.showQuickPick(
         MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),

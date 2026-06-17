@@ -133,6 +133,16 @@ export async function setShowHints(on: boolean): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
 }
 
+/** Glass surface theme — 'dark' (default) or 'light'. Shared across every Glass
+ *  webview (Home + Files) so a single toggle reskins them all consistently. */
+export function currentTheme(): 'dark' | 'light' {
+  return vscode.workspace.getConfiguration('aiosGlass').get<string>('theme', 'dark') === 'light' ? 'light' : 'dark';
+}
+
+export async function setTheme(value: 'dark' | 'light'): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('theme', value, vscode.ConfigurationTarget.Global);
+}
+
 /** Whether to show the contextual ritual nudge banner (morning/daytime/evening). Default true. */
 export function showNudges(): boolean {
   return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showNudges', true);

@@ -10,6 +10,7 @@ import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
 import { AiosCommand, resolveCommandsDir, discoverCommands } from './aios/commands';
 import { HomeViewProvider } from './home/homePanel';
+import { FilesPanel } from './files/filesPanel';
 import { spawnAgentFlow, spawnWorker } from './agents/spawn';
 import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
@@ -50,6 +51,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.openWalkthrough', () =>
       vscode.commands.executeCommand('workbench.action.openWalkthrough', 'the-aios.aios-glass#aios.gettingStarted', false)),
+
+    // AIOS Files — the Finder-style explorer (Vault / Framework / Workspace).
+    vscode.commands.registerCommand('aios.openFiles', () => FilesPanel.open(context.extensionUri)),
 
     vscode.commands.registerCommand('aios.companyAction', (name?: string) => companyAction(name)),
     vscode.commands.registerCommand('aios.collaborateAction', () => collaborateAction()),
@@ -450,7 +454,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges')) HomeViewProvider.current?.refresh();
+      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme')) HomeViewProvider.current?.refresh();
     })
   );
 

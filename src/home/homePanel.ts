@@ -14,7 +14,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, setTheme } from './config';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -203,6 +203,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       case 'recheck':
         this.recheck();
         return;
+      case 'setTheme':
+        // The webview applied it optimistically; persist to the shared setting so
+        // the Files explorer (and the next open) match. onDidChangeConfiguration
+        // re-posts state to reconcile any surface that didn't flip locally.
+        if (msg.theme === 'dark' || msg.theme === 'light') await setTheme(msg.theme);
+        return;
       case 'navMonth':
         this.post({ type: 'month', data: getMonthData(msg.year, msg.month) });
         return;
@@ -319,6 +325,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       type: 'state',
       operator: operatorName(),
       primary: primaryName(),
+      theme: currentTheme(),
       agents: discoverAgents().length,
       skills: discoverSkills().length,
       commands: discoverCommands().length,
@@ -354,6 +361,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     try {
       const page = fs.readFileSync(vscode.Uri.joinPath(media, 'home.html').fsPath, 'utf8');
       return page
+        // Stamp the theme onto <body> before first paint — no dark→light flash on open.
+        .replace('<body>', currentTheme() === 'light' ? '<body class="light">' : '<body>')
         .replace(/{{CSP}}/g, csp)
         .replace(/{{NONCE}}/g, nonce)
         .replace(/{{CSS_URI}}/g, webview.asWebviewUri(vscode.Uri.joinPath(media, 'home.css')).toString())
