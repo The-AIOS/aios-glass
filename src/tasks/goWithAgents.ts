@@ -3,8 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
 import { launchSpawn, launchCommandInNewSession } from '../rituals/runner';
-
-interface Suggestion { task: string; agents: string[]; command?: string; arg?: string; raw: string; }
+import { parseAgentSection } from './agentParse';
 
 /**
  * Newest `YYYY-MM-DD.md` under `<vault>/01 - calendar/YYYY-MM/`, **ignoring
@@ -36,47 +35,6 @@ function latestDailyNote(): string | undefined {
     if (files.length) return path.join(cal, m, files[files.length - 1]);
   }
   return undefined;
-}
-
-/**
- * Extract the "Agents can handle" section's suggestions. A line is a suggestion
- * when it routes a task to EITHER one or more `[[agent]]` links (→ spawn that
- * agent) OR a backticked `/command` (e.g. `` `/aios:ingest` `` — the most common
- * case). The bolded span is the task label; for command-routed lines we also
- * grab a best-effort argument (the first URL — markdown-link target or bare
- * https), so `/aios:ingest https://youtu.be/…` dispatches with its source
- * already filled in.
- *
- * Why both shapes: `/today` is LLM-generated and legitimately writes either form
- * (`→ agent: [[name]]` vs `→ \`/aios:command\``), so the deterministic reader
- * must tolerate both — otherwise command-routed tasks (ingests) are silently
- * invisible to the Home badge and to "Go with agents".
- */
-function parseAgentSection(md: string): Suggestion[] {
-  const lines = md.split(/\r?\n/);
-  const out: Suggestion[] = [];
-  let inSection = false;
-  for (const line of lines) {
-    if (/^##\s+.*Agents can handle/i.test(line)) { inSection = true; continue; }
-    if (inSection && /^##\s/.test(line)) break;
-    if (!inSection) continue;
-    if (/^\s*[-*]\s*\[[xX]\]/.test(line)) continue; // done: checkbox form
-    if (/^\s*[-*]\s*(?:\u{1F916}\s*)*~~/u.test(line)) continue; // done: the ledger's strike-the-title form
-    if (line.includes('\u{1F680}')) continue; // already spawned from Glass (in flight)
-    const agents = [...line.matchAll(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g)].map((m) => m[1].trim());
-    const cmd = line.match(/`(\/[a-z][\w:-]*)`/i); // backticked `/aios:ingest` etc.
-    if (!agents.length && !cmd) continue; // not a routed task (e.g. the section's count header)
-    const bold = line.match(/\*\*(.+?)\*\*/);
-    const task = (bold ? bold[1] : line.replace(/[-*🤖_]/g, '')).trim();
-    const sug: Suggestion = { task, agents, raw: line.trim() };
-    if (!agents.length && cmd) {
-      sug.command = cmd[1];
-      const mdLink = line.match(/\]\((https?:\/\/[^)]+)\)/); // [label](url) — already delimited
-      sug.arg = mdLink ? mdLink[1] : line.match(/https?:\/\/\S+/)?.[0]?.replace(/[)*_.,]+$/, '');
-    }
-    out.push(sug);
-  }
-  return out;
 }
 
 /** How many agent suggestions the latest daily note lists (for the Home badge). */

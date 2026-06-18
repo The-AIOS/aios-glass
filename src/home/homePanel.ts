@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
@@ -14,7 +15,8 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, setTheme, showMemory } from './config';
+import { getFilesVisible } from '../files/filesState';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -166,6 +168,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'toggleAllCards' });
   }
 
+  /** Reflect AIOS Files visibility on the header's files button (active when open). */
+  setFilesOpen(open: boolean): void {
+    this.post({ type: 'filesOpen', open });
+  }
+
   /** Show/hide Glass (the ⌘⌥G H chord). Closed → reveal+focus. Open → hide.
    *  VS Code doesn't expose which bar a view sits in, so we detect it: try the
    *  secondary-bar toggle (Glass's recommended dock); if Glass is still visible
@@ -202,6 +209,12 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       }
       case 'recheck':
         this.recheck();
+        return;
+      case 'setTheme':
+        // The webview applied it optimistically; persist to the shared setting so
+        // the Files explorer (and the next open) match. onDidChangeConfiguration
+        // re-posts state to reconcile any surface that didn't flip locally.
+        if (msg.theme === 'dark' || msg.theme === 'light') await setTheme(msg.theme);
         return;
       case 'navMonth':
         this.post({ type: 'month', data: getMonthData(msg.year, msg.month) });
@@ -285,11 +298,15 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       try { real = fs.realpathSync(cwd); } catch { /* keep raw */ }
       return fwReal && real === fwReal ? '' : path.basename(real);
     };
+    // Per-session memory: RSS of each session's whole process tree (claude + its
+    // children), one `ps` scan for all of them. Best-effort — omitted if ps fails,
+    // or when the operator turns the display off (cog → Session memory).
+    const mem = showMemory() ? sessionMemoryMB(running.map((a) => a.pid)) : new Map<number, number>();
     this.post({
       type: 'running',
       running: running.map((a) => ({
         name: a.name, pid: a.pid, status: a.status,
-        proj: projOf(a.cwd), updatedAt: a.updatedAt,
+        proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
       })),
       quota,
     });
@@ -319,6 +336,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       type: 'state',
       operator: operatorName(),
       primary: primaryName(),
+      theme: currentTheme(),
+      filesOpen: getFilesVisible(),
       agents: discoverAgents().length,
       skills: discoverSkills().length,
       commands: discoverCommands().length,
@@ -354,6 +373,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     try {
       const page = fs.readFileSync(vscode.Uri.joinPath(media, 'home.html').fsPath, 'utf8');
       return page
+        // Stamp the theme onto <body> before first paint — no dark→light flash on open.
+        .replace('<body>', currentTheme() === 'light' ? '<body class="light">' : '<body>')
         .replace(/{{CSP}}/g, csp)
         .replace(/{{NONCE}}/g, nonce)
         .replace(/{{CSS_URI}}/g, webview.asWebviewUri(vscode.Uri.joinPath(media, 'home.css')).toString())
@@ -362,6 +383,43 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       return `<!DOCTYPE html><html><body><p>AIOS Glass: failed to load the panel UI — ${String(e)}</p></body></html>`;
     }
   }
+}
+
+/**
+ * RSS (in MB) of each given pid's full process tree, from a single `ps` scan.
+ * A Claude session spawns child processes (the model runtime, tools, shells);
+ * summing the subtree gives the session's real footprint. Returns an empty map
+ * if `ps` is unavailable (e.g. an exotic platform) — the UI just omits memory.
+ */
+function sessionMemoryMB(pids: number[]): Map<number, number> {
+  const out = new Map<number, number>();
+  if (!pids.length) return out;
+  let text = '';
+  try { text = execFileSync('ps', ['-Ao', 'rss=,pid=,ppid='], { encoding: 'utf8', timeout: 3000, maxBuffer: 1 << 22 }); }
+  catch { return out; }
+  const rss = new Map<number, number>();
+  const kids = new Map<number, number[]>();
+  for (const line of text.split('\n')) {
+    const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)$/);
+    if (!m) continue;
+    const r = Number(m[1]), pid = Number(m[2]), ppid = Number(m[3]);
+    rss.set(pid, r);
+    (kids.get(ppid) ?? kids.set(ppid, []).get(ppid)!).push(pid);
+  }
+  for (const root of pids) {
+    let totalKB = 0;
+    const stack = [root];
+    const seen = new Set<number>();
+    while (stack.length) {
+      const p = stack.pop()!;
+      if (seen.has(p)) continue;
+      seen.add(p);
+      totalKB += rss.get(p) ?? 0;
+      for (const c of kids.get(p) ?? []) stack.push(c);
+    }
+    if (totalKB > 0) out.set(root, Math.round(totalKB / 1024));
+  }
+  return out;
 }
 
 function makeNonce(): string {

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="{{CSP}}" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{CSS_URI}}" />
+</head>
+<body>
+  <div class="xfilter">
+    <input id="xfilterInput" type="text" placeholder="Find…" spellcheck="false" autocomplete="off" />
+    <button class="xfclear" id="xfClear" type="button" title="Clear" hidden>×</button>
+  </div>
+  <nav class="explorer" id="explorer" aria-label="AIOS Explorer" tabindex="0">
+    <!-- sections injected by files.js -->
+  </nav>
+
+  <!-- right-click affordance — explicit labels so actions can't be misread -->
+  <div class="ctx" id="ctx" role="menu" hidden>
+    <button class="ctxitem" id="ctxTerminalHere" role="menuitem" type="button">Open terminal here</button>
+    <button class="ctxitem" id="ctxTerminal" role="menuitem" type="button">Send path to terminal</button>
+    <button class="ctxitem" id="ctxCopy" role="menuitem" type="button">Copy path</button>
+    <button class="ctxitem" id="ctxReveal" role="menuitem" type="button">Reveal in Finder</button>
+  </div>
+
+<script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
+</body>
+</html>

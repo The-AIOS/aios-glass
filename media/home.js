@@ -8,10 +8,15 @@
   let lastData = null;     // last month payload, for re-render on toggle/week-nav
   document.getElementById('calToggle').textContent = calView === 'month' ? 'Week' : 'Month';
   let pendingWeek = null;  // 'first' | 'last' — pick edge week after a cross-month nav
-  const run = (command, ...args) => vscode.postMessage({ type: 'cmd', command, args });
+  // After a click that opens a terminal/editor, drop focus off the button so a
+  // follow-up Enter (e.g. to pick a session in `claude --resume`) goes to the
+  // terminal — not back into the button, re-firing it. (Pairs with the extension
+  // now showing terminals focused instead of preserveFocus.)
+  const blurActive = () => { const a = document.activeElement; if (a && typeof a.blur === 'function') a.blur(); };
+  const run = (command, ...args) => { vscode.postMessage({ type: 'cmd', command, args }); blurActive(); };
 
   document.querySelectorAll('[data-ritual]').forEach((b) =>
-    b.addEventListener('click', () => vscode.postMessage({ type: 'ritual', name: b.getAttribute('data-ritual') })));
+    b.addEventListener('click', () => { vscode.postMessage({ type: 'ritual', name: b.getAttribute('data-ritual') }); blurActive(); }));
   document.querySelectorAll('[data-doc]').forEach((b) =>
     b.addEventListener('click', (ev) => run('aios.openDoc', b.getAttribute('data-doc'), ev.metaKey || ev.ctrlKey)));
   document.querySelectorAll('[data-create]').forEach((b) =>
@@ -25,6 +30,20 @@
     const c = !document.body.classList.contains('compact');
     applyDensity(c);
     vscode.setState(Object.assign({}, (vscode.getState && vscode.getState()) || {}, { compact: c }));
+  });
+
+  // Theme toggle (dark ⇄ light) — the source of truth is the aiosGlass.theme
+  // setting (shared with the Files explorer), but we apply optimistically on click
+  // so the flip is instant, then persist via the extension. The initial class is
+  // injected into <body> at render time (no dark→light flash on open).
+  const themeBtn = document.getElementById('themeToggle');
+  // Theme is always-active (CSS keeps #themeToggle accent); the icon swaps to show
+  // the current mode. So this just flips the canvas.
+  function applyTheme(t){ document.body.classList.toggle('light', t === 'light'); }
+  if (themeBtn) themeBtn.addEventListener('click', () => {
+    const next = document.body.classList.contains('light') ? 'dark' : 'light';
+    applyTheme(next);
+    vscode.postMessage({ type: 'setTheme', theme: next });
   });
 
   // Collapsible cards — click a title to fold/unfold; persisted in webview state.
@@ -108,9 +127,11 @@
     persistCollapsed();
   }
 
+  document.getElementById('filesBtn').addEventListener('click', () => run('aios.openFiles'));
+  document.getElementById('settingsBtn').addEventListener('click', () => run('aios.openConfigMenu'));
+  document.getElementById('addBtn').addEventListener('click', () => run('aios.createCustom'));
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
-  document.getElementById('onboard').addEventListener('click', () => run('aios.onboarding'));
   // Dismiss is session-scoped: held in memory (not persisted), so it survives
   // view-switches (retainContextWhenHidden) but a window reload brings the nudge
   // back. Keyed by kind, so dismissing the morning nudge never suppresses the
@@ -132,6 +153,7 @@
     const k=e.currentTarget.dataset.kind, cmd=e.currentTarget.dataset.command;
     if(k==='sessions') vscode.postMessage({ type:'ritual', name:'close-session' });
     else if(cmd) vscode.postMessage({ type:'nudgeRun', command:cmd });
+    blurActive();
   });
   document.getElementById('nudgeDismiss').addEventListener('click', () => {
     const k=document.getElementById('nudgeAction').dataset.kind;
@@ -152,6 +174,7 @@
     if (it && it.getAttribute('data-path')) run('aios.openOutput', it.getAttribute('data-path'), ev.metaKey || ev.ctrlKey);
   });
   document.getElementById('goWithAgents').addEventListener('click', () => run('aios.goWithAgents'));
+  document.getElementById('goAgentsTop').addEventListener('click', () => run('aios.goWithAgents'));
 
   // Click (or Enter) a running-session row → reveal its terminal. Delegated so
   // it survives the list re-rendering on every refresh.
@@ -207,6 +230,7 @@
   document.getElementById('skillsPicker').addEventListener('click', () => run('aios.skillsPicker'));
   document.getElementById('companyAction').addEventListener('click', () => run('aios.companyAction'));
   document.getElementById('collaborateAction').addEventListener('click', () => run('aios.collaborateAction'));
+  document.getElementById('browseFiles').addEventListener('click', () => run('aios.openFiles'));
   document.getElementById('browseProjects').addEventListener('click', () => run('aios.browseContext', 'projects'));
   document.getElementById('browseDeclared').addEventListener('click', () => run('aios.browseContext', 'declared'));
   document.getElementById('browseObserved').addEventListener('click', () => run('aios.browseContext', 'observed'));
@@ -238,6 +262,8 @@
     const msg = e.data;
     if (msg.type === 'state'){
       if (msg.primary) document.getElementById('vPrimary').textContent = msg.primary;
+      if (msg.theme) applyTheme(msg.theme);
+      document.getElementById('filesBtn').classList.toggle('active', !!msg.filesOpen);
       document.body.classList.toggle('no-hints', msg.showHints === false);
       document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';
@@ -251,6 +277,10 @@
       const ga = msg.goAgents || 0;
       document.getElementById('vGoAgents').textContent = ga + '';
       document.getElementById('goWithAgents').classList.toggle('dim', ga === 0);
+      const gaBadge = document.getElementById('goAgentsBadge');
+      gaBadge.textContent = ga + '';
+      gaBadge.hidden = ga === 0;
+      document.getElementById('goAgentsTop').classList.toggle('dim', ga === 0);
       const ll = msg.learnings || [];
       document.getElementById('learnList').innerHTML = ll.map((x) => {
         const t = (x.title || '').replace(/</g,'&lt;');
@@ -293,9 +323,11 @@
           // tooltips render unreliably in Antigravity, so no hover detail).
           const dur = fmtAgo(a.updatedAt);
           const proj = String(a.proj || '').replace(/</g,'&lt;');
+          const mem = fmtMem(a.mem);
           const statusTxt = s.label + (dur ? ' ' + dur : '');
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
+            + (mem ? '<span class="rmem">' + mem + '</span>' : '')
             + '<span class="runacts">'
             + interrupt
             + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
@@ -368,17 +400,22 @@
       applyTermOpen();
     } else if (msg.type === 'updateStatus'){
       const b = document.getElementById('updBadge');
+      const txt = document.getElementById('updText');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
-      const CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-      const DOWN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>';
-      const DASH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg>';
-      if (msg.state === 'up-to-date'){ b.innerHTML = CHECK; b.className = 'hbadge ok'; b.title = 'Up to date' + fw; }
-      else if (msg.state === 'available'){ b.innerHTML = DOWN; b.className = 'hbadge upd'; b.title = 'Updates available — click to run /aios:update' + fw; }
-      else { b.innerHTML = DASH; b.className = 'hbadge'; b.title = 'Status unknown' + fw; }
+      if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = 'up to date'; b.title = 'Up to date' + fw; }
+      else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = 'update available'; b.title = 'Updates available — click to run /aios:update' + fw; }
+      else { b.className = 'status'; txt.textContent = ''; b.title = 'Status unknown' + fw; }
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }
+    else if (msg.type === 'filesOpen'){ document.getElementById('filesBtn').classList.toggle('active', !!msg.open); }
   });
+
+  // Session memory (RSS of the process tree) — 'XXX MB' or 'X.X GB'.
+  function fmtMem(mb){
+    if (!mb || mb < 1) return '';
+    return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : mb + ' MB';
+  }
 
   // Compact "time since" for session rows — 'now', '4m', '2h 5m', '3d'.
   function fmtAgo(ts){
@@ -396,12 +433,13 @@
   // forward-compatible — they light up only IF Claude ever reports such a status.
   function statusInfo(raw){
     const st = (raw||'').toLowerCase();
-    if (st === 'idle' || st === 'ready') return { cls:'idle',  label:'ready',       title:'Idle — ready / waiting for you' };
     if (st === 'busy' || st === 'working' || st === 'running') return { cls:'busy', label:'working', title:'Busy — actively working' };
     if (/wait|input|prompt|\bask\b|attention|approv|permission|block/.test(st)) return { cls:'input', label:'needs input', title:'Waiting on you — reveal it' };
     if (/error|fail|crash/.test(st)) return { cls:'error', label: st, title:'Error — reveal it' };
-    if (!st) return { cls:'unk', label:'unknown', title:'Status unknown' };
-    return { cls:'unk', label: st, title: st };
+    // Any other LIVE session (idle/ready, empty, or an app-specific status like a
+    // shell name) is alive → green idle. A registered session is never the grey
+    // "unknown" dot — that's reserved for plain terminals.
+    return { cls:'idle', label:'ready', title:'Idle — ready / waiting for you' };
   }
 
   function renderMonth(data){

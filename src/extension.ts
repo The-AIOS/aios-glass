@@ -10,6 +10,7 @@ import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
 import { AiosCommand, resolveCommandsDir, discoverCommands } from './aios/commands';
 import { HomeViewProvider } from './home/homePanel';
+import { FilesViewProvider } from './files/filesView';
 import { spawnAgentFlow, spawnWorker } from './agents/spawn';
 import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
@@ -50,6 +51,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.openWalkthrough', () =>
       vscode.commands.executeCommand('workbench.action.openWalkthrough', 'the-aios.aios-glass#aios.gettingStarted', false)),
+
+    // README in the title bar (book icon) — the project's front door.
+    vscode.commands.registerCommand('aios.openReadme', () => vscode.commands.executeCommand('aios.openDoc', 'readme')),
+
+    // AIOS Files — the Finder-style explorer (Vault / Framework / Workspace),
+    // a persistent view beside Home; the command focuses (and expands) it.
+    vscode.window.registerWebviewViewProvider(FilesViewProvider.viewId, new FilesViewProvider(context.extensionUri), {
+      webviewOptions: { retainContextWhenHidden: true }
+    }),
+    vscode.commands.registerCommand('aios.openFiles', () =>
+      FilesViewProvider.current ? FilesViewProvider.current.toggle() : vscode.commands.executeCommand('aios.files.focus')),
+    vscode.commands.registerCommand('aios.filesCollapseAll', () => FilesViewProvider.current?.collapseAll()),
 
     vscode.commands.registerCommand('aios.companyAction', (name?: string) => companyAction(name)),
     vscode.commands.registerCommand('aios.collaborateAction', () => collaborateAction()),
@@ -372,8 +385,13 @@ export function activate(context: vscode.ExtensionContext): void {
       if (typeof file !== 'string') return;
       if (source) return vscode.commands.executeCommand('vscode.open', vscode.Uri.file(file));
       if (/\.html?$/i.test(file)) {
+        // HTML can't render inside the editor — open it in the browser and say so
+        // clearly (a status-bar note alone was easy to miss), with a one-click way
+        // to open the raw source instead.
         await vscode.env.openExternal(vscode.Uri.file(file));
-        vscode.window.setStatusBarMessage('$(globe) Opened in browser', 3000);
+        vscode.window.setStatusBarMessage(`$(globe) Opened ${path.basename(file)} in your browser`, 4000);
+        void vscode.window.showInformationMessage(`Opened ${path.basename(file)} in your browser — HTML renders outside the IDE.`, 'Open source instead')
+          .then((pick) => { if (pick === 'Open source instead') void vscode.commands.executeCommand('vscode.open', vscode.Uri.file(file)); });
         return;
       }
       if (/\.md$/i.test(file)) return vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.file(file));
@@ -450,7 +468,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges')) HomeViewProvider.current?.refresh();
+      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory')) HomeViewProvider.current?.refresh();
     })
   );
 

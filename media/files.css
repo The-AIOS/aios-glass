@@ -1,0 +1,111 @@
+  /* AIOS Files — a tidy collapsible tree (glass-shell grammar), sharing Glass's
+     token system so the global light/dark setting reskins it with Home. Three
+     sections differentiate the substrate at a glance: FRAMEWORK (AIOS infra,
+     dimmer ring dot) · VAULT (your notes, solid coral dot, brightest) · WORKSPACE
+     (external folders, no coral, divided off). */
+  :root{
+    --canvas:#0a0a0a; --surface-1:#111111; --surface-2:#181818;
+    --line:#262626; --ink:#fafafa; --muted:#c4c4c4; --subtle:#707070;
+    --accent:#ff5d4d; --accent-line:rgba(255,93,77,.45);
+    --edge:inset 0 1px 0 rgba(255,255,255,.08);
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono","SF Mono",Menlo,Monaco,Consolas,monospace;
+  }
+  body.light{
+    --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#eeeeec;
+    --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#8a8a90;
+    --accent:#ff5d4d; --accent-line:rgba(214,64,44,.5);
+    --edge:inset 0 1px 0 rgba(255,255,255,.85);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font); height:100vh;
+    display:flex; flex-direction:column; -webkit-font-smoothing:antialiased; -webkit-user-select:none; user-select:none;
+    scrollbar-width:thin; scrollbar-color:var(--surface-2) transparent;}
+  ::selection{background:var(--accent); color:var(--canvas)}
+
+  /* find box — type to narrow the visible tree */
+  .xfilter{position:relative; flex:0 0 auto; padding:6px 8px; border-bottom:1px solid var(--line)}
+  .xfilter input{width:100%; box-sizing:border-box; background:var(--surface-1); border:1px solid var(--line);
+    color:var(--ink); border-radius:7px; padding:5px 26px 5px 9px; font-size:12px; font-family:var(--font); outline:none}
+  .xfilter input:focus{border-color:var(--accent-line)}
+  .xfilter input::placeholder{color:var(--subtle)}
+  .xfclear{position:absolute; right:14px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center;
+    width:16px; height:16px; background:transparent; border:0; color:var(--subtle); cursor:pointer; font-size:14px; line-height:1; border-radius:4px}
+  .xfclear:hover{color:var(--ink); background:var(--surface-2)}
+  .xfclear[hidden]{display:none}
+
+  /* Compact horizontally — Files left + Glass right share the screen. */
+  .explorer{flex:1; min-height:0; padding:6px 2px 24px; overflow-y:auto; outline:none}
+  .xrow.fhide{display:none}
+
+  /* ── section headers ── (hug the left; their content indents under them) */
+  .xsect{display:flex; align-items:center; gap:6px; color:var(--subtle); font-size:10px; font-weight:700;
+    letter-spacing:.14em; text-transform:uppercase; padding:10px 5px 4px; cursor:pointer; user-select:none}
+  .xsect:hover{color:var(--ink)}
+  .xcaret{display:inline-flex; align-items:center; justify-content:center; color:var(--subtle); width:12px; flex:0 0 auto}
+  .xsect:hover .xcaret{color:var(--ink)}
+  .xdot{width:7px; height:7px; border-radius:50%; background:var(--accent); flex:0 0 auto}
+  .xdot.ring{background:transparent; border:1.5px solid var(--accent); opacity:.6}
+  .xsectlab{flex:0 0 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .xprimary .xsectlab{color:var(--ink)}
+  .xsectsub{flex:1; min-width:0; font-size:9px; font-weight:600; letter-spacing:.02em; text-transform:none;
+    color:var(--subtle); opacity:.55; margin-left:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  /* the descriptors (AIOS infra · your notes · external) are secondary hints —
+     follow the Home "Secondary hints" toggle (aiosGlass.showHints). */
+  body.no-hints .xsectsub{display:none}
+
+  /* ── top-level groups: AIOS (mark + wordmark) + WORKSPACE — the two "mains" ── */
+  .xgroup{display:flex; align-items:center; gap:7px; padding:9px 2px 4px; cursor:pointer; user-select:none}
+  .xgroup .xcaret{color:var(--subtle)}
+  .xgroup:hover .xcaret{color:var(--ink)}
+  .xmark{display:inline-flex; align-items:center; flex:0 0 auto}
+  .xglabel{flex:0 0 auto; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink)}
+  .xgroup.xext{margin-top:8px; border-top:1px solid var(--line); padding-top:11px}
+  .xgroup.xext .xglabel{color:var(--subtle)} /* WORKSPACE reads secondary to AIOS */
+  /* FRAMEWORK / VAULT sub-headers indent a touch under the AIOS group */
+  .xsect.xsub{padding-left:10px}
+  /* WORKSPACE divided off from the AIOS sections */
+  .xext{margin-top:8px; border-top:1px solid var(--line); padding-top:11px}
+  .xadd{margin-left:auto; background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:6px;
+    width:19px; height:19px; font-size:14px; cursor:pointer; padding:0; flex:0 0 auto;
+    display:inline-flex; align-items:center; justify-content:center; line-height:0}
+  .xadd:hover{color:var(--accent); border-color:var(--accent-line)}
+  .xempty{color:var(--subtle); font-size:11px; line-height:1.45; padding:4px 14px 8px; opacity:.7}
+
+  /* ── tree rows ── */
+  .xrow{display:flex; align-items:center; gap:6px; height:25px; padding:0 6px; color:var(--ink);
+    font-size:12.5px; border-radius:6px; cursor:pointer}
+  .xrow:hover{background:var(--surface-2); color:var(--ink)}
+  .xrow.sel{background:var(--surface-2); color:var(--ink); box-shadow:var(--edge)}
+  .xrow.dir{color:var(--ink); font-weight:500}
+  .xicon{display:inline-flex; align-items:center; justify-content:center; color:var(--subtle); width:15px; flex:0 0 auto}
+  .xrow.dir .xicon{color:var(--subtle)}
+  .xrow.sel .xicon{color:var(--accent)}
+  .xname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
+  .xpre{color:var(--subtle); opacity:.55; font-size:10.5px; font-family:var(--mono); margin-right:1px}
+  /* hidden dotfiles (shown via "show hidden files") read greyed/secondary */
+  .xrow.hidden{opacity:.5}
+  .xrow.hidden:hover{opacity:.8}
+  /* git status, IDE-style: files get a letter (M·U·A·D·R), folders get a dot
+     (incl. the cascade up to the section root); names take the git colour. */
+  .gst{flex:0 0 auto; margin-left:4px; width:12px; text-align:center; font-size:10px; font-weight:700; font-family:var(--mono); color:var(--subtle)}
+  .gdot{flex:0 0 auto; margin-left:6px; width:7px; height:7px; border-radius:50%; background:var(--subtle)}
+  .xrow.gM .xname,.xrow.gM .gst,.xrow.gR .xname,.xrow.gR .gst{color:#d4a04a}
+  .xrow.gU .xname,.xrow.gU .gst,.xrow.gA .xname,.xrow.gA .gst{color:#46a758}
+  .xrow.gD .xname,.xrow.gD .gst{color:#d0453a}
+  .xrow.gM .gdot,.xrow.gR .gdot{background:#d4a04a}
+  .xrow.gU .gdot,.xrow.gA .gdot{background:#46a758}
+  .xrow.gD .gdot{background:#d0453a}
+  /* workspace root rows carry a remove control (× on hover) */
+  .xroot .xrm{margin-left:auto; flex:0 0 auto; color:var(--subtle); opacity:0; padding:0 4px; font-size:14px; line-height:1; border-radius:4px}
+  .xroot:hover .xrm{opacity:.7}
+  .xroot .xrm:hover{opacity:1; color:var(--accent)}
+
+  /* ── right-click context menu ── */
+  .ctx{position:fixed; z-index:50; min-width:176px; background:var(--surface-1); border:1px solid var(--line);
+    border-radius:9px; padding:4px; box-shadow:0 10px 26px -12px rgba(0,0,0,.55), var(--edge)}
+  .ctx[hidden]{display:none}
+  .ctxitem{display:block; width:100%; text-align:left; background:transparent; border:0; color:var(--ink);
+    font-family:var(--font); font-size:12.5px; padding:7px 11px; border-radius:6px; cursor:pointer}
+  .ctxitem:hover{background:var(--surface-2)}

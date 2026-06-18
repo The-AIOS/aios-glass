@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -34,8 +34,13 @@
       "activitybar": [
         {
           "id": "aios-glass",
-          "title": "AIOS",
+          "title": "AIOS Glass",
           "icon": "media/aios.svg"
+        },
+        {
+          "id": "aios-files",
+          "title": "AIOS Explorer",
+          "icon": "media/files.svg"
         }
       ]
     },
@@ -44,6 +49,13 @@
         {
           "id": "aios.home",
           "name": "AIOS Glass",
+          "type": "webview"
+        }
+      ],
+      "aios-files": [
+        {
+          "id": "aios.files",
+          "name": "AIOS Explorer",
           "type": "webview"
         }
       ]
@@ -69,6 +81,21 @@
       {
         "command": "aios.openWalkthrough",
         "title": "AIOS: Open Getting Started"
+      },
+      {
+        "command": "aios.openReadme",
+        "title": "AIOS: Open README",
+        "icon": "$(book)"
+      },
+      {
+        "command": "aios.openFiles",
+        "title": "AIOS: Browse Files (Finder)",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "aios.filesCollapseAll",
+        "title": "AIOS: Collapse Explorer",
+        "icon": "$(collapse-all)"
       },
       {
         "command": "aios.openConfigMenu",
@@ -100,6 +127,11 @@
       {
         "command": "aios.cheatsheet",
         "title": "AIOS: Cheatsheet",
+        "icon": "$(question)"
+      },
+      {
+        "command": "aios.onboarding",
+        "title": "AIOS: Onboarding Guide",
         "icon": "$(question)"
       },
       {
@@ -252,6 +284,11 @@
         "command": "aios.openToday",
         "mac": "cmd+alt+g y",
         "key": "ctrl+alt+g y"
+      },
+      {
+        "command": "aios.openFiles",
+        "mac": "cmd+alt+g b",
+        "key": "ctrl+alt+g b"
       }
     ],
     "menus": {
@@ -263,24 +300,19 @@
       ],
       "view/title": [
         {
-          "command": "aios.showGraph",
+          "command": "aios.openReadme",
           "when": "view == aios.home",
           "group": "navigation@0"
         },
         {
-          "command": "aios.createCustom",
+          "command": "aios.onboarding",
           "when": "view == aios.home",
           "group": "navigation@1"
         },
         {
-          "command": "aios.openConfigMenu",
-          "when": "view == aios.home",
-          "group": "navigation@2"
-        },
-        {
-          "command": "aios.cheatsheet",
-          "when": "view == aios.home",
-          "group": "navigation@3"
+          "command": "aios.filesCollapseAll",
+          "when": "view == aios.files",
+          "group": "navigation@0"
         }
       ],
       "commandPalette": [
@@ -334,6 +366,47 @@
           ],
           "default": "ask",
           "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+        },
+        "aiosGlass.showHidden": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show hidden dotfiles (`.gitignore`, `.vscode`, `.github`, …) in the AIOS Explorer. `node_modules`, `.git`, build dirs, and `.DS_Store` stay hidden regardless. Toggle from the cog menu."
+        },
+        "aiosGlass.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Auto-reveal the active file in the AIOS Explorer — when you switch editor tabs (source, PDF, image, or markdown preview), the tree expands to and selects that file. Toggle from the cog menu."
+        },
+        "aiosGlass.showMemory": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show each running session's process-tree RAM (RSS) in the Sessions card. Toggle from the cog menu."
+        },
+        "aiosGlass.fileIcons": {
+          "type": "string",
+          "enum": [
+            "enhanced",
+            "plain"
+          ],
+          "enumDescriptions": [
+            "Colorful file-type icons (md, json, code, images, …) in the explorer",
+            "A single neutral document icon for every file"
+          ],
+          "default": "enhanced",
+          "markdownDescription": "File icons in the AIOS Explorer — `enhanced` (colorful per-type) or `plain` (one neutral doc icon). Toggle from the cog menu."
+        },
+        "aiosGlass.theme": {
+          "type": "string",
+          "enum": [
+            "dark",
+            "light"
+          ],
+          "enumDescriptions": [
+            "Deep black canvas with the coral accent — the default Glass look",
+            "Paper-light canvas (The-AIOS light), same coral accent — legible in bright rooms / on projectors"
+          ],
+          "default": "dark",
+          "markdownDescription": "Visual theme for the Glass surfaces (Home panel + Files explorer). Toggle from the header sun/moon button or the cog menu. Terminals always stay dark."
         },
         "aiosGlass.showHints": {
           "type": "boolean",

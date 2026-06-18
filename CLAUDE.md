@@ -18,7 +18,10 @@ If you find yourself encoding *what a command does*, stop — the extension shou
 - TypeScript, compiled with `tsc` to `out/`. No runtime dependencies (only dev: typescript, @types).
 - `src/aios/` — framework-facing discovery/parsing (the glass↔engine boundary).
 - `src/rituals/` — the Rituals surface (provider + runner).
+- `src/files/` — AIOS Files, a collapsible file **tree** (a `WebviewViewProvider` in its OWN activity-bar container `aios-files`, so the Home container stays a single view titled just "AIOS Glass"). Three sections — FRAMEWORK (skips `vault/` + noise) / VAULT / WORKSPACE (operator-added, `.glass/state.json`). The webview can't call `fs` directly, so `files.js` does directory reads over a `postMessage` round-trip exposed as an awaitable `fsList(dir)` (reqId-correlated) — lets the tree recurse like sync fs. Opens files via `aios.openOutput`; right-click → `aios`-side `revealFileInOS`. Path access sandboxed to the section roots. Owns no AIOS logic. (Two `type:webview` views in one container is what broke the earlier stacked arrangement — keep them in separate containers.)
 - `src/extension.ts` — activation + command registration.
+
+Glass surfaces share one theme (`aiosGlass.theme`, dark default). Every webview's colours are CSS tokens with a `body.light` override, so a single setting reskins Home + Files together; the `<body>` class is stamped at render time to avoid a flash. Add a panel name to `PANELS` in `scripts/smoke.mjs` and its boot is gated too.
 
 ## Build / run
 

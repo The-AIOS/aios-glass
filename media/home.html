@@ -10,21 +10,46 @@
 <link rel="stylesheet" href="{{CSS_URI}}" />
 </head>
 <body>
-  <header>
+  <header class="topbar">
     <div class="brand">
-      <span class="mark"><svg viewBox="0 0 18 18" width="22" height="22" aria-hidden="true"><rect class="o" x="1" y="1" width="16" height="16" rx="2.4" fill="none" stroke-width="1.5"/><rect class="i" x="9" y="2" width="6" height="6" rx="1"/></svg></span>
-      <h1>AIOS Glass</h1>
+      <span class="mark"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect class="o" x="1" y="1" width="16" height="16" rx="2.4" fill="none" stroke-width="1.5"/><rect class="i" x="9" y="2" width="6" height="6" rx="1"/></svg></span>
+      <span class="wordmark">AIOS Glass</span>
     </div>
-    <div class="headright">
-      <button class="hbadge" id="updBadge" title="Checking framework status…"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></button>
-      <button class="cog" id="density" title="Toggle compact view (tighter spacing, more in view)">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18 1.6 1.6 0 0 0 1.5-2.3 1.6 1.6 0 0 1 1.4-2.4H17a4 4 0 0 0 4-4c0-4.4-4-7.3-9-7.3Z"/><circle cx="7.6" cy="11.6" r="1" fill="currentColor" stroke="none"/><circle cx="11" cy="7.9" r="1" fill="currentColor" stroke="none"/><circle cx="15.2" cy="9" r="1" fill="currentColor" stroke="none"/></svg>
-      </button>
-      <button class="cog" id="onboard" title="New here? Get oriented with the AIOS guide">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.4v1.6"/><circle cx="12" cy="2.7" r="0.7" fill="currentColor" stroke="none"/><rect x="4.5" y="5.5" width="15" height="12" rx="3.2"/><circle cx="9.2" cy="11.2" r="1" fill="currentColor" stroke="none"/><circle cx="14.8" cy="11.2" r="1" fill="currentColor" stroke="none"/><path d="M9.4 14.2a3 3 0 0 0 5.2 0"/></svg>
-      </button>
-    </div>
+    <!-- framework status — a quiet indicator (dot + label), not a boxed button; clickable only when an update is available -->
+    <button class="status" id="updBadge" title="Checking framework status…"><span class="dot" id="updDot"></span><span class="updtext" id="updText">checking…</span></button>
   </header>
+
+  <div class="toolbar" role="toolbar" aria-label="AIOS actions">
+    <!-- Everyday: browse + view controls -->
+    <div class="tgroup">
+      <button class="cog" id="filesBtn" title="Browse files — open / hide the AIOS Files explorer">
+        <svg class="ic-folder" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <svg class="ic-folder-open" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+      <button class="cog" id="themeToggle" title="Switch between dark and light">
+        <svg class="ic-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.2M12 19.4v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.4 12h2.2M19.4 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="ic-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
+      </button>
+      <button class="cog" id="density" title="Density — comfortable / compact">
+        <svg class="ic-comfort" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="6" rx="1.6"/><rect x="3" y="13.5" width="18" height="6" rx="1.6"/></svg>
+        <svg class="ic-compact" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="3.4" rx="1"/><rect x="3" y="10.3" width="18" height="3.4" rx="1"/><rect x="3" y="16.6" width="18" height="3.4" rx="1"/></svg>
+      </button>
+      <!-- Go with agents — at-hand quick spawn; the badge shows how many the daily note suggests -->
+      <button class="cog goagents" id="goAgentsTop" title="Go with agents — spawn the agents your daily note suggests (one terminal each)">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.7"/><circle cx="12" cy="3.5" r="1.1"/><circle cx="9.2" cy="13" r="1.05"/><circle cx="14.8" cy="13" r="1.05"/><path d="M2.7 12.5v3M21.3 12.5v3"/></svg>
+        <span class="tbadge" id="goAgentsBadge" hidden>0</span>
+      </button>
+    </div>
+    <!-- Configure: create + settings -->
+    <div class="tgroup">
+      <button class="cog" id="addBtn" title="Create a custom agent · skill · plugin">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="cog" id="settingsBtn" title="Config — account · model · mode · theme">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      </button>
+    </div>
+  </div>
 
   <div class="nudge" id="nudgeCard" style="display:none">
     <button class="nudgebody" id="nudgeAction"></button>
@@ -90,6 +115,7 @@
 
       <section class="card">
         <p class="ctitle">Workspaces</p>
+        <button class="btn" id="browseFiles" title="Open the Finder-style file browser — your vault, the framework, and any folders you add">📁 Browse files <span class="k">finder view</span></button>
         <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="k">ventures context</span> <span class="val" id="vCompanies">—</span></button>
         <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="k">shared spaces</span> <span class="val" id="vCollab">—</span></button>
         <button class="btn" id="browseProjects" title="Your project notes (top-level)">Projects <span class="k">your work</span> <span class="val" id="vProjects">—</span></button>
@@ -137,6 +163,7 @@
       <div><kbd>Q</kbd>ask aios</div>
       <div><kbd>D</kbd>daily ritual</div>
       <div><kbd>Y</kbd>today's note</div>
+      <div><kbd>B</kbd>browse files</div>
       <div><kbd>G</kbd>go-with-agents</div>
       <div><kbd>X</kbd>context files</div>
       <div><kbd>P</kbd>preferences</div>

@@ -38,17 +38,10 @@ if (!chrome) { console.error('smoke: no Chrome/Chromium found (set CHROME_PATH)'
 // Everything is INLINED into one document: file:// treats external file scripts
 // as cross-origin and MUTES their errors (window.onerror never fires — verified:
 // an injected TDZ crash sailed through the external-script variant of this
-// harness). Same-document scripts always report.
-const dir = mkdtempSync(join(tmpdir(), 'glass-smoke-'));
-const css = readFileSync(join(media, 'home.css'), 'utf8');
-const js = readFileSync(join(media, 'home.js'), 'utf8');
-if (js.includes('</script')) { console.error('smoke: home.js contains </script — fix before inlining'); process.exit(2); }
-let html = readFileSync(join(media, 'home.html'), 'utf8')
-  .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '') // testing boot, not CSP
-  .replace(/{{NONCE}}/g, 'smoke')
-  .replace(/{{CSP}}/g, '')
-  .replace(/<link rel="stylesheet"[^>]*{{CSS_URI}}[^>]*\/>/, '<style>' + css.replace(/\$/g, '$$$$') + '</style>')
-  .replace(/<script[^>]*{{JS_URI}}[^>]*><\/script>/, () => '<script>' + js + '</script>');
+// harness). Same-document scripts always report. Every Glass webview panel
+// (home, files, …) is booted the same way — add a panel name to PANELS and its
+// boot is gated too.
+const PANELS = ['home', 'files'];
 const trap = `<script>
   window.__smokeErrors = [];
   window.onerror = (msg, src, line, col) => { window.__smokeErrors.push(msg + ' @' + line + ':' + col); return false; };
@@ -59,26 +52,41 @@ const trap = `<script>
       : 'SMOKE_PASS';
   });
 </script>`;
-// trap must run BEFORE the inlined panel script — top of <head>
-html = html.replace('<head>', '<head>\n' + trap);
-writeFileSync(join(dir, 'home.html'), html);
 
-// ── boot it ──
-let dom = '';
-try {
-  dom = execFileSync(chrome, [
-    '--headless', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=2000',
-    '--dump-dom', 'file://' + join(dir, 'home.html'),
-  ], { encoding: 'utf8', timeout: 60000 });
-} finally {
-  rmSync(dir, { recursive: true, force: true });
+function bootPanel(name) {
+  const dir = mkdtempSync(join(tmpdir(), 'glass-smoke-'));
+  const css = readFileSync(join(media, name + '.css'), 'utf8');
+  const js = readFileSync(join(media, name + '.js'), 'utf8');
+  if (js.includes('</script')) { console.error(`smoke: ${name}.js contains </script — fix before inlining`); process.exit(2); }
+  let html = readFileSync(join(media, name + '.html'), 'utf8')
+    .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '') // testing boot, not CSP
+    .replace(/{{NONCE}}/g, 'smoke')
+    .replace(/{{CSP}}/g, '')
+    .replace(/<link rel="stylesheet"[^>]*{{CSS_URI}}[^>]*\/>/, '<style>' + css.replace(/\$/g, '$$$$') + '</style>')
+    .replace(/<script[^>]*{{JS_URI}}[^>]*><\/script>/, () => '<script>' + js + '</script>');
+  // trap must run BEFORE the inlined panel script — top of <head>
+  html = html.replace('<head>', '<head>\n' + trap);
+  writeFileSync(join(dir, name + '.html'), html);
+
+  let dom = '';
+  try {
+    dom = execFileSync(chrome, [
+      '--headless', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=2000',
+      '--dump-dom', 'file://' + join(dir, name + '.html'),
+    ], { encoding: 'utf8', timeout: 60000 });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  // Read the verdict from <title> ONLY — the dumped DOM also contains the trap
+  // script's own source, so a whole-document `includes('SMOKE_PASS')` always
+  // matches its own literal and can never fail (caught by the negative test).
+  const title = (dom.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+  if (title.trim() === 'SMOKE_PASS') { console.log(`smoke: ${name} panel boots clean ✓`); return true; }
+  console.error(`smoke: ${name.toUpperCase()} PANEL FAILED TO BOOT`);
+  console.error(title ? title : '(no verdict in <title> — page may not have loaded at all)');
+  return false;
 }
 
-// Read the verdict from <title> ONLY — the dumped DOM also contains the trap
-// script's own source, so a whole-document `includes('SMOKE_PASS')` always
-// matches its own literal and can never fail (caught by the negative test).
-const title = (dom.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
-if (title.trim() === 'SMOKE_PASS') { console.log('smoke: panel boots clean ✓'); process.exit(0); }
-console.error('smoke: PANEL FAILED TO BOOT');
-console.error(title ? title : '(no verdict in <title> — page may not have loaded at all)');
-process.exit(1);
+const ok = PANELS.map(bootPanel).every(Boolean);
+process.exit(ok ? 0 : 1);

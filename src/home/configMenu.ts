@@ -8,7 +8,12 @@ import {
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
   showNudges, setShowNudges,
-  nativeTabsEnabled, setNativeTabs
+  nativeTabsEnabled, setNativeTabs,
+  currentTheme, setTheme,
+  fileIconsEnhanced, setFileIcons,
+  showHiddenFiles, setShowHidden,
+  autoReveal, setAutoReveal,
+  showMemory, setShowMemory
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -16,25 +21,40 @@ import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/run
 export async function openConfigMenu(): Promise<void> {
   const account = currentAccount() || 'not signed in';
   const multiAccount = anthropicAccounts().length > 1; // swap only matters with 2+
+  const sep = (label: string): vscode.QuickPickItem & { id?: string } => ({ label, kind: vscode.QuickPickItemKind.Separator });
   const items: (vscode.QuickPickItem & { id?: string })[] = [
+    // ── Appearance — how the Glass surfaces look ──
+    sep('Appearance'),
+    { label: '$(color-mode) Theme', description: currentTheme(), id: 'theme' },
+    { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
+    { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
+    { label: '$(pulse) Session memory', description: showMemory() ? 'shown' : 'hidden', id: 'memory' },
+    // ── Explorer — the file tree ──
+    sep('Explorer'),
+    { label: '$(symbol-file) File icons', description: fileIconsEnhanced() ? 'enhanced' : 'plain', id: 'fileicons' },
+    { label: '$(eye) Hidden files', description: showHiddenFiles() ? 'shown' : 'hidden', id: 'hidden' },
+    { label: '$(target) Auto-reveal active file', description: autoReveal() ? 'on' : 'off', id: 'autoreveal' },
+    // ── Claude — the engine behind the surfaces ──
+    sep('Claude'),
     { label: '$(server) Model', description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) Permission mode', description: currentMode(), id: 'mode' },
     { label: '$(terminal) Terminal mode', description: currentTerminalMode(), id: 'terminal' },
-    { label: '$(sync) Automatic updates', description: automaticUpdates() ? 'on' : 'off', id: 'autoupdate' },
-    { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
-    { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
-    { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
     { label: '$(list-flat) Native terminal tabs', description: nativeTabsEnabled() ? 'shown' : 'hidden', id: 'nativetabs' },
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
+    { label: '$(sync) Automatic updates', description: automaticUpdates() ? 'on' : 'off', id: 'autoupdate' },
+    // ── Session — kick off a focused run ──
+    sep('Session'),
     { label: '$(target) Set a session goal', description: '/goal', id: 'goal' },
     { label: '$(check-all) Fewer permission prompts', description: '/fewer-permission-prompts', id: 'fewerperms' },
     { label: '$(clock) Schedule work', description: '/schedule', id: 'schedule' },
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    // ── Account ──
+    sep('Account'),
     ...(multiAccount ? [{ label: '$(arrow-swap) Swap account', description: currentAnthropicAccount(), id: 'swap' }] : []),
     { label: '$(account) Login', description: account, id: 'login' },
     { label: '$(sign-out) Logout', id: 'logout' },
     { label: '$(info) Auth status', id: 'status' },
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    // ── Help ──
+    sep('Help'),
     { label: '$(rocket) Getting started', description: 'the six-step walkthrough', id: 'walkthrough' },
     { label: '$(output) Show logs', description: 'diagnostics — swallowed action failures', id: 'logs' }
   ];
@@ -48,6 +68,61 @@ export async function openConfigMenu(): Promise<void> {
     case 'logs':
       await vscode.commands.executeCommand('aios.showLogs');
       return;
+    case 'theme': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(circle-filled) Dark', description: 'deep black + coral — the default', value: 'dark' as const },
+          { label: '$(circle-outline) Light', description: 'paper canvas + coral — bright rooms / projectors', value: 'light' as const }
+        ],
+        { title: `Theme — currently ${currentTheme()}`, placeHolder: 'Reskins Home + Files (terminals stay dark)' }
+      );
+      if (choice) await setTheme(choice.value);
+      return;
+    }
+    case 'hidden': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye-closed) Hidden', description: 'hide dotfiles (.gitignore, .vscode, …)', value: false },
+          { label: '$(eye) Shown', description: 'show dotfiles in the explorer', value: true }
+        ],
+        { title: `Hidden files — currently ${showHiddenFiles() ? 'shown' : 'hidden'}` }
+      );
+      if (choice) await setShowHidden(choice.value);
+      return;
+    }
+    case 'memory': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye) Shown', description: "each session's process-tree RAM in the Sessions card", value: true },
+          { label: '$(eye-closed) Hidden', description: 'hide the per-session memory readout', value: false }
+        ],
+        { title: `Session memory — currently ${showMemory() ? 'shown' : 'hidden'}` }
+      );
+      if (choice) await setShowMemory(choice.value);
+      return;
+    }
+    case 'autoreveal': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(target) On', description: 'explorer follows the active editor — expand to + select it', value: true },
+          { label: '$(circle-slash) Off', description: 'explorer stays put when you switch tabs', value: false }
+        ],
+        { title: `Auto-reveal active file — currently ${autoReveal() ? 'on' : 'off'}` }
+      );
+      if (choice) await setAutoReveal(choice.value);
+      return;
+    }
+    case 'fileicons': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(symbol-color) Enhanced', description: 'colorful per-type icons (md, json, code, images…)', value: 'enhanced' as const },
+          { label: '$(symbol-file) Plain', description: 'one neutral document icon for every file', value: 'plain' as const }
+        ],
+        { title: `Explorer icons — currently ${fileIconsEnhanced() ? 'enhanced' : 'plain'}` }
+      );
+      if (choice) await setFileIcons(choice.value);
+      return;
+    }
     case 'model': {
       const m = await vscode.window.showQuickPick(
         MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
