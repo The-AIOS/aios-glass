@@ -25,9 +25,9 @@
     --ok:#1f9d57;
     --glass-top:rgba(255,255,255,.85); --glass-top-strong:rgba(255,255,255,1);
     --shadow-card:0 8px 22px -16px rgba(15,15,20,.22); --shadow-card-hover:0 12px 28px -14px rgba(15,15,20,.26);
-    /* coral's luminance favours DARK text in both themes (≈8:1 vs ≈2.5:1 for white) —
-       keep the dark-theme choice so the primary CTA reads identically on paper. */
-    --on-accent:#0a0a0a; --ink-glow:rgba(0,0,0,.025);
+    /* white text on the coral CTA in light — reads as a brighter, more "button"-like
+       fill against the paper canvas (deepens to legible contrast on the #d6402c hover). */
+    --on-accent:#ffffff; --ink-glow:rgba(0,0,0,.025);
   }
   *{box-sizing:border-box}
   body{margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font);

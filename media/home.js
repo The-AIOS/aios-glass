@@ -120,6 +120,7 @@
     persistCollapsed();
   }
 
+  document.getElementById('filesBtn').addEventListener('click', () => run('aios.openFiles'));
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
   document.getElementById('onboard').addEventListener('click', () => run('aios.onboarding'));

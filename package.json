@@ -36,6 +36,11 @@
           "id": "aios-glass",
           "title": "AIOS Glass",
           "icon": "media/aios.svg"
+        },
+        {
+          "id": "aios-files",
+          "title": "AIOS Files",
+          "icon": "media/files.svg"
         }
       ]
     },
@@ -43,16 +48,15 @@
       "aios-glass": [
         {
           "id": "aios.home",
-          "name": "Home",
+          "name": "AIOS Glass",
           "type": "webview"
-        },
+        }
+      ],
+      "aios-files": [
         {
           "id": "aios.files",
-          "name": "Files",
-          "type": "webview",
-          "visibility": "collapsed",
-          "icon": "$(folder-opened)",
-          "contextualTitle": "AIOS Files"
+          "name": "AIOS Files",
+          "type": "webview"
         }
       ]
     },
