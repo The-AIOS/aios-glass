@@ -125,6 +125,11 @@
         "icon": "$(question)"
       },
       {
+        "command": "aios.onboarding",
+        "title": "AIOS: Onboarding Guide",
+        "icon": "$(question)"
+      },
+      {
         "command": "aios.runRitual",
         "title": "AIOS: Run Ritual"
       },
@@ -295,7 +300,7 @@
           "group": "navigation@0"
         },
         {
-          "command": "aios.cheatsheet",
+          "command": "aios.onboarding",
           "when": "view == aios.home",
           "group": "navigation@1"
         }

@@ -15,8 +15,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Home header** — the redundant in-panel "AIOS Glass" wordmark is gone (the view header already says it), making room for an explorer button beside the theme toggle.
 
 ### Changed
-- **Home header reorganised** — a small logo + *AIOS Glass* wordmark top-left, a quiet framework-status dot (`• up to date`) at the right of that row, and the actions below in two borderless-until-hover clusters: **Actions** (files · create · settings) on the left margin, **View** (theme · density) on the right. *Settings* + *create-custom* moved in from the view title bar; onboarding left the toolbar (still reachable via the cog → *Getting started* and the palette). De-weighting the row + grouping it fixed the "cockpit of equal buttons" feel.
-- **View title bar trimmed** to two: a **book** (README) and the **?** (cheatsheet). Graph/create/config/files/ask all left the title bar (now in the header toolbar or the command palette).
+- **Home header reorganised** — a small logo + *AIOS Glass* wordmark top-left, a quiet framework-status dot (`• up to date`, coral `• update available` when behind — click to run `/aios:update`) at the right of that row, and the actions below in two borderless-until-hover clusters grouped by frequency: **everyday** (files · theme · compact) on the left margin, **configure** (create · settings) on the right. *Settings* + *create-custom* moved in from the view title bar. De-weighting the row + grouping it fixed the "cockpit of equal buttons" feel.
+- **View title bar trimmed** to two: a **book** (README) and the **?** — which now opens the **onboarding guide** (the friendly walk-me-through agent), since the toolbar's onboarding button is gone. Graph/create/config/files/ask all left the title bar (now in the header toolbar or the command palette; the cheatsheet stays in the palette + the on-panel *Key shortcuts* section).
 - The Files explorer's section descriptors (*AIOS infra · your notes · external*) follow the **Secondary hints** toggle, like Home's hints.
 - The webview smoke gate now boots **every** panel (home + files) in headless Chrome, not just Home.
 
