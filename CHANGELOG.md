@@ -6,8 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-> In testing with the operator — not yet versioned or published. Validate locally
-> (F5 Extension Dev Host), then cut the release.
+## [0.2.0] — 2026-06-18
+
+> The visibility release. A **light theme** (same coral, paper canvas) you can toggle anywhere, and **AIOS Files** reborn as a real **Explorer** — a collapsible Framework / Vault / Workspace tree with **live git status**, an **IDE-style icon pack**, hidden-file control, and ⌘-click to source. Plus a quieter, glyph-driven header, a per-session memory read, and a focus fix so a follow-up Enter stops spawning duplicate terminals.
 
 ### Added
 - **Light theme** — a paper-light variant of the Glass surfaces (canvas `#f7f7f5`, ink `#0c0c0d`, the **same coral accent**, with `accent-soft` darkened to `#d6402c` for legible coral text on white; the Launch CTA uses white text on coral in light). Toggle from the new header sun/moon button, the cog → *Theme*, or set `aiosGlass.theme`. One `body.light` class reskins every card and surface because every colour is now a token; the choice is a shared setting, so Home and the Files explorer stay in lockstep. Terminals stay dark, by design. (Dark remains the default — nothing changes unless you flip it.)
@@ -28,6 +29,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Toggle buttons read by glyph, not colour** — no button stays accent; each is subtle at rest and accent only on hover. State lives in the icon: **files** = closed folder (hidden) ⇄ open folder (explorer open); **theme** = current mode (moon = dark, sun = light); **compact** = spacious blocks (comfortable) ⇄ dense rows (compact). Closing Files hides the primary sidebar first, so toggling it off no longer flashes the secondary bar where Home is usually docked.
 
 ### Fixed
+- **The session kill (trash) icon reads red** whenever the row actions are shown — destructive affordance, distinct from the coral close-session icon (it was inheriting the subtle action color).
 - **Live sessions never show the grey "terminal/unknown" dot.** A session with a non-standard status (e.g. an `aios-shell` session reporting `shell`) fell through to the grey unknown dot, reading as a plain terminal. A registered session is alive → it now shows the green idle dot ("ready") unless it's explicitly busy / needs-input / error. (Grey stays reserved for actual terminals.)
 - **A follow-up Enter no longer re-fires the button.** Action terminals now open **focused** (they were opened with `preserveFocus`), and the webview drops focus off a button after it dispatches — so pressing Enter after, e.g., *Resume* lands in the `claude --resume` picker instead of spawning a second terminal.
 
