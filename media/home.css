@@ -31,10 +31,10 @@
   }
   *{box-sizing:border-box}
   body{margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font);
-    padding:30px clamp(20px,5vw,56px); line-height:1.6; -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01","ss03";}
+    padding:14px clamp(20px,5vw,56px) 30px; line-height:1.6; -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01","ss03";}
   ::selection{background:var(--accent); color:var(--canvas)}
-  /* Small logo + wordmark, top-left. */
-  header.topbar{display:flex; align-items:center; margin-bottom:12px}
+  /* Small logo + wordmark, pulled up top-left with a clear gap down to the toolbar. */
+  header.topbar{display:flex; align-items:center; margin-bottom:22px}
   .brand{display:flex; align-items:center; gap:8px}
   .brand .mark{display:inline-flex}
   .brand .mark .o{stroke:var(--accent)} .brand .mark .i{fill:var(--accent)}

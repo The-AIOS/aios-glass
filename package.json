@@ -298,11 +298,6 @@
           "command": "aios.cheatsheet",
           "when": "view == aios.home",
           "group": "navigation@1"
-        },
-        {
-          "command": "aios.askAios",
-          "when": "view == aios.home",
-          "group": "navigation@2"
         }
       ],
       "commandPalette": [
