@@ -20,7 +20,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The Files explorer's section descriptors (*AIOS infra · your notes · external*) follow the **Secondary hints** toggle, like Home's hints.
 - The webview smoke gate now boots **every** panel (home + files) in headless Chrome, not just Home.
 
-- **Toggle buttons show state consistently** — **files** toggles AIOS Files (open/hide) and lights up while it's open; **compact** lights up while engaged; **theme** is always lit with its icon showing the *current* mode (moon = dark, sun = light — you're always in *a* theme, so it never goes "off"). Closing Files now hides the **primary sidebar first**, so toggling it off no longer flashes the secondary bar where Home is usually docked. (The files active-state reads best with Home + Files both visible — e.g. Files in the primary sidebar, Home in the secondary.)
+- **Toggle buttons read by glyph, not colour** — no button stays accent; each is subtle at rest and accent only on hover. State lives in the icon: **files** = closed folder (hidden) ⇄ open folder (explorer open); **theme** = current mode (moon = dark, sun = light); **compact** = spacious blocks (comfortable) ⇄ dense rows (compact). Closing Files hides the primary sidebar first, so toggling it off no longer flashes the secondary bar where Home is usually docked.
 
 ### Fixed
 - **A follow-up Enter no longer re-fires the button.** Action terminals now open **focused** (they were opened with `preserveFocus`), and the webview drops focus off a button after it dispatches — so pressing Enter after, e.g., *Resume* lands in the `claude --resume` picker instead of spawning a second terminal.

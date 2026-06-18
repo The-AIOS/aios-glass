@@ -50,12 +50,20 @@
   .cog{background:transparent; border:1px solid transparent; color:var(--subtle); border-radius:9px;
     width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s,background .15s}
   .cog:hover{border-color:var(--line); background:var(--surface-2); color:var(--accent)}
-  /* Theme is always "active" (you're always in a theme) — the icon shows the CURRENT
-     mode: dark→moon, light→sun. Only which icon is lit changes, never on/off. */
-  #themeToggle{color:var(--accent)}
+  /* Toggle buttons never STAY accent — subtle at rest, accent only on hover (the
+     .cog rules above). State is shown by the GLYPH swapping, not by colour. */
+  /* Theme — icon = current mode: dark→moon, light→sun. */
   #themeToggle .ic-sun{display:none}
   body.light #themeToggle .ic-moon{display:none}
   body.light #themeToggle .ic-sun{display:inline}
+  /* Files — closed folder when hidden, open folder when the explorer is open. */
+  #filesBtn .ic-folder-open{display:none}
+  #filesBtn.active .ic-folder{display:none}
+  #filesBtn.active .ic-folder-open{display:inline}
+  /* Compact — comfortable (spacious blocks) vs compact (dense rows). */
+  #density .ic-compact{display:none}
+  #density.active .ic-comfort{display:none}
+  #density.active .ic-compact{display:inline}
   /* Framework status — a dot + label up by the wordmark, not a boxed button. */
   .status{margin-left:auto; display:flex; align-items:center; gap:6px; background:transparent; border:0; padding:2px 2px; cursor:default; font-family:var(--font)}
   .status .dot{width:7px; height:7px; border-radius:50%; background:var(--subtle); flex:0 0 auto; transition:background .15s}
@@ -143,7 +151,6 @@
   body.compact .vtoggle{padding:1px 6px; font-size:10px}
   body.compact th{padding:3px 0; font-size:10px}
   body.compact .cell{min-height:24px; font-size:12px; border-radius:6px}
-  .cog.active{color:var(--accent)}
   /* Nudges whisper, they don't shout: grey glass, no accent — the coral belongs
      to actions (Launch/Ask), not reminders. */
   .nudge{display:flex; align-items:center; gap:6px; width:100%; background:color-mix(in srgb, var(--ink) 4%, var(--surface-1)); border:1px solid color-mix(in srgb, var(--ink) 14%, var(--line)); color:var(--ink); border-radius:12px; padding:11px 14px; margin-bottom:16px;
