@@ -1,131 +1,153 @@
   const vscode = acquireVsCodeApi();
-  let places = [];      // [{id,label,sub,path}]
-  let place = null;     // the active place object
-  let dir = '';         // current absolute directory
-  let crumbs = [];      // [{label,path}] from the extension
+  const explorerEl = document.getElementById('explorer');
+  let places = [];
 
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
-  // ── icons (inline SVG, currentColor) ──────────────────────────────────────
-  const SVG = {
-    folder: '<svg viewBox="0 0 48 48" width="46" height="46" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 13a3 3 0 0 1 3-3h11l4 5h16a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3Z" fill="currentColor" fill-opacity=".1"/></svg>',
-    file: '<svg viewBox="0 0 48 48" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 5h15l9 9v26a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="currentColor" fill-opacity=".07"/><path d="M28 5v9h9"/></svg>',
-    vault: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 17.5Z"/><path d="M8 3v17"/></svg>',
-    infra: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
-    workspace: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>',
+  // ── icons (stroked, currentColor) — chevrons for folders, a plain doc for files ──
+  const ICONS = {
+    chevR: '<polyline points="9 18 15 12 9 6"/>',
+    chevD: '<polyline points="6 9 12 15 18 9"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
   };
+  const icon = (name, size) => '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
 
-  // ── theme ────────────────────────────────────────────────────────────────
-  function applyTheme(t){ document.body.classList.toggle('light', t === 'light'); }
-  document.getElementById('themeToggle').addEventListener('click', () => {
-    const next = document.body.classList.contains('light') ? 'dark' : 'light';
-    applyTheme(next);
-    vscode.postMessage({ type: 'setTheme', theme: next });
-  });
+  // ── theme (no toggle here — the explorer follows the shared aiosGlass.theme) ──
+  const applyTheme = (t) => document.body.classList.toggle('light', t === 'light');
 
-  // ── navigation requests ────────────────────────────────────────────────────
-  function listDir(target){
-    if (!place) return;
-    dir = target;
-    vscode.postMessage({ type: 'list', dir: target, root: place.path, rootLabel: place.label });
-  }
-  function selectPlace(p){
-    place = p;
-    document.querySelectorAll('.place').forEach((el) => el.classList.toggle('on', el.dataset.path === p.path));
-    listDir(p.path);
+  // ── fs bridge: postMessage round-trip exposed as an awaitable, so the tree can
+  //    recurse the same way a synchronous fs would. Each request carries a reqId
+  //    the extension echoes back on its listing reply. ──
+  let reqSeq = 0;
+  const pending = new Map();
+  function fsList(dir) {
+    return new Promise((resolve) => { const id = ++reqSeq; pending.set(id, resolve); vscode.postMessage({ type: 'list', dir, reqId: id }); });
   }
 
-  // ── places sidebar ─────────────────────────────────────────────────────────
-  function renderPlaces(){
-    const list = document.getElementById('placeList');
-    list.innerHTML = places.map((p) => {
-      const ic = SVG[p.id] || SVG.workspace;
-      const rm = p.id === 'workspace'
-        ? '<button class="prm" data-rm="' + esc(p.path) + '" title="Remove from Files" aria-label="Remove from Files">×</button>' : '';
-      // a div (not a button): the workspace remove control is a nested button,
-      // and nested <button>s are invalid HTML (the browser un-nests them).
-      return '<div class="place" role="button" tabindex="0" data-path="' + esc(p.path) + '">'
-        + '<span class="picon">' + ic + '</span>'
-        + '<span class="pbody"><span class="plabel">' + esc(p.label) + '</span><span class="psub">' + esc(p.sub) + '</span></span>'
-        + rm + '</div>';
-    }).join('');
-    list.querySelectorAll('.place').forEach((el) => {
-      const go = (ev) => {
-        if (ev.target.closest('.prm')) { vscode.postMessage({ type: 'removeFolder', path: ev.target.closest('.prm').dataset.rm }); return; }
-        const p = places.find((x) => x.path === el.dataset.path);
-        if (p) selectPlace(p);
-      };
-      el.addEventListener('click', go);
-      el.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(ev); } });
+  // ── selection ──
+  function select(row) {
+    for (const r of explorerEl.querySelectorAll('.xrow.sel')) r.classList.remove('sel');
+    row.classList.add('sel');
+  }
+
+  // ── right-click → "Reveal in Finder" (explicit label; the icon-only diagonal
+  //    arrow read as "open in editor", so this is text + a deliberate gesture) ──
+  const ctx = document.getElementById('ctx');
+  const ctxReveal = document.getElementById('ctxReveal');
+  let ctxPath = '';
+  const hideCtx = () => { ctx.hidden = true; };
+  function attachCtx(row, p) {
+    row.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      ctxPath = p;
+      ctx.hidden = false;
+      ctx.style.left = Math.min(ev.clientX, window.innerWidth - 162) + 'px';
+      ctx.style.top = Math.min(ev.clientY, window.innerHeight - 48) + 'px';
     });
   }
+  ctxReveal.addEventListener('click', () => { if (ctxPath) vscode.postMessage({ type: 'reveal', path: ctxPath }); hideCtx(); });
+  window.addEventListener('click', hideCtx);
+  window.addEventListener('blur', hideCtx);
+  window.addEventListener('scroll', hideCtx, true);
 
-  // ── breadcrumb ───────────────────────────────────────────────────────────
-  function renderCrumbs(){
-    const nav = document.getElementById('crumbs');
-    nav.innerHTML = crumbs.map((c, i) => {
-      const cur = i === crumbs.length - 1;
-      const btn = '<button class="crumb' + (cur ? ' cur' : '') + '" data-path="' + esc(c.path) + '">' + esc(c.label) + '</button>';
-      return i ? '<span class="csep">/</span>' + btn : btn;
-    }).join('');
-    nav.querySelectorAll('.crumb:not(.cur)').forEach((el) =>
-      el.addEventListener('click', () => listDir(el.dataset.path)));
-    const up = document.getElementById('up');
-    up.disabled = crumbs.length < 2;
-  }
-
-  // ── grid ─────────────────────────────────────────────────────────────────
-  function renderGrid(entries){
-    const grid = document.getElementById('grid');
-    const empty = document.getElementById('empty');
-    empty.style.display = entries.length ? 'none' : '';
-    grid.innerHTML = entries.map((e) => {
-      if (e.dir){
-        const m = e.name.match(/^(\d+ - )(.+)$/); // dim the "00 - " ordering prefix
-        const label = m ? '<span class="pre">' + esc(m[1]) + '</span>' + esc(m[2]) : esc(e.name);
-        return '<button class="tile dir" role="button" data-dir="' + esc(e.path) + '">'
-          + '<span class="ic">' + SVG.folder + '</span><span class="label">' + label + '</span></button>';
+  // ── the tree — lazy: a folder lists its children only on first expand ──
+  async function buildTree(absDir, container, depth, skip) {
+    const entries = await fsList(absDir);
+    for (const e of entries) {
+      if (skip && skip(e.name)) continue;
+      const row = el('div', 'xrow' + (e.dir ? ' dir' : ''));
+      row.style.paddingLeft = (8 + depth * 13) + 'px';
+      const ic = el('span', 'xicon'); ic.innerHTML = e.dir ? icon('chevR', 11) : icon('file', 12);
+      const nm = el('span', 'xname');
+      const pm = e.dir ? e.name.match(/^(\d+ - )(.+)$/) : null; // dim the "00 - " ordering prefix
+      if (pm) { nm.append(el('span', 'xpre', pm[1]), document.createTextNode(pm[2])); }
+      else nm.textContent = e.dir ? e.name : e.name.replace(/\.md$/i, '');
+      row.append(ic, nm);
+      container.appendChild(row);
+      attachCtx(row, e.path);
+      if (e.dir) {
+        let kids = null;
+        row.addEventListener('click', async () => {
+          select(row);
+          if (!kids) { kids = el('div'); row.after(kids); ic.innerHTML = icon('chevD', 11); await buildTree(e.path, kids, depth + 1); }
+          else { const open = kids.style.display !== 'none'; kids.style.display = open ? 'none' : ''; ic.innerHTML = icon(open ? 'chevR' : 'chevD', 11); }
+        });
+      } else {
+        row.addEventListener('click', () => { select(row); vscode.postMessage({ type: 'open', file: e.path, source: false }); });
       }
-      const ext = (e.ext || '').slice(0, 4);
-      const chip = ext ? '<span class="ext ' + esc(e.ext) + '">' + esc(ext) + '</span>' : '';
-      const name = /\.md$/i.test(e.name) ? e.name.replace(/\.md$/i, '') : e.name;
-      return '<button class="tile file" role="button" data-file="' + esc(e.path) + '">'
-        + '<span class="ic">' + SVG.file + '</span>' + chip + '<span class="label">' + esc(name) + '</span></button>';
-    }).join('');
-    grid.querySelectorAll('.tile').forEach((el) => {
-      el.addEventListener('click', (ev) => {
-        if (el.dataset.dir) listDir(el.dataset.dir);
-        else if (el.dataset.file) vscode.postMessage({ type: 'open', file: el.dataset.file, source: ev.metaKey || ev.ctrlKey });
-      });
+    }
+  }
+
+  // ── collapsible sections (state persisted in webview state) ──
+  const st0 = (vscode.getState && vscode.getState()) || {};
+  const collapsedSet = new Set(Array.isArray(st0.xCollapsed) ? st0.xCollapsed : ['FRAMEWORK']);
+  const persistCollapsed = () => { const s = (vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, s, { xCollapsed: [...collapsedSet] })); };
+
+  async function addSection(label, opts, buildBody) {
+    const head = el('div', 'xsect' + (opts.primary ? ' xprimary' : '') + (opts.external ? ' xext' : ''));
+    const car = el('span', 'xcaret'); head.appendChild(car);
+    if (opts.dot) { head.appendChild(el('span', 'xdot' + (opts.dot === 'ring' ? ' ring' : ''))); }
+    head.appendChild(el('span', 'xsectlab', label));
+    if (opts.sub) head.appendChild(el('span', 'xsectsub', opts.sub));
+    if (opts.add) {
+      const addB = el('button', 'xadd'); addB.type = 'button'; addB.title = 'Add a folder to your workspace'; addB.textContent = '+';
+      addB.addEventListener('click', (ev) => { ev.stopPropagation(); vscode.postMessage({ type: 'addFolder' }); });
+      head.appendChild(addB);
+    }
+    const box = el('div', 'xsectbody');
+    let collapsed = collapsedSet.has(label);
+    const apply = () => { car.innerHTML = icon(collapsed ? 'chevR' : 'chevD', 11); box.style.display = collapsed ? 'none' : ''; };
+    head.addEventListener('click', () => {
+      collapsed = !collapsed;
+      if (collapsed) collapsedSet.add(label); else collapsedSet.delete(label);
+      persistCollapsed(); apply();
+    });
+    explorerEl.append(head, box);
+    apply();
+    await buildBody(box); // built once; hidden when collapsed (deeper levels stay lazy)
+  }
+
+  async function paintExplorer() {
+    explorerEl.querySelectorAll('.xsect, .xsectbody').forEach((n) => n.remove()); // keep the title
+    const framework = places.find((p) => p.id === 'infra');
+    const vault = places.find((p) => p.id === 'vault');
+    const workspace = places.filter((p) => p.id === 'workspace');
+
+    // FRAMEWORK — the AIOS itself; its own `vault/` folder lives in the VAULT section below
+    if (framework && (!vault || framework.path !== vault.path)) {
+      await addSection('FRAMEWORK', { dot: 'ring', sub: 'AIOS infra' }, (box) => buildTree(framework.path, box, 0, (n) => n === 'vault'));
+    }
+    // VAULT — your notes, the primary surface (brightest)
+    if (vault) {
+      await addSection('VAULT', { dot: 'solid', sub: 'your notes', primary: true }, (box) => buildTree(vault.path, box, 0));
+    }
+    // WORKSPACE — external folders you add (repos, drives), each removable — not AIOS
+    await addSection('WORKSPACE', { external: true, sub: 'external', add: true }, async (box) => {
+      for (const w of workspace) {
+        const fh = el('div', 'xrow dir xroot');
+        const ic = el('span', 'xicon'); ic.innerHTML = icon('chevR', 11);
+        const nm = el('span', 'xname', w.label);
+        const rm = el('span', 'xrm'); rm.title = 'Remove from workspace'; rm.textContent = '×';
+        rm.addEventListener('click', (ev) => { ev.stopPropagation(); vscode.postMessage({ type: 'removeFolder', path: w.path }); });
+        fh.append(ic, nm, rm);
+        box.appendChild(fh);
+        attachCtx(fh, w.path);
+        let kids = null;
+        fh.addEventListener('click', async () => {
+          select(fh);
+          if (!kids) { kids = el('div'); fh.after(kids); ic.innerHTML = icon('chevD', 11); await buildTree(w.path, kids, 1); }
+          else { const open = kids.style.display !== 'none'; kids.style.display = open ? 'none' : ''; ic.innerHTML = icon(open ? 'chevR' : 'chevD', 11); }
+        });
+      }
+      if (!workspace.length) box.appendChild(el('div', 'xempty', 'Add a folder (a repo, a Drive folder) to navigate it here.'));
     });
   }
 
-  // ── toolbar ────────────────────────────────────────────────────────────────
-  document.getElementById('up').addEventListener('click', () => { if (crumbs.length > 1) listDir(crumbs[crumbs.length - 2].path); });
-  document.getElementById('revealOS').addEventListener('click', () => { if (dir) vscode.postMessage({ type: 'reveal', path: dir }); });
-  document.getElementById('addFolder').addEventListener('click', () => vscode.postMessage({ type: 'addFolder' }));
-
-  // ── inbound messages ───────────────────────────────────────────────────────
   window.addEventListener('message', (e) => {
     const msg = e.data;
-    if (msg.type === 'roots'){
-      if (msg.theme) applyTheme(msg.theme);
-      places = msg.places || [];
-      renderPlaces();
-      // Pick: a just-added folder, else the current place if it still exists, else the first.
-      let next = msg.focus ? places.find((p) => p.path === msg.focus) : null;
-      if (!next && place) next = places.find((p) => p.path === place.path);
-      if (!next) next = places[0];
-      if (next) selectPlace(next);
-      else { document.getElementById('crumbs').innerHTML = ''; renderGrid([]); }
-    } else if (msg.type === 'listing'){
-      if (msg.dir !== dir) return; // stale response (navigated on); ignore
-      crumbs = msg.crumbs || [];
-      renderCrumbs();
-      renderGrid(msg.entries || []);
-    } else if (msg.type === 'theme'){
-      applyTheme(msg.theme);
-    }
+    if (msg.type === 'listing') { const r = pending.get(msg.reqId); if (r) { pending.delete(msg.reqId); r(msg.entries || []); } }
+    else if (msg.type === 'roots') { if (msg.theme) applyTheme(msg.theme); places = msg.places || []; void paintExplorer(); }
+    else if (msg.type === 'theme') { applyTheme(msg.theme); }
   });
 
   vscode.postMessage({ type: 'ready' });

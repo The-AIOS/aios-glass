@@ -10,39 +10,14 @@
 <link rel="stylesheet" href="{{CSS_URI}}" />
 </head>
 <body>
-  <div class="shell">
-    <aside class="places">
-      <div class="brand">
-        <span class="mark"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect class="o" x="1" y="1" width="16" height="16" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/><rect class="i" x="9" y="2" width="6" height="6" rx="1" fill="currentColor"/></svg></span>
-        <span class="bname">Files</span>
-      </div>
-      <div class="phead">Places</div>
-      <div id="placeList" class="placelist"></div>
-      <button id="addFolder" class="addfolder" title="Add any folder (a repo, a Drive folder) to browse here">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Add folder
-      </button>
-    </aside>
+  <nav class="explorer" id="explorer" aria-label="AIOS Files">
+    <div class="xtitle">Explorer</div>
+    <!-- sections injected by files.js -->
+  </nav>
 
-    <main class="browser">
-      <header class="toolbar">
-        <button id="up" class="navbtn" title="Up one level" aria-label="Up one level">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-        </button>
-        <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
-        <span class="spacer"></span>
-        <button id="revealOS" class="navbtn" title="Show this folder in Finder" aria-label="Show in Finder">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
-        </button>
-        <button id="themeToggle" class="navbtn" title="Switch between dark and light">
-          <svg class="ic-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.2M12 19.4v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.4 12h2.2M19.4 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
-          <svg class="ic-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
-        </button>
-      </header>
-      <div id="grid" class="grid"></div>
-      <p id="empty" class="empty" style="display:none">This folder is empty.</p>
-      <p class="hint">Click a folder to open it · click a file to read it · ⌘-click a file for its source.</p>
-    </main>
+  <!-- right-click affordance — explicit label so "Reveal in Finder" can't read as "open in editor" -->
+  <div class="ctx" id="ctx" role="menu" hidden>
+    <button class="ctxitem" id="ctxReveal" role="menuitem" type="button">Reveal in Finder</button>
   </div>
 
 <script nonce="{{NONCE}}" src="{{JS_URI}}"></script>

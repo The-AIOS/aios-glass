@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
-import { currentTheme, setTheme } from '../home/config';
+import { currentTheme } from '../home/config';
 import { stateGet, stateSet } from '../state';
 
 /**
@@ -28,7 +28,6 @@ const NOISE = new Set(['node_modules', 'out', 'dist', '.git', '.glass', '.vscode
 
 interface Place { id: 'vault' | 'infra' | 'workspace'; label: string; sub: string; path: string; }
 interface Entry { name: string; dir: boolean; ext: string; path: string; }
-interface Crumb { label: string; path: string; }
 
 export class FilesViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'aios.files';
@@ -94,16 +93,6 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
   }
 
-  /** Breadcrumb trail from a place root down to the current dir (root label supplied by the caller). */
-  private crumbs(root: string, rootLabel: string, dir: string): Crumb[] {
-    const trail: Crumb[] = [{ label: rootLabel, path: root }];
-    if (dir === root || !dir.startsWith(root + path.sep)) return trail;
-    const rest = dir.slice(root.length + 1).split(path.sep).filter(Boolean);
-    let acc = root;
-    for (const seg of rest) { acc = path.join(acc, seg); trail.push({ label: seg, path: acc }); }
-    return trail;
-  }
-
   private async onMessage(msg: any): Promise<void> {
     switch (msg?.type) {
       case 'ready': {
@@ -111,10 +100,9 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         return;
       }
       case 'list': {
-        if (typeof msg.dir !== 'string' || !this.isAllowed(msg.dir)) return;
-        const root = typeof msg.root === 'string' && this.isAllowed(msg.root) ? msg.root : msg.dir;
-        const rootLabel = typeof msg.rootLabel === 'string' ? msg.rootLabel : path.basename(root);
-        this.post({ type: 'listing', dir: msg.dir, entries: this.list(msg.dir), crumbs: this.crumbs(root, rootLabel, msg.dir) });
+        // Reply even on a disallowed/missing path (empty) so the requesting promise resolves.
+        const entries = (typeof msg.dir === 'string' && this.isAllowed(msg.dir)) ? this.list(msg.dir) : [];
+        this.post({ type: 'listing', dir: msg.dir, entries, reqId: msg.reqId });
         return;
       }
       case 'open': {
@@ -145,10 +133,6 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         const folders = this.workspaceFolders().filter((p) => p !== msg.path);
         await stateSet(WORKSPACE_KEY, folders);
         this.post({ type: 'roots', places: this.places(), theme: currentTheme() });
-        return;
-      }
-      case 'setTheme': {
-        if (msg.theme === 'dark' || msg.theme === 'light') await setTheme(msg.theme);
         return;
       }
     }

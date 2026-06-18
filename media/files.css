@@ -1,118 +1,72 @@
-  /* AIOS Files — same glass grammar + token system as the Home panel, so the
-     theme toggle reskins both identically. Finder-like: roomy tiles, soft depth,
-     hover that lifts in-palette. Folders carry the coral; files stay neutral. */
+  /* AIOS Files — a tidy collapsible tree (glass-shell grammar), sharing Glass's
+     token system so the global light/dark setting reskins it with Home. Three
+     sections differentiate the substrate at a glance: FRAMEWORK (AIOS infra,
+     dimmer ring dot) · VAULT (your notes, solid coral dot, brightest) · WORKSPACE
+     (external folders, no coral, divided off). */
   :root{
-    --canvas:#0a0a0a; --surface-1:#111111; --surface-2:#181818; --surface-3:#1f1f1f;
+    --canvas:#0a0a0a; --surface-1:#111111; --surface-2:#181818;
     --line:#262626; --ink:#fafafa; --muted:#c4c4c4; --subtle:#707070;
-    --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.18); --accent-soft:#ffb3a8; --accent-line:rgba(255,93,77,.45);
-    --glass-top:rgba(255,255,255,.08); --glass-top-strong:rgba(255,255,255,.16);
-    --shadow-card:0 14px 30px -16px rgba(0,0,0,.7);
+    --accent:#ff5d4d; --accent-line:rgba(255,93,77,.45);
+    --edge:inset 0 1px 0 rgba(255,255,255,.08);
     --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --mono:"JetBrains Mono","SF Mono",Menlo,Monaco,Consolas,monospace;
   }
   body.light{
-    --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#f1f1ee; --surface-3:#e9e9e4;
+    --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#eeeeec;
     --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#8a8a90;
-    --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.12); --accent-soft:#d6402c; --accent-line:rgba(214,64,44,.5);
-    --glass-top:rgba(255,255,255,.85); --glass-top-strong:rgba(255,255,255,1);
-    --shadow-card:0 8px 22px -16px rgba(15,15,20,.2);
+    --accent:#ff5d4d; --accent-line:rgba(214,64,44,.5);
+    --edge:inset 0 1px 0 rgba(255,255,255,.85);
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font);
-    -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01","ss03";}
+    -webkit-font-smoothing:antialiased; -webkit-user-select:none; user-select:none;
+    scrollbar-width:thin; scrollbar-color:var(--surface-2) transparent;}
   ::selection{background:var(--accent); color:var(--canvas)}
 
-  .shell{display:grid; grid-template-columns:230px 1fr; height:100vh; min-height:0}
+  .explorer{padding:8px 6px 24px; overflow-y:auto; height:100vh}
+  .xtitle{font-size:10px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--subtle); padding:8px 10px 4px}
 
-  /* ── Places sidebar — Finder's favourites, friendly + few ── */
-  .places{background:var(--surface-1); border-right:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:4px; overflow-y:auto}
-  .brand{display:flex; align-items:center; gap:9px; padding:2px 8px 16px; color:var(--accent)}
-  .brand .bname{color:var(--ink); font-weight:700; font-size:1.05rem; letter-spacing:-.01em}
-  .phead{font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.16em; color:var(--subtle); padding:6px 10px 4px}
-  .placelist{display:flex; flex-direction:column; gap:2px}
-  .place{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:1px solid transparent; color:var(--ink);
-    border-radius:10px; padding:9px 10px; cursor:pointer; font-family:var(--font); font-size:13.5px; transition:background .14s, border-color .14s}
-  .place:hover{background:var(--surface-2)}
-  .place.on{background:var(--surface-2); border-color:var(--line); box-shadow:inset 0 1px 0 var(--glass-top)}
-  .place.on .picon{color:var(--accent)}
-  .place .picon{flex:0 0 auto; display:inline-flex; color:var(--subtle)}
-  .place .pbody{min-width:0; display:flex; flex-direction:column; line-height:1.25}
-  .place .plabel{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .place .psub{font-size:10.5px; color:var(--subtle); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .place .prm{margin-left:auto; flex:0 0 auto; background:transparent; border:0; color:var(--subtle); cursor:pointer; opacity:0; padding:0 3px; border-radius:5px; font-size:14px; line-height:1}
-  .place:hover .prm{opacity:.7}
-  .place .prm:hover{opacity:1; color:var(--accent)}
-  .addfolder{margin-top:8px; display:flex; align-items:center; justify-content:center; gap:7px; background:transparent; border:1px dashed var(--line); color:var(--subtle);
-    border-radius:10px; padding:9px 10px; cursor:pointer; font-family:var(--font); font-size:12.5px; transition:border-color .14s, color .14s}
-  .addfolder:hover{border-color:var(--accent-line); color:var(--accent)}
+  /* ── section headers ── */
+  .xsect{display:flex; align-items:center; gap:6px; color:var(--subtle); font-size:10px; font-weight:700;
+    letter-spacing:.16em; text-transform:uppercase; padding:11px 10px 5px; cursor:pointer; user-select:none}
+  .xsect:hover{color:var(--ink)}
+  .xcaret{display:inline-flex; align-items:center; justify-content:center; color:var(--subtle); width:12px; flex:0 0 auto}
+  .xsect:hover .xcaret{color:var(--ink)}
+  .xdot{width:7px; height:7px; border-radius:50%; background:var(--accent); flex:0 0 auto}
+  .xdot.ring{background:transparent; border:1.5px solid var(--accent); opacity:.6}
+  .xsectlab{flex:0 0 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .xprimary .xsectlab{color:var(--ink)}
+  .xsectsub{flex:1; min-width:0; font-size:9px; font-weight:600; letter-spacing:.02em; text-transform:none;
+    color:var(--subtle); opacity:.55; margin-left:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  /* WORKSPACE divided off from the AIOS sections */
+  .xext{margin-top:8px; border-top:1px solid var(--line); padding-top:11px}
+  .xadd{margin-left:auto; background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:6px;
+    width:19px; height:19px; font-size:14px; cursor:pointer; padding:0; flex:0 0 auto;
+    display:inline-flex; align-items:center; justify-content:center; line-height:0}
+  .xadd:hover{color:var(--accent); border-color:var(--accent-line)}
+  .xempty{color:var(--subtle); font-size:11px; line-height:1.45; padding:4px 14px 8px; opacity:.7}
 
-  /* ── Browser pane ── */
-  .browser{display:flex; flex-direction:column; min-width:0; min-height:0}
-  .toolbar{display:flex; align-items:center; gap:8px; padding:14px clamp(16px,3vw,30px); border-bottom:1px solid var(--line)}
-  .spacer{flex:1}
-  .navbtn{flex:0 0 auto; background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:9px;
-    width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .14s, color .14s}
-  .navbtn:hover{border-color:var(--accent-line); color:var(--accent)}
-  .navbtn:disabled{opacity:.35; cursor:default; border-color:var(--line); color:var(--subtle)}
-  #themeToggle .ic-moon{display:none}
-  body.light #themeToggle .ic-sun{display:none}
-  body.light #themeToggle .ic-moon{display:inline}
+  /* ── tree rows ── */
+  .xrow{display:flex; align-items:center; gap:7px; height:26px; padding:0 8px; color:var(--subtle);
+    font-size:12.5px; border-radius:7px; cursor:pointer}
+  .xrow:hover{background:var(--surface-2); color:var(--ink)}
+  .xrow.sel{background:var(--surface-2); color:var(--ink); box-shadow:var(--edge)}
+  .xrow.dir{color:var(--ink); font-weight:500}
+  .xicon{display:inline-flex; align-items:center; justify-content:center; color:var(--subtle); width:14px; flex:0 0 auto}
+  .xrow.dir .xicon{color:var(--subtle)}
+  .xrow.sel .xicon{color:var(--accent)}
+  .xname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
+  .xpre{color:var(--subtle); opacity:.55; font-size:10.5px; font-family:var(--mono); margin-right:1px}
+  /* workspace root rows carry a remove control (× on hover) */
+  .xroot .xrm{margin-left:auto; flex:0 0 auto; color:var(--subtle); opacity:0; padding:0 4px; font-size:14px; line-height:1; border-radius:4px}
+  .xroot:hover .xrm{opacity:.7}
+  .xroot .xrm:hover{opacity:1; color:var(--accent)}
 
-  .crumbs{display:flex; align-items:center; gap:2px; flex-wrap:wrap; min-width:0; font-size:13.5px}
-  .crumb{background:transparent; border:0; color:var(--muted); cursor:pointer; font-family:var(--font); font-size:13.5px; padding:4px 7px; border-radius:7px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .crumb:hover{background:var(--surface-2); color:var(--ink)}
-  .crumb.cur{color:var(--ink); font-weight:600; cursor:default}
-  .crumb.cur:hover{background:transparent}
-  .csep{color:var(--subtle); opacity:.6; font-size:12px; padding:0 1px}
-
-  /* ── Finder icon grid ── */
-  .grid{flex:1; min-height:0; overflow-y:auto; padding:clamp(16px,3vw,28px);
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(118px,1fr)); gap:8px; align-content:start}
-  .tile{display:flex; flex-direction:column; align-items:center; gap:9px; text-align:center; background:transparent; border:1px solid transparent; color:var(--ink);
-    border-radius:14px; padding:16px 8px 13px; cursor:pointer; font-family:var(--font); transition:background .14s, border-color .14s, transform .12s, box-shadow .14s}
-  .tile:hover{background:var(--surface-1); border-color:var(--line); transform:translateY(-2px); box-shadow:inset 0 1px 0 var(--glass-top), var(--shadow-card)}
-  .tile:focus-visible{outline:2px solid var(--accent-line); outline-offset:2px}
-  .tile .ic{display:inline-flex; align-items:center; justify-content:center}
-  .tile.dir .ic{color:var(--accent)}
-  .tile.file .ic{color:var(--subtle)}
-  .tile:hover.file .ic{color:var(--muted)}
-  .tile .label{font-size:12.5px; line-height:1.3; word-break:break-word; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
-  .tile .label .pre{color:var(--subtle)}
-  /* a small extension chip on file icons — friendly type cue without a dev tree */
-  .tile .ext{position:relative; margin-top:-22px; margin-bottom:9px; font-size:8.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-    font-family:var(--mono); color:#fff; background:var(--chip,#6b7280); border-radius:4px; padding:1px 4px; align-self:center}
-  .ext.md{--chip:#3ec77a} .ext.pdf{--chip:#e0524a} .ext.htm,.ext.html{--chip:#e8913a} .ext.png,.ext.jpg,.ext.jpeg,.ext.gif,.ext.svg,.ext.webp{--chip:#8b5cf6}
-  .ext.canvas{--chip:#0099ff} .ext.json,.ext.yml,.ext.yaml{--chip:#5b9bd5} .ext.ts,.ext.js,.ext.tsx,.ext.jsx,.ext.py,.ext.sh{--chip:#4aa3ff}
-
-  .empty,.hint{color:var(--subtle); text-align:center; font-size:13px}
-  .empty{padding:40px 16px}
-  .hint{margin:0; padding:10px 16px 16px; border-top:1px solid var(--line); font-size:11.5px}
-
-  /* ── Responsive — these live LAST so they win at equal specificity over the
-     base rules above. The webview iframe matches the view width, so they fire on
-     the actual dock width: drag Glass wide (secondary side bar) → tile grid; a
-     slim activity-bar sidebar → stacked place-pills + a Finder list. ── */
-  @media(max-width:760px){ .shell{grid-template-columns:198px 1fr} .place .psub{display:none} }
-  @media(max-width:520px){
-    .shell{grid-template-columns:1fr; grid-template-rows:auto 1fr}
-    .places{flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; border-right:0; border-bottom:1px solid var(--line); padding:11px 13px; overflow:visible}
-    .brand{padding:0 4px 0 0}
-    .brand .bname{display:none}
-    .phead{display:none}
-    .placelist{flex-direction:row; flex-wrap:wrap; gap:6px}
-    .place{width:auto; border:1px solid var(--line); border-radius:999px; padding:6px 11px; gap:7px}
-    .place .psub{display:none}
-    .place.on{box-shadow:none}
-    .addfolder{margin:0; padding:6px 11px}
-    .addfolder span{display:none}
-    /* grid → list rows: small icon · name · (chip / ›) */
-    .grid{grid-template-columns:1fr; gap:1px; padding:9px 8px}
-    .tile{flex-direction:row; align-items:center; gap:11px; text-align:left; padding:9px 11px; border-radius:9px}
-    .tile:hover{transform:none}
-    .tile .ic svg{width:24px; height:24px}
-    .tile .ic{order:1; flex:0 0 auto}
-    .tile .label{order:2; flex:1; -webkit-line-clamp:1; font-size:13px}
-    .tile .ext{order:3; position:static; margin:0 0 0 auto; align-self:center}
-    .tile.dir::after{content:'\203a'; order:4; margin-left:auto; color:var(--subtle); font-size:16px; line-height:1}
-  }
+  /* ── right-click context menu ── */
+  .ctx{position:fixed; z-index:50; min-width:150px; background:var(--surface-1); border:1px solid var(--line);
+    border-radius:9px; padding:4px; box-shadow:0 10px 26px -12px rgba(0,0,0,.55), var(--edge)}
+  .ctx[hidden]{display:none}
+  .ctxitem{display:block; width:100%; text-align:left; background:transparent; border:0; color:var(--ink);
+    font-family:var(--font); font-size:12.5px; padding:7px 11px; border-radius:6px; cursor:pointer}
+  .ctxitem:hover{background:var(--surface-2)}
