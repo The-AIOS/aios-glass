@@ -37,9 +37,9 @@
   // so the flip is instant, then persist via the extension. The initial class is
   // injected into <body> at render time (no dark→light flash on open).
   const themeBtn = document.getElementById('themeToggle');
-  // Light is the non-default mode → mark the button .active (accent), mirroring how
-  // the compact toggle shows it's engaged. Consistent "active = switched-from-default".
-  function applyTheme(t){ const light = t === 'light'; document.body.classList.toggle('light', light); if (themeBtn) themeBtn.classList.toggle('active', light); }
+  // Theme is always-active (CSS keeps #themeToggle accent); the icon swaps to show
+  // the current mode. So this just flips the canvas.
+  function applyTheme(t){ document.body.classList.toggle('light', t === 'light'); }
   if (themeBtn) themeBtn.addEventListener('click', () => {
     const next = document.body.classList.contains('light') ? 'dark' : 'light';
     applyTheme(next);

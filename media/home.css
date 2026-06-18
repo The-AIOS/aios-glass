@@ -50,10 +50,12 @@
   .cog{background:transparent; border:1px solid transparent; color:var(--subtle); border-radius:9px;
     width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s,background .15s}
   .cog:hover{border-color:var(--line); background:var(--surface-2); color:var(--accent)}
-  /* Theme toggle shows the destination: dark→sun (go light), light→moon (go dark). */
-  #themeToggle .ic-moon{display:none}
-  body.light #themeToggle .ic-sun{display:none}
-  body.light #themeToggle .ic-moon{display:inline}
+  /* Theme is always "active" (you're always in a theme) — the icon shows the CURRENT
+     mode: dark→moon, light→sun. Only which icon is lit changes, never on/off. */
+  #themeToggle{color:var(--accent)}
+  #themeToggle .ic-sun{display:none}
+  body.light #themeToggle .ic-moon{display:none}
+  body.light #themeToggle .ic-sun{display:inline}
   /* Framework status — a dot + label up by the wordmark, not a boxed button. */
   .status{margin-left:auto; display:flex; align-items:center; gap:6px; background:transparent; border:0; padding:2px 2px; cursor:default; font-family:var(--font)}
   .status .dot{width:7px; height:7px; border-radius:50%; background:var(--subtle); flex:0 0 auto; transition:background .15s}

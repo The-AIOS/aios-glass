@@ -59,16 +59,18 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   /** True when the Files view is currently on screen. */
   isVisible(): boolean { return !!this.view?.visible; }
 
-  /** Open the Files view if hidden; hide it if shown. Mirrors HomeViewProvider.toggleHome —
-   *  VS Code can't say which bar a view sits in, so try the secondary (aux) bar and,
-   *  if Files is still visible a beat later, undo and toggle the primary sidebar. */
+  /** Open the Files view if hidden; hide it if shown. VS Code can't say which bar a
+   *  view sits in, so we probe. Files lives in the PRIMARY sidebar by default (its own
+   *  activity icon), so hide that first — a clean one-step close that doesn't flash the
+   *  secondary bar (where Home is usually docked). Only if Files is somewhere else do we
+   *  undo and toggle the secondary bar. */
   toggle(): void {
     if (!this.view?.visible) { void vscode.commands.executeCommand('aios.files.focus'); return; }
-    void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+    void vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
     setTimeout(() => {
       if (this.view?.visible) {
-        void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
         void vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
+        void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
       }
     }, 120);
   }
