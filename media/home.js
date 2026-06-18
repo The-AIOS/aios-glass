@@ -130,7 +130,6 @@
   document.getElementById('addBtn').addEventListener('click', () => run('aios.createCustom'));
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
-  document.getElementById('onboard').addEventListener('click', () => run('aios.onboarding'));
   // Dismiss is session-scoped: held in memory (not persisted), so it survives
   // view-switches (retainContextWhenHidden) but a window reload brings the nudge
   // back. Keyed by kind, so dismissing the morning nudge never suppresses the
@@ -391,13 +390,11 @@
       applyTermOpen();
     } else if (msg.type === 'updateStatus'){
       const b = document.getElementById('updBadge');
+      const txt = document.getElementById('updText');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
-      const CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-      const DOWN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>';
-      const DASH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg>';
-      if (msg.state === 'up-to-date'){ b.innerHTML = CHECK; b.className = 'hbadge ok'; b.title = 'Up to date' + fw; }
-      else if (msg.state === 'available'){ b.innerHTML = DOWN; b.className = 'hbadge upd'; b.title = 'Updates available — click to run /aios:update' + fw; }
-      else { b.innerHTML = DASH; b.className = 'hbadge'; b.title = 'Status unknown' + fw; }
+      if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = 'up to date'; b.title = 'Up to date' + fw; }
+      else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = 'update available'; b.title = 'Updates available — click to run /aios:update' + fw; }
+      else { b.className = 'status'; txt.textContent = ''; b.title = 'Status unknown' + fw; }
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }

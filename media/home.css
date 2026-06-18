@@ -41,20 +41,28 @@
   .brand .wordmark{font-weight:700; font-size:1rem; letter-spacing:-.015em; color:var(--ink); line-height:1}
   /* The seven action controls span the full content width — first flush with the
      left card margin, last flush with the right — distributed evenly between. */
-  .toolbar{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:24px}
+  /* Two clusters — Actions | View — pushed to the outer card margins; the status
+     indicator lives up in the header row, so this strip is just the things you click. */
+  .toolbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px}
+  .tgroup{display:flex; align-items:center; gap:4px}
   .greet{color:var(--muted); font-size:14px}
-  .cog{background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:9px;
-    width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s}
-  .cog:hover{border-color:var(--accent-line); color:var(--accent)}
+  /* Quiet utilities — borderless until hover, so the strip recedes as chrome. */
+  .cog{background:transparent; border:1px solid transparent; color:var(--subtle); border-radius:9px;
+    width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s,background .15s}
+  .cog:hover{border-color:var(--line); background:var(--surface-2); color:var(--accent)}
   /* Theme toggle shows the destination: dark→sun (go light), light→moon (go dark). */
   #themeToggle .ic-moon{display:none}
   body.light #themeToggle .ic-sun{display:none}
   body.light #themeToggle .ic-moon{display:inline}
-  .hbadge{background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:9px;
-    width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:default; transition:border-color .15s,color .15s}
-  .hbadge.ok{color:var(--ok); border-color:rgba(90,209,154,.4)}
-  .hbadge.upd{color:var(--accent); border-color:var(--accent-line); cursor:pointer}
-  .hbadge.upd:hover{background:var(--accent-glow)}
+  /* Framework status — a dot + label up by the wordmark, not a boxed button. */
+  .status{margin-left:auto; display:flex; align-items:center; gap:6px; background:transparent; border:0; padding:2px 2px; cursor:default; font-family:var(--font)}
+  .status .dot{width:7px; height:7px; border-radius:50%; background:var(--subtle); flex:0 0 auto; transition:background .15s}
+  .status .updtext{font-size:11px; color:var(--subtle); letter-spacing:.01em}
+  .status.ok .dot{background:var(--ok)}
+  .status.upd{cursor:pointer}
+  .status.upd .dot{background:var(--accent)}
+  .status.upd .updtext{color:var(--accent)}
+  .status.upd:hover .updtext{text-decoration:underline}
   .cols{display:grid; grid-template-columns:1fr; gap:16px; align-items:start}
   @media(min-width:760px){ .cols{grid-template-columns:1fr 1fr} }
   @media(min-width:1100px){ .cols{grid-template-columns:1.25fr 1.25fr 0.7fr} }

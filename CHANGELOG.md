@@ -15,8 +15,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Home header** — the redundant in-panel "AIOS Glass" wordmark is gone (the view header already says it), making room for an explorer button beside the theme toggle.
 
 ### Changed
-- **Home header reorganised** — a small logo + *AIOS Glass* wordmark sits top-left, and the action controls span the full content width as one distributed toolbar (status · files · create · settings · theme · density · onboarding), flush with the card margins. *Settings* (config) and *create-custom* moved here out of the view title bar.
-- **View title bar trimmed** to three: a **book** (README), the **?** (cheatsheet), and **Ask AIOS** (the ✨ glyph). Graph/create/config/files left the title bar (now in the header toolbar or the command palette).
+- **Home header reorganised** — a small logo + *AIOS Glass* wordmark top-left, a quiet framework-status dot (`• up to date`) at the right of that row, and the actions below in two borderless-until-hover clusters: **Actions** (files · create · settings) on the left margin, **View** (theme · density) on the right. *Settings* + *create-custom* moved in from the view title bar; onboarding left the toolbar (still reachable via the cog → *Getting started* and the palette). De-weighting the row + grouping it fixed the "cockpit of equal buttons" feel.
+- **View title bar trimmed** to two: a **book** (README) and the **?** (cheatsheet). Graph/create/config/files/ask all left the title bar (now in the header toolbar or the command palette).
 - The Files explorer's section descriptors (*AIOS infra · your notes · external*) follow the **Secondary hints** toggle, like Home's hints.
 - The webview smoke gate now boots **every** panel (home + files) in headless Chrome, not just Home.
 
