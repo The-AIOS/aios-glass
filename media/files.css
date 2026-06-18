@@ -23,8 +23,7 @@
     -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01","ss03";}
   ::selection{background:var(--accent); color:var(--canvas)}
 
-  .shell{display:grid; grid-template-columns:236px 1fr; height:100vh; min-height:0}
-  @media(max-width:680px){ .shell{grid-template-columns:64px 1fr} .places .bname,.places .phead,.places .psub,.places .addfolder span{display:none} }
+  .shell{display:grid; grid-template-columns:230px 1fr; height:100vh; min-height:0}
 
   /* ── Places sidebar — Finder's favourites, friendly + few ── */
   .places{background:var(--surface-1); border-right:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:4px; overflow-y:auto}
@@ -89,3 +88,31 @@
   .empty,.hint{color:var(--subtle); text-align:center; font-size:13px}
   .empty{padding:40px 16px}
   .hint{margin:0; padding:10px 16px 16px; border-top:1px solid var(--line); font-size:11.5px}
+
+  /* ── Responsive — these live LAST so they win at equal specificity over the
+     base rules above. The webview iframe matches the view width, so they fire on
+     the actual dock width: drag Glass wide (secondary side bar) → tile grid; a
+     slim activity-bar sidebar → stacked place-pills + a Finder list. ── */
+  @media(max-width:760px){ .shell{grid-template-columns:198px 1fr} .place .psub{display:none} }
+  @media(max-width:520px){
+    .shell{grid-template-columns:1fr; grid-template-rows:auto 1fr}
+    .places{flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; border-right:0; border-bottom:1px solid var(--line); padding:11px 13px; overflow:visible}
+    .brand{padding:0 4px 0 0}
+    .brand .bname{display:none}
+    .phead{display:none}
+    .placelist{flex-direction:row; flex-wrap:wrap; gap:6px}
+    .place{width:auto; border:1px solid var(--line); border-radius:999px; padding:6px 11px; gap:7px}
+    .place .psub{display:none}
+    .place.on{box-shadow:none}
+    .addfolder{margin:0; padding:6px 11px}
+    .addfolder span{display:none}
+    /* grid → list rows: small icon · name · (chip / ›) */
+    .grid{grid-template-columns:1fr; gap:1px; padding:9px 8px}
+    .tile{flex-direction:row; align-items:center; gap:11px; text-align:left; padding:9px 11px; border-radius:9px}
+    .tile:hover{transform:none}
+    .tile .ic svg{width:24px; height:24px}
+    .tile .ic{order:1; flex:0 0 auto}
+    .tile .label{order:2; flex:1; -webkit-line-clamp:1; font-size:13px}
+    .tile .ext{order:3; position:static; margin:0 0 0 auto; align-self:center}
+    .tile.dir::after{content:'\203a'; order:4; margin-left:auto; color:var(--subtle); font-size:16px; line-height:1}
+  }

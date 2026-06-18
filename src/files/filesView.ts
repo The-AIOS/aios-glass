@@ -7,11 +7,14 @@ import { currentTheme, setTheme } from '../home/config';
 import { stateGet, stateSet } from '../state';
 
 /**
- * AIOS Files — a Finder-style explorer for operators who find a developer file
- * tree intimidating. Big folder tiles, breadcrumbs, single-click to open: it
- * reads like the macOS Finder, not VS Code's sidebar. Glass, not engine: it
- * lists real folders and opens files through the same viewer logic the Home
- * panel uses (aios.openOutput); it owns no AIOS logic.
+ * AIOS Files — a Finder-style explorer that lives PERMANENTLY beside Home (a
+ * second view in the AIOS container), not a transient editor tab. Big folder
+ * tiles, breadcrumbs, single-click to open. Glass, not engine: it lists real
+ * folders and opens files through the same viewer logic the Home panel uses
+ * (aios.openOutput); it owns no AIOS logic.
+ *
+ * It is RESPONSIVE — the roomy tile-grid when it has width (e.g. dragged to the
+ * secondary side bar), a comfortable Finder list when it's a narrow sidebar.
  *
  * Three "places" mirror how the AIOS is actually organised:
  *   - VAULT     — the operator's own notes, calendar, projects, context
@@ -27,38 +30,23 @@ interface Place { id: 'vault' | 'infra' | 'workspace'; label: string; sub: strin
 interface Entry { name: string; dir: boolean; ext: string; path: string; }
 interface Crumb { label: string; path: string; }
 
-export class FilesPanel {
-  private static current: FilesPanel | undefined;
-  private readonly panel: vscode.WebviewPanel;
-  private readonly disposables: vscode.Disposable[] = [];
+export class FilesViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewId = 'aios.files';
+  private view?: vscode.WebviewView;
 
-  static open(extensionUri: vscode.Uri): void {
-    if (FilesPanel.current) { FilesPanel.current.panel.reveal(); return; }
-    const panel = vscode.window.createWebviewPanel(
-      'aios.files', 'AIOS Files', vscode.ViewColumn.Active,
-      { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')] }
-    );
-    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'media', 'aios-color.svg');
-    FilesPanel.current = new FilesPanel(panel, extensionUri);
-  }
+  constructor(private readonly extensionUri: vscode.Uri) {}
 
-  private constructor(panel: vscode.WebviewPanel, private readonly extensionUri: vscode.Uri) {
-    this.panel = panel;
-    panel.webview.html = this.html(panel.webview);
-    panel.webview.onDidReceiveMessage(
-      (msg) => void Promise.resolve(this.onMessage(msg)).catch((e) => swallow('files message ' + (msg && msg.type), e)),
-      undefined, this.disposables
-    );
-    // Re-skin live when the shared theme setting flips (from the Home toggle or the cog).
-    vscode.workspace.onDidChangeConfiguration((e) => {
+  resolveWebviewView(webviewView: vscode.WebviewView): void {
+    this.view = webviewView;
+    webviewView.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')] };
+    webviewView.webview.html = this.html(webviewView.webview);
+    webviewView.webview.onDidReceiveMessage((msg) =>
+      void Promise.resolve(this.onMessage(msg)).catch((e) => swallow('files message ' + (msg && msg.type), e)));
+    // Re-skin live when the shared theme setting flips (Home toggle or the cog).
+    const cfg = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiosGlass.theme')) this.post({ type: 'theme', theme: currentTheme() });
-    }, undefined, this.disposables);
-    panel.onDidDispose(() => this.dispose(), undefined, this.disposables);
-  }
-
-  private dispose(): void {
-    FilesPanel.current = undefined;
-    while (this.disposables.length) { try { this.disposables.pop()?.dispose(); } catch { /* ignore */ } }
+    });
+    webviewView.onDidDispose(() => cfg.dispose());
   }
 
   /** The current places (recomputed each call — paths and the workspace list can change). */
@@ -167,7 +155,7 @@ export class FilesPanel {
   }
 
   private post(message: unknown): void {
-    void this.panel.webview.postMessage(message);
+    void this.view?.webview.postMessage(message);
   }
 
   private html(webview: vscode.Webview): string {

@@ -18,7 +18,7 @@ If you find yourself encoding *what a command does*, stop — the extension shou
 - TypeScript, compiled with `tsc` to `out/`. No runtime dependencies (only dev: typescript, @types).
 - `src/aios/` — framework-facing discovery/parsing (the glass↔engine boundary).
 - `src/rituals/` — the Rituals surface (provider + runner).
-- `src/files/` — AIOS Files, the Finder-style explorer webview (Vault / Framework / Workspace places). Lists real folders and opens files through `aios.openOutput`; owns no AIOS logic.
+- `src/files/` — AIOS Files, the Finder-style explorer (a `WebviewViewProvider`, a persistent view beside Home). Vault / Framework / Workspace places; lists real folders and opens files through `aios.openOutput`; responsive grid⇄list via CSS media queries on the view width; path access sandboxed to the place roots. Owns no AIOS logic.
 - `src/extension.ts` — activation + command registration.
 
 Glass surfaces share one theme (`aiosGlass.theme`, dark default). Every webview's colours are CSS tokens with a `body.light` override, so a single setting reskins Home + Files together; the `<body>` class is stamped at render time to avoid a flash. Add a panel name to `PANELS` in `scripts/smoke.mjs` and its boot is gated too.

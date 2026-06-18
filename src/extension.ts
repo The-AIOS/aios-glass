@@ -10,7 +10,7 @@ import { goWithAgents } from './tasks/goWithAgents';
 import { primaryName, contextDir, ContextKind } from './home/vault';
 import { AiosCommand, resolveCommandsDir, discoverCommands } from './aios/commands';
 import { HomeViewProvider } from './home/homePanel';
-import { FilesPanel } from './files/filesPanel';
+import { FilesViewProvider } from './files/filesView';
 import { spawnAgentFlow, spawnWorker } from './agents/spawn';
 import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
@@ -52,8 +52,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.openWalkthrough', () =>
       vscode.commands.executeCommand('workbench.action.openWalkthrough', 'the-aios.aios-glass#aios.gettingStarted', false)),
 
-    // AIOS Files — the Finder-style explorer (Vault / Framework / Workspace).
-    vscode.commands.registerCommand('aios.openFiles', () => FilesPanel.open(context.extensionUri)),
+    // AIOS Files — the Finder-style explorer (Vault / Framework / Workspace),
+    // a persistent view beside Home; the command focuses (and expands) it.
+    vscode.window.registerWebviewViewProvider(FilesViewProvider.viewId, new FilesViewProvider(context.extensionUri), {
+      webviewOptions: { retainContextWhenHidden: true }
+    }),
+    vscode.commands.registerCommand('aios.openFiles', () => vscode.commands.executeCommand('aios.files.focus')),
 
     vscode.commands.registerCommand('aios.companyAction', (name?: string) => companyAction(name)),
     vscode.commands.registerCommand('aios.collaborateAction', () => collaborateAction()),

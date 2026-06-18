@@ -34,7 +34,7 @@
       "activitybar": [
         {
           "id": "aios-glass",
-          "title": "AIOS",
+          "title": "AIOS Glass",
           "icon": "media/aios.svg"
         }
       ]
@@ -43,8 +43,16 @@
       "aios-glass": [
         {
           "id": "aios.home",
-          "name": "AIOS Glass",
+          "name": "Home",
           "type": "webview"
+        },
+        {
+          "id": "aios.files",
+          "name": "Files",
+          "type": "webview",
+          "visibility": "collapsed",
+          "icon": "$(folder-opened)",
+          "contextualTitle": "AIOS Files"
         }
       ]
     },
