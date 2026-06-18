@@ -15,6 +15,7 @@ import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
 import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, setTheme } from './config';
+import { getFilesVisible } from '../files/filesState';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -164,6 +165,11 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   /** Collapse/expand all cards at once (the ⌘⌥G M chord). */
   toggleCards(): void {
     this.post({ type: 'toggleAllCards' });
+  }
+
+  /** Reflect AIOS Files visibility on the header's files button (active when open). */
+  setFilesOpen(open: boolean): void {
+    this.post({ type: 'filesOpen', open });
   }
 
   /** Show/hide Glass (the ⌘⌥G H chord). Closed → reveal+focus. Open → hide.
@@ -326,6 +332,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       operator: operatorName(),
       primary: primaryName(),
       theme: currentTheme(),
+      filesOpen: getFilesVisible(),
       agents: discoverAgents().length,
       skills: discoverSkills().length,
       commands: discoverCommands().length,

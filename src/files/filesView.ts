@@ -5,6 +5,8 @@ import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
 import { currentTheme, showHints } from '../home/config';
 import { stateGet, stateSet } from '../state';
+import { setFilesVisible } from './filesState';
+import { HomeViewProvider } from '../home/homePanel';
 
 /**
  * AIOS Files — a tidy collapsible file TREE in its own activity-bar container.
@@ -31,9 +33,10 @@ interface Entry { name: string; dir: boolean; ext: string; path: string; }
 
 export class FilesViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'aios.files';
+  public static current: FilesViewProvider | undefined;
   private view?: vscode.WebviewView;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(private readonly extensionUri: vscode.Uri) { FilesViewProvider.current = this; }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
     this.view = webviewView;
@@ -47,6 +50,33 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (e.affectsConfiguration('aiosGlass.showHints')) this.post({ type: 'hints', show: showHints() });
     });
     webviewView.onDidDispose(() => cfg.dispose());
+    // Mirror this view's visibility to Home so the files button shows active (and
+    // toggles). Fires on show/hide (including when another container takes over).
+    this.syncVisibility();
+    webviewView.onDidChangeVisibility(() => this.syncVisibility());
+  }
+
+  /** True when the Files view is currently on screen. */
+  isVisible(): boolean { return !!this.view?.visible; }
+
+  /** Open the Files view if hidden; hide it if shown. Mirrors HomeViewProvider.toggleHome —
+   *  VS Code can't say which bar a view sits in, so try the secondary (aux) bar and,
+   *  if Files is still visible a beat later, undo and toggle the primary sidebar. */
+  toggle(): void {
+    if (!this.view?.visible) { void vscode.commands.executeCommand('aios.files.focus'); return; }
+    void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+    setTimeout(() => {
+      if (this.view?.visible) {
+        void vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+        void vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
+      }
+    }, 120);
+  }
+
+  private syncVisibility(): void {
+    const v = this.isVisible();
+    setFilesVisible(v);
+    HomeViewProvider.current?.setFilesOpen(v);
   }
 
   /** The current places (recomputed each call — paths and the workspace list can change). */

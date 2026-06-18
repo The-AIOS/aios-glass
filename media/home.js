@@ -37,7 +37,9 @@
   // so the flip is instant, then persist via the extension. The initial class is
   // injected into <body> at render time (no dark→light flash on open).
   const themeBtn = document.getElementById('themeToggle');
-  function applyTheme(t){ document.body.classList.toggle('light', t === 'light'); }
+  // Light is the non-default mode → mark the button .active (accent), mirroring how
+  // the compact toggle shows it's engaged. Consistent "active = switched-from-default".
+  function applyTheme(t){ const light = t === 'light'; document.body.classList.toggle('light', light); if (themeBtn) themeBtn.classList.toggle('active', light); }
   if (themeBtn) themeBtn.addEventListener('click', () => {
     const next = document.body.classList.contains('light') ? 'dark' : 'light';
     applyTheme(next);
@@ -260,6 +262,7 @@
     if (msg.type === 'state'){
       if (msg.primary) document.getElementById('vPrimary').textContent = msg.primary;
       if (msg.theme) applyTheme(msg.theme);
+      document.getElementById('filesBtn').classList.toggle('active', !!msg.filesOpen);
       document.body.classList.toggle('no-hints', msg.showHints === false);
       document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';
@@ -398,6 +401,7 @@
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }
+    else if (msg.type === 'filesOpen'){ document.getElementById('filesBtn').classList.toggle('active', !!msg.open); }
   });
 
   // Compact "time since" for session rows — 'now', '4m', '2h 5m', '3d'.

@@ -60,7 +60,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(FilesViewProvider.viewId, new FilesViewProvider(context.extensionUri), {
       webviewOptions: { retainContextWhenHidden: true }
     }),
-    vscode.commands.registerCommand('aios.openFiles', () => vscode.commands.executeCommand('aios.files.focus')),
+    vscode.commands.registerCommand('aios.openFiles', () =>
+      FilesViewProvider.current ? FilesViewProvider.current.toggle() : vscode.commands.executeCommand('aios.files.focus')),
 
     vscode.commands.registerCommand('aios.companyAction', (name?: string) => companyAction(name)),
     vscode.commands.registerCommand('aios.collaborateAction', () => collaborateAction()),
