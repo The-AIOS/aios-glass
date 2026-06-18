@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -30,6 +30,18 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "themes": [
+      {
+        "label": "AIOS Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aios-dark-color-theme.json"
+      },
+      {
+        "label": "AIOS Light",
+        "uiTheme": "vs",
+        "path": "./themes/aios-light-color-theme.json"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -96,6 +108,11 @@
         "command": "aios.filesCollapseAll",
         "title": "AIOS: Collapse Explorer",
         "icon": "$(collapse-all)"
+      },
+      {
+        "command": "aios.filesRefresh",
+        "title": "AIOS: Refresh Explorer",
+        "icon": "$(refresh)"
       },
       {
         "command": "aios.openConfigMenu",
@@ -310,9 +327,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "aios.filesCollapseAll",
+          "command": "aios.filesRefresh",
           "when": "view == aios.files",
           "group": "navigation@0"
+        },
+        {
+          "command": "aios.filesCollapseAll",
+          "when": "view == aios.files",
+          "group": "navigation@1"
         }
       ],
       "commandPalette": [

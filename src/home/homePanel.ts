@@ -15,7 +15,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, setTheme, showMemory } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory } from './config';
 import { getFilesVisible } from '../files/filesState';
 
 /**
@@ -212,9 +212,10 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'setTheme':
         // The webview applied it optimistically; persist to the shared setting so
-        // the Files explorer (and the next open) match. onDidChangeConfiguration
-        // re-posts state to reconcile any surface that didn't flip locally.
-        if (msg.theme === 'dark' || msg.theme === 'light') await setTheme(msg.theme);
+        // the Files explorer (and the next open) match. toggleTheme adds the smart
+        // co-switch / one-time scope prompt; onDidChangeConfiguration re-posts state
+        // to reconcile any surface that didn't flip locally.
+        if (msg.theme === 'dark' || msg.theme === 'light') await toggleTheme(msg.theme);
         return;
       case 'navMonth':
         this.post({ type: 'month', data: getMonthData(msg.year, msg.month) });

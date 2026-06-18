@@ -177,8 +177,69 @@ export function currentTheme(): 'dark' | 'light' {
   return vscode.workspace.getConfiguration('aiosGlass').get<string>('theme', 'dark') === 'light' ? 'light' : 'dark';
 }
 
+/** The bundled workbench theme names, keyed by Glass mode. */
+export const AIOS_WORKBENCH_THEME = { dark: 'AIOS Dark', light: 'AIOS Light' } as const;
+
+/** The active VS Code workbench (editor) color theme. */
+export function workbenchThemeName(): string {
+  return vscode.workspace.getConfiguration('workbench').get<string>('colorTheme', '') || '';
+}
+
+/** Is the editor already on one of the AIOS workbench themes? (Gates the co-switch —
+ *  we only ever touch the editor theme when the operator has opted into AIOS by
+ *  selecting it; a personal theme like GitHub Dark / Tokyo Night is never hijacked.) */
+export function isAiosWorkbenchTheme(): boolean {
+  const t = workbenchThemeName();
+  return t === AIOS_WORKBENCH_THEME.dark || t === AIOS_WORKBENCH_THEME.light;
+}
+
 export async function setTheme(value: 'dark' | 'light'): Promise<void> {
   await vscode.workspace.getConfiguration('aiosGlass').update('theme', value, vscode.ConfigurationTarget.Global);
+  // Smart co-switch: move the EDITOR theme to match ONLY if it's already an AIOS theme.
+  // Idempotent (skips a no-op write), so the reverse listener can't loop.
+  if (isAiosWorkbenchTheme()) {
+    const want = AIOS_WORKBENCH_THEME[value];
+    if (workbenchThemeName() !== want) {
+      await vscode.workspace.getConfiguration('workbench').update('colorTheme', want, vscode.ConfigurationTarget.Global);
+    }
+  }
+}
+
+/** Explicit "move into the AIOS theme" — sets BOTH Glass panels and the editor theme.
+ *  This is the opt-in entry point (cog → Theme → AIOS Dark/Light); once the editor is
+ *  on an AIOS theme, every later Glass flip co-switches it automatically. */
+export async function setAiosTheme(value: 'dark' | 'light'): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('theme', value, vscode.ConfigurationTarget.Global);
+  await vscode.workspace.getConfiguration('workbench').update('colorTheme', AIOS_WORKBENCH_THEME[value], vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: ${AIOS_WORKBENCH_THEME[value]} applied — Glass + IDE in lockstep.`);
+}
+
+/** The header sun/moon toggle.
+ *  - On an AIOS theme → co-switch Glass + IDE, no prompt (you're clearly in AIOS).
+ *  - On any other IDE theme → ALWAYS ask: Glass only, or switch the whole IDE to AIOS?
+ *    No sticky memory — each toggle is a fresh choice, so you're never trapped in one mode
+ *    (and the moment you pick Glass + IDE you're on AIOS, so it stops asking). */
+export async function toggleTheme(mode: 'dark' | 'light'): Promise<void> {
+  if (isAiosWorkbenchTheme()) { await setTheme(mode); return; } // co-switch handles the IDE
+  const pick = await vscode.window.showQuickPick(
+    [
+      { label: '$(paintcan) Glass only', description: 'just the AIOS panels — keep your IDE theme', full: false },
+      { label: '$(color-mode) Glass + IDE', description: 'switch the whole IDE with Glass (AIOS themes)', full: true }
+    ],
+    { title: 'Theme toggle — what should it switch?', placeHolder: 'Asked while your IDE is on a non-AIOS theme · pick Glass + IDE to stop asking' }
+  );
+  if (!pick) return; // cancelled → change nothing (the webview no longer flips optimistically)
+  if (pick.full) await setAiosTheme(mode); else await setTheme(mode);
+}
+
+/** Reverse sync: when the editor theme becomes AIOS Dark/Light (picked via ⌘K⌘T or OS
+ *  auto-detect), flip Glass panels to match. No-op for any non-AIOS theme, and skips a
+ *  no-op write so it can't loop with setTheme's co-switch. Called from the config listener. */
+export async function syncGlassToWorkbench(): Promise<void> {
+  const t = workbenchThemeName();
+  const mode = t === AIOS_WORKBENCH_THEME.dark ? 'dark' : t === AIOS_WORKBENCH_THEME.light ? 'light' : undefined;
+  if (!mode || currentTheme() === mode) return;
+  await vscode.workspace.getConfiguration('aiosGlass').update('theme', mode, vscode.ConfigurationTarget.Global);
 }
 
 /** Whether to show the contextual ritual nudge banner (morning/daytime/evening). Default true. */
