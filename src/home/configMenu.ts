@@ -9,7 +9,7 @@ import {
   showHints, setShowHints,
   showNudges, setShowNudges,
   nativeTabsEnabled, setNativeTabs,
-  currentTheme, setTheme,
+  currentTheme, setTheme, setAiosTheme, isAiosWorkbenchTheme,
   fileIconsEnhanced, setFileIcons,
   showHiddenFiles, setShowHidden,
   autoReveal, setAutoReveal,
@@ -25,7 +25,7 @@ export async function openConfigMenu(): Promise<void> {
   const items: (vscode.QuickPickItem & { id?: string })[] = [
     // ── Appearance — how the Glass surfaces look ──
     sep('Appearance'),
-    { label: '$(color-mode) Theme', description: currentTheme(), id: 'theme' },
+    { label: '$(color-mode) Theme (Glass + IDE)', description: isAiosWorkbenchTheme() ? `${currentTheme()} · IDE synced` : `Glass: ${currentTheme()}`, id: 'theme' },
     { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
     { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
     { label: '$(pulse) Session memory', description: showMemory() ? 'shown' : 'hidden', id: 'memory' },
@@ -69,14 +69,17 @@ export async function openConfigMenu(): Promise<void> {
       await vscode.commands.executeCommand('aios.showLogs');
       return;
     case 'theme': {
+      const onAios = isAiosWorkbenchTheme();
       const choice = await vscode.window.showQuickPick(
         [
-          { label: '$(circle-filled) Dark', description: 'deep black + coral — the default', value: 'dark' as const },
-          { label: '$(circle-outline) Light', description: 'paper canvas + coral — bright rooms / projectors', value: 'light' as const }
+          { label: '$(circle-filled) AIOS Dark', description: 'Glass + IDE — deep black + coral', mode: 'dark' as const, full: true },
+          { label: '$(circle-outline) AIOS Light', description: 'Glass + IDE — paper canvas + coral', mode: 'light' as const, full: true },
+          { label: '$(paintcan) Glass dark only', description: 'Glass only — keep your IDE theme', mode: 'dark' as const, full: false },
+          { label: '$(paintcan) Glass light only', description: 'Glass only — keep your IDE theme', mode: 'light' as const, full: false }
         ],
-        { title: `Theme — currently ${currentTheme()}`, placeHolder: 'Reskins Home + Files (terminals stay dark)' }
+        { title: `Theme — Glass ${currentTheme()}${onAios ? ' · IDE on AIOS (in lockstep)' : ''}`, placeHolder: 'AIOS = Glass + IDE together · Glass-only leaves your IDE theme alone' }
       );
-      if (choice) await setTheme(choice.value);
+      if (choice) await (choice.full ? setAiosTheme(choice.mode) : setTheme(choice.mode));
       return;
     }
     case 'hidden': {

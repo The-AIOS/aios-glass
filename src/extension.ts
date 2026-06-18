@@ -16,7 +16,7 @@ import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
 import { companyAction, collaborateAction } from './spaces/spacesActions';
 import { openConfigMenu } from './home/configMenu';
-import { TERMINAL_OPTIONS, setTerminalMode } from './home/config';
+import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { swallow, logChannel, log } from './log';
@@ -63,6 +63,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.openFiles', () =>
       FilesViewProvider.current ? FilesViewProvider.current.toggle() : vscode.commands.executeCommand('aios.files.focus')),
     vscode.commands.registerCommand('aios.filesCollapseAll', () => FilesViewProvider.current?.collapseAll()),
+    vscode.commands.registerCommand('aios.filesRefresh', () => FilesViewProvider.current?.refresh()),
 
     vscode.commands.registerCommand('aios.companyAction', (name?: string) => companyAction(name)),
     vscode.commands.registerCommand('aios.collaborateAction', () => collaborateAction()),
@@ -469,6 +470,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory')) HomeViewProvider.current?.refresh();
+      // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
+      if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
     })
   );
 

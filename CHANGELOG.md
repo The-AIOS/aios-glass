@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-18
+
+> Two matching **workbench themes** so the whole IDE speaks Glass's palette, plus a fix for adding Workspace folders to the Explorer.
+
+### Added
+- **AIOS Dark + AIOS Light workbench themes** — pick them from *Preferences: Color Theme* (⌘K ⌘T). Built from the exact Glass tokens (deep-black / paper canvas, coral accent, `ok` green, the same gold/green/red git colours as the Explorer), so the editor, terminal, activity bar, and tabs read as one tool with the Glass panels. Terminal ANSI maps to the Glass family (bright-red = coral); cursor, active-tab underline, and badges carry the accent. Pair with `window.autoDetectColorScheme` to follow the OS the way Glass does.
+- **Explorer auto-updates in place (IDE-style)** — create a file (e.g. save a screenshot into a Workspace folder) and the row appears on its own; delete one and it vanishes. Done via a **targeted re-list**: the root watcher reports *which* folder changed, and only that one folder is re-listed and row-diffed — no full repaint, so zero flicker; one `readdir` per change, so no memory cost; the live git-marker path is untouched. Folders that aren't expanded/visible are no-ops, so the write-heavy vault/framework roots don't thrash. A ⟳ title-bar action does a full preserve-expansion re-read as a manual catch-all.
+- **Theme co-switch (opt-in, never hijacks)** — cog → *Theme (Glass + IDE)* → **AIOS Dark / AIOS Light** moves *both* Glass and the IDE theme together (the "move into AIOS" action). Once the IDE is on an AIOS theme, the header sun/moon toggle — and `window.autoDetectColorScheme` — flip the IDE in lockstep with Glass; picking an AIOS theme from ⌘K⌘T flips Glass too. The co-switch *only* fires when you're already on an AIOS theme, so a personal IDE theme (GitHub Dark, Tokyo Night…) is never touched. *Glass dark/light only* entries reskin the panels alone.
+  - **Smart toggle.** While your IDE is on a non-AIOS theme, the header toggle asks each time — *Glass only* or *Glass + IDE* — so you're never trapped in one mode; the moment you pick *Glass + IDE* you're on an AIOS theme, and from then on the toggle co-switches both silently.
+
+### Fixed
+- **Adding a Workspace folder to the Explorer now refreshes immediately.** A lost directory-listing reply (a modal open-dialog could interrupt the round-trip) had no timeout, so the paint awaiting it hung *before* rendering the WORKSPACE group — the new folder only appeared after a delete-and-re-add. `fsList` now has a 5s safety net + idempotent resolve, so the tree can never be stranded; and adding a folder now expands to + selects it (instant feedback).
+
 ## [0.2.0] — 2026-06-18
 
 > The visibility release. A **light theme** (same coral, paper canvas) you can toggle anywhere, and **AIOS Files** reborn as a real **Explorer** — a collapsible Framework / Vault / Workspace tree with **live git status**, an **IDE-style icon pack**, hidden-file control, and ⌘-click to source. Plus a quieter, glyph-driven header, a per-session memory read, and a focus fix so a follow-up Enter stops spawning duplicate terminals.

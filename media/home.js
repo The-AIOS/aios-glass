@@ -33,17 +33,15 @@
   });
 
   // Theme toggle (dark ⇄ light) — the source of truth is the aiosGlass.theme
-  // setting (shared with the Files explorer), but we apply optimistically on click
-  // so the flip is instant, then persist via the extension. The initial class is
-  // injected into <body> at render time (no dark→light flash on open).
+  // setting (shared with the Files explorer). We DON'T flip optimistically — the
+  // toggle may prompt (Glass-only vs Glass + IDE) when off an AIOS theme, so nothing
+  // should change until you choose. The extension persists the result and re-posts the
+  // theme, which flips the canvas here. Initial class is injected at render (no flash).
   const themeBtn = document.getElementById('themeToggle');
-  // Theme is always-active (CSS keeps #themeToggle accent); the icon swaps to show
-  // the current mode. So this just flips the canvas.
   function applyTheme(t){ document.body.classList.toggle('light', t === 'light'); }
   if (themeBtn) themeBtn.addEventListener('click', () => {
     const next = document.body.classList.contains('light') ? 'dark' : 'light';
-    applyTheme(next);
-    vscode.postMessage({ type: 'setTheme', theme: next });
+    vscode.postMessage({ type: 'setTheme', theme: next }); // extension decides + drives the flip
   });
 
   // Collapsible cards — click a title to fold/unfold; persisted in webview state.

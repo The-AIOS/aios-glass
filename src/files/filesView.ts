@@ -41,6 +41,8 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   private disposables: vscode.Disposable[] = [];
   private gitTimer?: ReturnType<typeof setTimeout>;
   private gitPoll?: ReturnType<typeof setInterval>;
+  private relistTimer?: ReturnType<typeof setTimeout>;
+  private relistDirs = new Set<string>();
   // basename → fsPath for markdown previews we opened — lets auto-reveal follow a
   // preview tab back to its file (preview webviews expose no uri of their own).
   private previewPaths = new Map<string, string>();
@@ -91,6 +93,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     this.gitPoll = setInterval(() => { if (this.isVisible()) this.pushGit(); }, 3000);
     webviewView.onDidDispose(() => {
       if (this.gitPoll) { clearInterval(this.gitPoll); this.gitPoll = undefined; }
+      if (this.relistTimer) { clearTimeout(this.relistTimer); this.relistTimer = undefined; }
       while (this.disposables.length) try { this.disposables.pop()?.dispose(); } catch { /* ignore */ }
       while (this.gitWatchers.length) try { this.gitWatchers.pop()?.dispose(); } catch { /* ignore */ }
     });
@@ -105,9 +108,13 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     while (this.gitWatchers.length) { try { this.gitWatchers.pop()?.dispose(); } catch { /* ignore */ } }
     const repos = new Set<string>();
     const fire = () => this.scheduleGit();
+    // create/delete change the tree's SHAPE — also queue a TARGETED re-list of just the
+    // changed file's parent folder (the webview no-ops unless that folder is visible),
+    // so a new file surfaces on its own without a full repaint. Plain change = git only.
+    const fireStructural = (u: vscode.Uri) => { this.scheduleGit(); this.scheduleRelist(u); };
     for (const pl of this.places()) {
       const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(pl.path), '**/*'));
-      w.onDidChange(fire); w.onDidCreate(fire); w.onDidDelete(fire);
+      w.onDidChange(fire); w.onDidCreate(fireStructural); w.onDidDelete(fireStructural);
       this.gitWatchers.push(w);
       const r = this.repoRoot(pl.path);
       if (r) repos.add(r);
@@ -122,6 +129,18 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   private scheduleGit(delay = 350): void {
     if (this.gitTimer) clearTimeout(this.gitTimer);
     this.gitTimer = setTimeout(() => this.pushGit(), delay);
+  }
+
+  /** Debounced, parent-dir-scoped re-list. Coalesces a burst (a build / git checkout
+   *  writing many files) into one message carrying the unique changed folders; the
+   *  webview re-lists only those that are actually rendered. Cheap — no full repaint. */
+  private scheduleRelist(uri: vscode.Uri): void {
+    this.relistDirs.add(path.dirname(uri.fsPath));
+    if (this.relistTimer) clearTimeout(this.relistTimer);
+    this.relistTimer = setTimeout(() => {
+      const dirs = [...this.relistDirs]; this.relistDirs.clear();
+      this.post({ type: 'relist', dirs });
+    }, 300);
   }
 
   private repoListCache = new Map<string, { at: number; repos: string[] }>();
@@ -185,6 +204,11 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
 
   /** Collapse the tree to the top (the ⊟ title-bar action). */
   collapseAll(): void { this.post({ type: 'collapseAll' }); }
+
+  /** Full re-read preserving expansion (the ⟳ title-bar action) — the manual catch-all.
+   *  Automatic updates happen in place via scheduleRelist (per-folder, no repaint); this
+   *  is the heavier "rebuild everything" fallback for when you just want a clean re-read. */
+  refresh(): void { this.post({ type: 'refresh' }); }
 
   /** Open the Files view if hidden; hide it if shown. VS Code can't say which bar a
    *  view sits in, so we probe. Files lives in the PRIMARY sidebar by default (its own

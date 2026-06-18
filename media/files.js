@@ -84,7 +84,16 @@
   let reqSeq = 0;
   const pending = new Map();
   function fsList(dir) {
-    return new Promise((resolve) => { const id = ++reqSeq; pending.set(id, resolve); vscode.postMessage({ type: 'list', dir, reqId: id }); });
+    // Resolve idempotently, and ALWAYS resolve — a lost 'listing' reply (e.g. the
+    // round-trip interrupted by a modal open-dialog) must not strand the awaiting
+    // paint forever, or sections built after it (the WORKSPACE group) never render.
+    return new Promise((resolve) => {
+      const id = ++reqSeq;
+      const done = (v) => { if (pending.delete(id)) resolve(v); };
+      pending.set(id, done);
+      vscode.postMessage({ type: 'list', dir, reqId: id });
+      setTimeout(() => done([]), 5000); // safety net: never hang the tree
+    });
   }
 
   // ── live git: reconcile status onto every rendered row (no re-expand) ──
@@ -149,46 +158,84 @@
     });
   }
 
+  // path → its children-container element (a section box or a folder's .xkids), so a
+  // single changed folder can be re-listed in place without touching the rest of the tree.
+  const dirContainers = new Map();
+
+  // Build ONE row (file or folder) with all its wiring, and return it (not appended —
+  // buildTree appends in bulk; relistFolder inserts a single new row in order).
+  function makeRow(e, depth, base) {
+    const row = el('div', 'xrow' + (e.dir ? ' dir' : '') + (e.git ? ' g' + e.git : '') + (e.name.startsWith('.') ? ' hidden' : ''));
+    row.dataset.path = e.path; // lets live git pushes find + recolor this row
+    row.style.paddingLeft = ((base || 14) + depth * 9) + 'px'; // content nests under its section (tight)
+    const ic = el('span', 'xicon'); ic.innerHTML = e.dir ? icon('chevR', 11) : fileIconSvg(e.name);
+    const nm = el('span', 'xname');
+    const pm = e.dir ? e.name.match(/^(\d+ - )(.+)$/) : null; // dim the "00 - " ordering prefix
+    if (pm) { nm.append(el('span', 'xpre', pm[1]), document.createTextNode(pm[2])); }
+    else nm.textContent = e.dir ? e.name : e.name.replace(/\.md$/i, '');
+    row.append(ic, nm);
+    if (e.git) row.append(e.dir ? el('span', 'gdot') : el('span', 'gst', e.git)); // folders → dot, files → letter
+    attachCtx(row, e.path);
+    attachDrag(row, e.path);
+    if (e.dir) {
+      let kids = null;
+      const guideX = ((base || 14) + depth * 9 + 7) + 'px'; // child guide line under this chevron
+      const ensure = async () => { // expand-only (used by click + auto-reveal)
+        if (!kids) { kids = el('div', 'xkids'); kids.style.setProperty('--g', guideX); row.after(kids); ic.innerHTML = icon('chevD', 11); await buildTree(e.path, kids, depth + 1, undefined, base); applyFilter(); }
+        else if (kids.style.display === 'none') { kids.style.display = ''; ic.innerHTML = icon('chevD', 11); }
+      };
+      ensureExpand.set(e.path, ensure);
+      row.addEventListener('click', async (ev) => {
+        if (ev.altKey) { vscode.postMessage({ type: 'pathToTerminal', path: e.path }); return; } // ⌥-click → send path to terminal
+        select(row);
+        if (kids && kids.style.display !== 'none') { kids.style.display = 'none'; ic.innerHTML = icon('chevR', 11); } // collapse
+        else await ensure();
+      });
+    } else {
+      // Click opens (md→preview, html→browser, …); ⌘-click opens source; ⌥-click → terminal.
+      row.addEventListener('click', (ev) => {
+        if (ev.altKey) { vscode.postMessage({ type: 'pathToTerminal', path: e.path }); return; }
+        select(row); vscode.postMessage({ type: 'open', file: e.path, source: ev.metaKey || ev.ctrlKey });
+      });
+    }
+    return row;
+  }
+
   // ── the tree — lazy: a folder lists its children only on first expand ──
-  async function buildTree(absDir, container, depth, skip, base) {
+  async function buildTree(absDir, container, depth, skipName, base) {
+    container.dataset.depth = depth; container.dataset.base = (base || 14); // for in-place re-list
+    if (skipName) container.dataset.skip = skipName; else delete container.dataset.skip;
+    dirContainers.set(absDir, container);
     const entries = await fsList(absDir);
     for (const e of entries) {
-      if (skip && skip(e.name)) continue;
-      const row = el('div', 'xrow' + (e.dir ? ' dir' : '') + (e.git ? ' g' + e.git : '') + (e.name.startsWith('.') ? ' hidden' : ''));
-      row.dataset.path = e.path; // lets live git pushes find + recolor this row
-      row.style.paddingLeft = ((base || 14) + depth * 9) + 'px'; // content nests under its section (tight)
-      const ic = el('span', 'xicon'); ic.innerHTML = e.dir ? icon('chevR', 11) : fileIconSvg(e.name);
-      const nm = el('span', 'xname');
-      const pm = e.dir ? e.name.match(/^(\d+ - )(.+)$/) : null; // dim the "00 - " ordering prefix
-      if (pm) { nm.append(el('span', 'xpre', pm[1]), document.createTextNode(pm[2])); }
-      else nm.textContent = e.dir ? e.name : e.name.replace(/\.md$/i, '');
-      row.append(ic, nm);
-      if (e.git) row.append(e.dir ? el('span', 'gdot') : el('span', 'gst', e.git)); // folders → dot, files → letter
-      container.appendChild(row);
-      attachCtx(row, e.path);
-      attachDrag(row, e.path);
-      if (e.dir) {
-        let kids = null;
-        const guideX = ((base || 14) + depth * 9 + 7) + 'px'; // child guide line under this chevron
-        const ensure = async () => { // expand-only (used by click + auto-reveal)
-          if (!kids) { kids = el('div', 'xkids'); kids.style.setProperty('--g', guideX); row.after(kids); ic.innerHTML = icon('chevD', 11); await buildTree(e.path, kids, depth + 1, undefined, base); applyFilter(); }
-          else if (kids.style.display === 'none') { kids.style.display = ''; ic.innerHTML = icon('chevD', 11); }
-        };
-        ensureExpand.set(e.path, ensure);
-        row.addEventListener('click', async (ev) => {
-          if (ev.altKey) { vscode.postMessage({ type: 'pathToTerminal', path: e.path }); return; } // ⌥-click → send path to terminal
-          select(row);
-          if (kids && kids.style.display !== 'none') { kids.style.display = 'none'; ic.innerHTML = icon('chevR', 11); } // collapse
-          else await ensure();
-        });
-      } else {
-        // Click opens (md→preview, html→browser, …); ⌘-click opens source; ⌥-click → terminal.
-        row.addEventListener('click', (ev) => {
-          if (ev.altKey) { vscode.postMessage({ type: 'pathToTerminal', path: e.path }); return; }
-          select(row); vscode.postMessage({ type: 'open', file: e.path, source: ev.metaKey || ev.ctrlKey });
-        });
-      }
+      if (skipName && e.name === skipName) continue;
+      container.appendChild(makeRow(e, depth, base));
     }
+  }
+
+  // ── targeted in-place re-list of ONE folder (the IDE-style auto-update) ──
+  // Add rows for new files, drop rows for removed ones, leave every other row +
+  // all expansion untouched → no full repaint, no flicker. No-op when the folder
+  // isn't currently rendered + visible, so writes in collapsed/hidden dirs cost nothing.
+  async function relistFolder(dir) {
+    const container = dirContainers.get(dir);
+    if (!container || container.offsetParent === null) return; // not rendered / collapsed / hidden
+    const depth = +(container.dataset.depth || 0);
+    const base = +(container.dataset.base || 14);
+    const skipName = container.dataset.skip;
+    const entries = (await fsList(dir)).filter((e) => !(skipName && e.name === skipName));
+    const want = new Set(entries.map((e) => e.path));
+    const rowsNow = () => [...container.children].filter((n) => n.classList && n.classList.contains('xrow'));
+    for (const r of rowsNow()) { // drop rows whose file is gone (+ its kids container)
+      if (!want.has(r.dataset.path)) { const k = r.nextElementSibling; if (k && k.classList.contains('xkids')) k.remove(); r.remove(); }
+    }
+    let prev = null; // insert any missing rows in listing order
+    for (const e of entries) {
+      let row = rowsNow().find((r) => r.dataset.path === e.path);
+      if (!row) { row = makeRow(e, depth, base); if (prev) prev.after(row); else container.prepend(row); }
+      prev = (row.nextElementSibling && row.nextElementSibling.classList.contains('xkids')) ? row.nextElementSibling : row;
+    }
+    applyFilter();
   }
 
   // ── collapsible sections (state persisted in webview state) ──
@@ -252,6 +299,7 @@
   async function paintExplorer() {
     explorerEl.replaceChildren();
     ensureExpand.clear();
+    dirContainers.clear();
     const framework = places.find((p) => p.id === 'infra');
     const vault = places.find((p) => p.id === 'vault');
     const workspace = places.filter((p) => p.id === 'workspace');
@@ -259,7 +307,7 @@
     // AIOS — the framework itself: Framework + Vault, nested under one collapsible mark.
     await addGroup('AIOS', { mark: true, label: 'AIOS' }, async (g) => {
       if (framework && (!vault || framework.path !== vault.path)) {
-        await addSection('FRAMEWORK', { dot: 'ring', sub: 'AIOS infra' }, (box) => buildTree(framework.path, box, 0, (n) => n === "vault", 14), g);
+        await addSection('FRAMEWORK', { dot: 'ring', sub: 'AIOS infra' }, (box) => buildTree(framework.path, box, 0, "vault", 14), g);
       }
       if (vault) {
         await addSection('VAULT', { dot: 'solid', sub: 'your notes', primary: true }, (box) => buildTree(vault.path, box, 0, null, 14), g);
@@ -324,6 +372,25 @@
         const ic = row.querySelector('.xicon'); if (ic) ic.innerHTML = icon('chevR', 11);
       }
     });
+  }
+
+  // ── refresh: re-read the tree (pick up new/removed files) while keeping the SAME
+  //    folders expanded + the same row selected. The tree is lazy and out-of-workspace
+  //    watchers are unreliable, so this is how added files surface (button + on-focus). ──
+  let refreshing = false;
+  async function refreshTree() {
+    if (refreshing || !places.length) return; // skip overlap + the pre-paint initial load
+    refreshing = true;
+    try {
+      const open = [...explorerEl.querySelectorAll('.xrow.dir[data-path]')]
+        .filter((r) => { const n = r.nextElementSibling; return n && n.classList.contains('xkids') && n.style.display !== 'none'; })
+        .map((r) => r.dataset.path);
+      const sel = explorerEl.querySelector('.xrow.sel')?.dataset.path;
+      await paintExplorer();
+      // re-expand shallow→deep so each parent registers its children's ensure first
+      for (const p of open.sort((a, b) => a.split('/').length - b.split('/').length)) { const fn = ensureExpand.get(p); if (fn) await fn(); }
+      if (sel) { const r = findRow(sel); if (r) select(r); }
+    } finally { refreshing = false; }
   }
 
   // ── filter: show rows whose name matches + their ancestors ──
@@ -393,8 +460,15 @@
 
   window.addEventListener('message', (e) => {
     const msg = e.data;
-    if (msg.type === 'listing') { const r = pending.get(msg.reqId); if (r) { pending.delete(msg.reqId); r(msg.entries || []); } }
-    else if (msg.type === 'roots') { if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints); if (msg.iconsEnhanced != null) iconsEnhanced = msg.iconsEnhanced; places = msg.places || []; void paintExplorer(); }
+    if (msg.type === 'listing') { const r = pending.get(msg.reqId); if (r) r(msg.entries || []); } // r() deletes from pending
+    else if (msg.type === 'roots') {
+      if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints);
+      if (msg.iconsEnhanced != null) iconsEnhanced = msg.iconsEnhanced;
+      places = msg.places || [];
+      // Await the repaint, then reveal a just-added folder (msg.focus) — expands the
+      // WORKSPACE group to it + selects it, so adding a folder gives instant feedback.
+      paintExplorer().then(() => { if (msg.focus) void revealPath(msg.focus); });
+    }
     else if (msg.type === 'theme') { applyTheme(msg.theme); }
     else if (msg.type === 'hints') { applyHints(msg.show); }
     else if (msg.type === 'icons') { iconsEnhanced = !!msg.enhanced; void paintExplorer(); }
@@ -402,6 +476,8 @@
     else if (msg.type === 'reload') { void paintExplorer(); }
     else if (msg.type === 'revealPath') { void revealPath(msg.path); }
     else if (msg.type === 'collapseAll') { collapseAll(); }
+    else if (msg.type === 'refresh') { void refreshTree(); }
+    else if (msg.type === 'relist') { for (const d of (msg.dirs || [])) void relistFolder(d); } // targeted auto-update
   });
 
   vscode.postMessage({ type: 'ready' });
