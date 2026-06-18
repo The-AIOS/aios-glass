@@ -384,8 +384,13 @@ export function activate(context: vscode.ExtensionContext): void {
       if (typeof file !== 'string') return;
       if (source) return vscode.commands.executeCommand('vscode.open', vscode.Uri.file(file));
       if (/\.html?$/i.test(file)) {
+        // HTML can't render inside the editor — open it in the browser and say so
+        // clearly (a status-bar note alone was easy to miss), with a one-click way
+        // to open the raw source instead.
         await vscode.env.openExternal(vscode.Uri.file(file));
-        vscode.window.setStatusBarMessage('$(globe) Opened in browser', 3000);
+        vscode.window.setStatusBarMessage(`$(globe) Opened ${path.basename(file)} in your browser`, 4000);
+        void vscode.window.showInformationMessage(`Opened ${path.basename(file)} in your browser — HTML renders outside the IDE.`, 'Open source instead')
+          .then((pick) => { if (pick === 'Open source instead') void vscode.commands.executeCommand('vscode.open', vscode.Uri.file(file)); });
         return;
       }
       if (/\.md$/i.test(file)) return vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.file(file));

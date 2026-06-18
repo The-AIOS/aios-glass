@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
-import { currentTheme, showHints } from '../home/config';
+import { currentTheme, showHints, fileIconsEnhanced } from '../home/config';
 import { stateGet, stateSet } from '../state';
 import { setFilesVisible } from './filesState';
 import { HomeViewProvider } from '../home/homePanel';
@@ -29,7 +30,8 @@ const WORKSPACE_KEY = 'filesWorkspaceFolders'; // string[] of absolute folder pa
 const NOISE = new Set(['node_modules', 'out', 'dist', '.git', '.glass', '.vscode', '.github', 'package-lock.json', '.DS_Store']);
 
 interface Place { id: 'vault' | 'infra' | 'workspace'; label: string; sub: string; path: string; }
-interface Entry { name: string; dir: boolean; ext: string; path: string; }
+interface Entry { name: string; dir: boolean; ext: string; path: string; git?: string }
+interface GitInfo { at: number; files: Map<string, string>; dirty: Set<string> }
 
 export class FilesViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'aios.files';
@@ -48,6 +50,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     const cfg = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiosGlass.theme')) this.post({ type: 'theme', theme: currentTheme() });
       if (e.affectsConfiguration('aiosGlass.showHints')) this.post({ type: 'hints', show: showHints() });
+      if (e.affectsConfiguration('aiosGlass.fileIcons')) this.post({ type: 'icons', enhanced: fileIconsEnhanced() });
     });
     webviewView.onDidDispose(() => cfg.dispose());
     // Mirror this view's visibility to Home so the files button shows active (and
@@ -121,15 +124,63 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       try { dir = fs.statSync(full).isDirectory(); } catch { continue; }
       entries.push({ name, dir, ext: dir ? '' : (name.split('.').pop() || '').toLowerCase(), path: full });
     }
+    // Git status (IDE-style): mark changed files + folders with changed descendants.
+    const root = this.repoRoot(dirPath);
+    const gs = root ? this.gitStatus(root) : null;
+    if (gs) for (const e of entries) {
+      e.git = e.dir ? (gs.files.get(e.path) || (gs.dirty.has(e.path) ? 'M' : undefined)) : gs.files.get(e.path);
+    }
     // Folders first, then files; each alphabetical (locale-aware, numeric-prefix friendly).
     return entries.sort((a, b) =>
       a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
   }
 
+  /** Nearest ancestor dir that holds a `.git` — the repo root for `dir`, or undefined. */
+  private repoRoot(dir: string): string | undefined {
+    let d = dir;
+    for (let i = 0; i < 40; i++) {
+      try { if (fs.existsSync(path.join(d, '.git'))) return d; } catch { /* keep walking */ }
+      const parent = path.dirname(d);
+      if (parent === d) break;
+      d = parent;
+    }
+    return undefined;
+  }
+
+  private gitCache = new Map<string, GitInfo | null>();
+
+  /** `git status --porcelain` for a repo root → changed-file map + dirty-folder set.
+   *  Cached ~2.5s so expanding folders in the same repo doesn't re-shell each time. */
+  private gitStatus(repoRoot: string): GitInfo | null {
+    const cached = this.gitCache.get(repoRoot);
+    const now = Date.now();
+    if (cached !== undefined && (cached === null || now - cached.at < 2500)) return cached;
+    let out = '';
+    try {
+      out = execFileSync('git', ['-C', repoRoot, 'status', '--porcelain'], { encoding: 'utf8', timeout: 4000, maxBuffer: 1 << 22 });
+    } catch { this.gitCache.set(repoRoot, null); return null; }
+    const files = new Map<string, string>();
+    const dirty = new Set<string>();
+    for (const line of out.split('\n')) {
+      if (line.length < 4) continue;
+      const xy = line.slice(0, 2);
+      let p = line.slice(3);
+      if (p.includes(' -> ')) p = p.split(' -> ')[1]; // rename → the new path
+      p = p.replace(/^"(.*)"$/, '$1').replace(/\/$/, '');
+      const abs = path.join(repoRoot, p);
+      const code = xy.includes('?') ? 'U' : xy.includes('A') ? 'A' : xy.includes('D') ? 'D' : xy.includes('R') ? 'R' : 'M';
+      files.set(abs, code);
+      for (let d = path.dirname(abs); d.startsWith(repoRoot); d = path.dirname(d)) { dirty.add(d); if (d === repoRoot) break; }
+    }
+    const info: GitInfo = { at: now, files, dirty };
+    this.gitCache.set(repoRoot, info);
+    return info;
+  }
+
   private async onMessage(msg: any): Promise<void> {
     switch (msg?.type) {
       case 'ready': {
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced() });
         return;
       }
       case 'list': {
@@ -158,14 +209,14 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         const p = picked[0].fsPath;
         const folders = this.workspaceFolders();
         if (!folders.includes(p)) { folders.push(p); await stateSet(WORKSPACE_KEY, folders); }
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), focus: p });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), focus: p });
         return;
       }
       case 'removeFolder': {
         if (typeof msg.path !== 'string') return;
         const folders = this.workspaceFolders().filter((p) => p !== msg.path);
         await stateSet(WORKSPACE_KEY, folders);
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced() });
         return;
       }
     }

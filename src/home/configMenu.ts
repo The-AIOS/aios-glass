@@ -9,7 +9,8 @@ import {
   showHints, setShowHints,
   showNudges, setShowNudges,
   nativeTabsEnabled, setNativeTabs,
-  currentTheme, setTheme
+  currentTheme, setTheme,
+  fileIconsEnhanced, setFileIcons
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -19,6 +20,7 @@ export async function openConfigMenu(): Promise<void> {
   const multiAccount = anthropicAccounts().length > 1; // swap only matters with 2+
   const items: (vscode.QuickPickItem & { id?: string })[] = [
     { label: '$(color-mode) Theme', description: currentTheme(), id: 'theme' },
+    { label: '$(symbol-file) Explorer icons', description: fileIconsEnhanced() ? 'enhanced' : 'plain', id: 'fileicons' },
     { label: '$(server) Model', description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) Permission mode', description: currentMode(), id: 'mode' },
     { label: '$(terminal) Terminal mode', description: currentTerminalMode(), id: 'terminal' },
@@ -59,6 +61,17 @@ export async function openConfigMenu(): Promise<void> {
         { title: `Theme — currently ${currentTheme()}`, placeHolder: 'Reskins Home + Files (terminals stay dark)' }
       );
       if (choice) await setTheme(choice.value);
+      return;
+    }
+    case 'fileicons': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(symbol-color) Enhanced', description: 'colorful per-type icons (md, json, code, images…)', value: 'enhanced' as const },
+          { label: '$(symbol-file) Plain', description: 'one neutral document icon for every file', value: 'plain' as const }
+        ],
+        { title: `Explorer icons — currently ${fileIconsEnhanced() ? 'enhanced' : 'plain'}` }
+      );
+      if (choice) await setFileIcons(choice.value);
       return;
     }
     case 'model': {

@@ -12,7 +12,60 @@
   };
   const icon = (name, size) => '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
 
-  // ── theme + secondary hints (both follow the shared settings; no toggles here) ──
+  // ── enhanced file-type icons (colorful, like an IDE icon pack) ──
+  const DOC = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>';
+  const sv = (color, inner) => '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="' + color + '" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+  function extKey(name) {
+    const n = name.toLowerCase();
+    if (/^readme/.test(n)) return 'md';
+    if (/^(license|notice|copying)/.test(n)) return 'license';
+    if (/(^|\.)(gitignore|gitattributes|gitmodules)$/.test(n)) return 'git';
+    if (/(package-lock\.json|yarn\.lock|\.lock)$/.test(n)) return 'lock';
+    if (/^tsconfig.*\.json$/.test(n)) return 'data';
+    return n.includes('.') ? n.split('.').pop() : '';
+  }
+  // each builder → a colored 14px glyph
+  const FAM = {
+    md: () => sv('#519aba', DOC + '<line x1="8" y1="13" x2="15" y2="13"/><line x1="8" y1="16" x2="13" y2="16"/>'),
+    json: () => sv('#d4a04a', '<path d="M8 4a3 3 0 0 0-3 3v2a2 2 0 0 1-2 2 2 2 0 0 1 2 2v2a3 3 0 0 0 3 3"/><path d="M16 4a3 3 0 0 1 3 3v2a2 2 0 0 0 2 2 2 2 0 0 0-2 2v2a3 3 0 0 1-3 3"/>'),
+    ts: () => sv('#3178c6', '<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>'),
+    js: () => sv('#e0c14a', '<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>'),
+    py: () => sv('#4b8bbe', '<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>'),
+    shell: () => sv('#4caf50', '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/>'),
+    html: () => sv('#e8913a', '<polyline points="13 4 10 20"/><polyline points="7 8 3 12 7 16"/><polyline points="17 8 21 12 17 16"/>'),
+    css: () => sv('#4aa3ff', '<line x1="9" y1="4" x2="7.5" y2="20"/><line x1="16.5" y1="4" x2="15" y2="20"/><line x1="4" y1="9.5" x2="20" y2="9.5"/><line x1="3.4" y1="14.5" x2="19.4" y2="14.5"/>'),
+    image: () => sv('#a06eff', '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5L5 21"/>'),
+    pdf: () => sv('#e0524a', DOC),
+    archive: () => sv('#b08968', '<rect x="2.5" y="4" width="19" height="4" rx="1"/><path d="M4.5 8v11a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V8"/><line x1="10" y1="12" x2="14" y2="12"/>'),
+    git: () => sv('#f05133', '<circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="9" r="2.4"/><path d="M6 8.4v7.2M18 11.4a6 6 0 0 1-6 6H8.4"/>'),
+    license: () => sv('#b0883a', DOC + '<circle cx="12" cy="13" r="2.2"/><path d="m10.6 14.8-.8 4 2.2-1.4 2.2 1.4-.8-4"/>'),
+    lock: () => sv('#9aa0a6', '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+    canvas: () => sv('#0099ff', '<rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><path d="M10 7h4a2 2 0 0 1 2 2v5"/>'),
+    doc: () => sv('#8a8f98', DOC),
+  };
+  const ICON_FOR = {
+    md: 'md', markdown: 'md', mdx: 'md',
+    json: 'json', jsonc: 'json', data: 'json', yml: 'json', yaml: 'json', toml: 'json',
+    ts: 'ts', tsx: 'ts', mts: 'ts',
+    js: 'js', jsx: 'js', mjs: 'js', cjs: 'js',
+    py: 'py', rb: 'py', go: 'py', rs: 'py',
+    sh: 'shell', bash: 'shell', zsh: 'shell', fish: 'shell',
+    html: 'html', htm: 'html', xml: 'html', vue: 'html', svelte: 'html',
+    css: 'css', scss: 'css', sass: 'css', less: 'css',
+    png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', svg: 'image', webp: 'image', ico: 'image', bmp: 'image',
+    pdf: 'pdf',
+    vsix: 'archive', zip: 'archive', tar: 'archive', gz: 'archive', tgz: 'archive', '7z': 'archive',
+    git: 'git', canvas: 'canvas', license: 'license', lock: 'lock',
+  };
+  // a file's icon: enhanced colorful glyph, or the plain neutral doc
+  function fileIconSvg(name) {
+    if (!iconsEnhanced) return icon('file', 13);
+    return (FAM[ICON_FOR[extKey(name)]] || FAM.doc)();
+  }
+
+  let iconsEnhanced = true;
+
+  // ── theme + secondary hints + icons (all follow shared settings; no toggles here) ──
   const applyTheme = (t) => document.body.classList.toggle('light', t === 'light');
   const applyHints = (show) => document.body.classList.toggle('no-hints', show === false);
 
@@ -56,14 +109,15 @@
     const entries = await fsList(absDir);
     for (const e of entries) {
       if (skip && skip(e.name)) continue;
-      const row = el('div', 'xrow' + (e.dir ? ' dir' : ''));
-      row.style.paddingLeft = (8 + depth * 13) + 'px';
-      const ic = el('span', 'xicon'); ic.innerHTML = e.dir ? icon('chevR', 11) : icon('file', 12);
+      const row = el('div', 'xrow' + (e.dir ? ' dir' : '') + (e.git ? ' g' + e.git : ''));
+      row.style.paddingLeft = (6 + depth * 12) + 'px';
+      const ic = el('span', 'xicon'); ic.innerHTML = e.dir ? icon('chevR', 11) : fileIconSvg(e.name);
       const nm = el('span', 'xname');
       const pm = e.dir ? e.name.match(/^(\d+ - )(.+)$/) : null; // dim the "00 - " ordering prefix
       if (pm) { nm.append(el('span', 'xpre', pm[1]), document.createTextNode(pm[2])); }
       else nm.textContent = e.dir ? e.name : e.name.replace(/\.md$/i, '');
       row.append(ic, nm);
+      if (e.git) row.append(el('span', 'gst', e.git)); // git status letter (M/U/A/D/R)
       container.appendChild(row);
       attachCtx(row, e.path);
       if (e.dir) {
@@ -147,9 +201,10 @@
   window.addEventListener('message', (e) => {
     const msg = e.data;
     if (msg.type === 'listing') { const r = pending.get(msg.reqId); if (r) { pending.delete(msg.reqId); r(msg.entries || []); } }
-    else if (msg.type === 'roots') { if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints); places = msg.places || []; void paintExplorer(); }
+    else if (msg.type === 'roots') { if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints); if (msg.iconsEnhanced != null) iconsEnhanced = msg.iconsEnhanced; places = msg.places || []; void paintExplorer(); }
     else if (msg.type === 'theme') { applyTheme(msg.theme); }
     else if (msg.type === 'hints') { applyHints(msg.show); }
+    else if (msg.type === 'icons') { iconsEnhanced = !!msg.enhanced; void paintExplorer(); }
   });
 
   vscode.postMessage({ type: 'ready' });

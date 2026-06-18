@@ -39,7 +39,7 @@
         },
         {
           "id": "aios-files",
-          "title": "AIOS Files",
+          "title": "AIOS Explorer",
           "icon": "media/files.svg"
         }
       ]
@@ -55,7 +55,7 @@
       "aios-files": [
         {
           "id": "aios.files",
-          "name": "AIOS Files",
+          "name": "AIOS Explorer",
           "type": "webview"
         }
       ]
@@ -356,6 +356,19 @@
           ],
           "default": "ask",
           "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+        },
+        "aiosGlass.fileIcons": {
+          "type": "string",
+          "enum": [
+            "enhanced",
+            "plain"
+          ],
+          "enumDescriptions": [
+            "Colorful file-type icons (md, json, code, images, …) in the explorer",
+            "A single neutral document icon for every file"
+          ],
+          "default": "enhanced",
+          "markdownDescription": "File icons in the AIOS Explorer — `enhanced` (colorful per-type) or `plain` (one neutral doc icon). Toggle from the cog menu."
         },
         "aiosGlass.theme": {
           "type": "string",

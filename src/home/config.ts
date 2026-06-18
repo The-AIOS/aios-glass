@@ -133,6 +133,15 @@ export async function setShowHints(on: boolean): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
 }
 
+/** Explorer file icons — 'enhanced' (colorful per-type) or 'plain' (one neutral doc). */
+export function fileIconsEnhanced(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<string>('fileIcons', 'enhanced') !== 'plain';
+}
+
+export async function setFileIcons(value: 'enhanced' | 'plain'): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('fileIcons', value, vscode.ConfigurationTarget.Global);
+}
+
 /** Glass surface theme — 'dark' (default) or 'light'. Shared across every Glass
  *  webview (Home + Files) so a single toggle reskins them all consistently. */
 export function currentTheme(): 'dark' | 'light' {
