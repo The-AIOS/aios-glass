@@ -17,7 +17,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - **File-type icons** — an IDE-style pack: M↓ markdown, © license, plain NOTICE/txt, green-hexagon `package*.json`, TS badge (`.ts`/`tsconfig`), gold-braces json, JS/PY badges, blue-terminal PowerShell vs green-terminal shell, orange HTML, blue CSS, purple images, red PDF, canvas nodes, cyan-puzzle `.vsix`, red git. Plain ⇄ enhanced toggle (cog → *Explorer icons*, or `aiosGlass.fileIcons`).
   - **HTML opens in the browser with a clear notification** (HTML can't render in the editor) + an *Open source instead* action — no more silent status-bar-only feedback.
 - **Home header** — a small logo + *AIOS Glass* wordmark top-left.
-- **Per-session memory** — the Running card shows each live session's RAM (its process tree's RSS, one `ps` scan per poll), e.g. `… working 4m · 412 MB` / `… ready 1h · 1.6 GB`.
+- **Per-session memory** — the Running card shows each live session's RAM (its process tree's RSS, one `ps` scan per poll), styled as the quietest token in the row (dim mono), e.g. `… ready 1h · 1.6 GB`.
 
 ### Changed
 - **Home header reorganised** — a small logo + *AIOS Glass* wordmark top-left, a quiet framework-status dot (`• up to date`, coral `• update available` when behind — click to run `/aios:update`) at the right of that row, and the actions below in two borderless-until-hover clusters grouped by frequency: **everyday** (files · theme · compact) on the left margin, **configure** (create · settings) on the right. *Settings* + *create-custom* moved in from the view title bar. De-weighting the row + grouping it fixed the "cockpit of equal buttons" feel.
@@ -28,6 +28,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Toggle buttons read by glyph, not colour** — no button stays accent; each is subtle at rest and accent only on hover. State lives in the icon: **files** = closed folder (hidden) ⇄ open folder (explorer open); **theme** = current mode (moon = dark, sun = light); **compact** = spacious blocks (comfortable) ⇄ dense rows (compact). Closing Files hides the primary sidebar first, so toggling it off no longer flashes the secondary bar where Home is usually docked.
 
 ### Fixed
+- **Live sessions never show the grey "terminal/unknown" dot.** A session with a non-standard status (e.g. an `aios-shell` session reporting `shell`) fell through to the grey unknown dot, reading as a plain terminal. A registered session is alive → it now shows the green idle dot ("ready") unless it's explicitly busy / needs-input / error. (Grey stays reserved for actual terminals.)
 - **A follow-up Enter no longer re-fires the button.** Action terminals now open **focused** (they were opened with `preserveFocus`), and the webview drops focus off a button after it dispatches — so pressing Enter after, e.g., *Resume* lands in the `claude --resume` picker instead of spawning a second terminal.
 
 ## [0.1.8] — 2026-06-11

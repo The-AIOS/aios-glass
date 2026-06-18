@@ -208,6 +208,8 @@
   /* status/project text trims with ellipsis — a session row NEVER wraps to 2 lines
      (the hover action buttons take their space from the text, not a new line) */
   .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
+  /* memory — quietest thing in the row (like the quota meter's "5h (7d…)" text) */
+  .runitem .rmem{flex:0 0 auto; margin-left:6px; font-family:var(--mono); font-size:10px; color:var(--subtle); opacity:.6; white-space:nowrap}
   .runitem .dot{--dc:var(--subtle); width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--dc)}
   .runitem .dot.busy{--dc:#f5a623; animation:dotpulse 2s ease-out infinite}
   .runitem .dot.idle{--dc:#3ec77a}

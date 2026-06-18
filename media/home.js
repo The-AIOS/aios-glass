@@ -321,7 +321,8 @@
           const mem = fmtMem(a.mem);
           const statusTxt = s.label + (dur ? ' ' + dur : '');
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
-            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + (mem ? ' · ' + mem : '') + '</span>'
+            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
+            + (mem ? '<span class="rmem">' + mem + '</span>' : '')
             + '<span class="runacts">'
             + interrupt
             + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
@@ -427,12 +428,13 @@
   // forward-compatible — they light up only IF Claude ever reports such a status.
   function statusInfo(raw){
     const st = (raw||'').toLowerCase();
-    if (st === 'idle' || st === 'ready') return { cls:'idle',  label:'ready',       title:'Idle — ready / waiting for you' };
     if (st === 'busy' || st === 'working' || st === 'running') return { cls:'busy', label:'working', title:'Busy — actively working' };
     if (/wait|input|prompt|\bask\b|attention|approv|permission|block/.test(st)) return { cls:'input', label:'needs input', title:'Waiting on you — reveal it' };
     if (/error|fail|crash/.test(st)) return { cls:'error', label: st, title:'Error — reveal it' };
-    if (!st) return { cls:'unk', label:'unknown', title:'Status unknown' };
-    return { cls:'unk', label: st, title: st };
+    // Any other LIVE session (idle/ready, empty, or an app-specific status like a
+    // shell name) is alive → green idle. A registered session is never the grey
+    // "unknown" dot — that's reserved for plain terminals.
+    return { cls:'idle', label:'ready', title:'Idle — ready / waiting for you' };
   }
 
   function renderMonth(data){
