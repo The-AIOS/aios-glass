@@ -133,6 +133,15 @@ export async function setShowHints(on: boolean): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
 }
 
+/** Whether the explorer shows dotfiles (.gitignore, .vscode, …). Default false. */
+export function showHiddenFiles(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showHidden', false);
+}
+
+export async function setShowHidden(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('showHidden', on, vscode.ConfigurationTarget.Global);
+}
+
 /** Explorer file icons — 'enhanced' (colorful per-type) or 'plain' (one neutral doc). */
 export function fileIconsEnhanced(): boolean {
   return vscode.workspace.getConfiguration('aiosGlass').get<string>('fileIcons', 'enhanced') !== 'plain';

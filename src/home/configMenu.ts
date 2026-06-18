@@ -10,7 +10,8 @@ import {
   showNudges, setShowNudges,
   nativeTabsEnabled, setNativeTabs,
   currentTheme, setTheme,
-  fileIconsEnhanced, setFileIcons
+  fileIconsEnhanced, setFileIcons,
+  showHiddenFiles, setShowHidden
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -21,6 +22,7 @@ export async function openConfigMenu(): Promise<void> {
   const items: (vscode.QuickPickItem & { id?: string })[] = [
     { label: '$(color-mode) Theme', description: currentTheme(), id: 'theme' },
     { label: '$(symbol-file) Explorer icons', description: fileIconsEnhanced() ? 'enhanced' : 'plain', id: 'fileicons' },
+    { label: '$(eye) Hidden files', description: showHiddenFiles() ? 'shown' : 'hidden', id: 'hidden' },
     { label: '$(server) Model', description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) Permission mode', description: currentMode(), id: 'mode' },
     { label: '$(terminal) Terminal mode', description: currentTerminalMode(), id: 'terminal' },
@@ -61,6 +63,17 @@ export async function openConfigMenu(): Promise<void> {
         { title: `Theme — currently ${currentTheme()}`, placeHolder: 'Reskins Home + Files (terminals stay dark)' }
       );
       if (choice) await setTheme(choice.value);
+      return;
+    }
+    case 'hidden': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye-closed) Hidden', description: 'hide dotfiles (.gitignore, .vscode, …)', value: false },
+          { label: '$(eye) Shown', description: 'show dotfiles in the explorer', value: true }
+        ],
+        { title: `Hidden files — currently ${showHiddenFiles() ? 'shown' : 'hidden'}` }
+      );
+      if (choice) await setShowHidden(choice.value);
       return;
     }
     case 'fileicons': {

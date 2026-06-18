@@ -4,7 +4,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
-import { currentTheme, showHints, fileIconsEnhanced } from '../home/config';
+import { currentTheme, showHints, fileIconsEnhanced, showHiddenFiles } from '../home/config';
 import { stateGet, stateSet } from '../state';
 import { setFilesVisible } from './filesState';
 import { HomeViewProvider } from '../home/homePanel';
@@ -26,8 +26,8 @@ import { HomeViewProvider } from '../home/homePanel';
  */
 
 const WORKSPACE_KEY = 'filesWorkspaceFolders'; // string[] of absolute folder paths, in glass state
-// Folders/files that are noise for a non-technical operator — hidden everywhere.
-const NOISE = new Set(['node_modules', 'out', 'dist', '.git', '.glass', '.vscode', '.github', 'package-lock.json', '.DS_Store']);
+// Always hidden — never useful to browse, even with "show hidden files" on.
+const ALWAYS_HIDE = new Set(['node_modules', 'out', 'dist', '.git', '.glass', '.DS_Store']);
 
 interface Place { id: 'vault' | 'infra' | 'workspace'; label: string; sub: string; path: string; }
 interface Entry { name: string; dir: boolean; ext: string; path: string; git?: string }
@@ -53,6 +53,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (e.affectsConfiguration('aiosGlass.theme')) this.post({ type: 'theme', theme: currentTheme() });
       if (e.affectsConfiguration('aiosGlass.showHints')) this.post({ type: 'hints', show: showHints() });
       if (e.affectsConfiguration('aiosGlass.fileIcons')) this.post({ type: 'icons', enhanced: fileIconsEnhanced() });
+      if (e.affectsConfiguration('aiosGlass.showHidden')) this.post({ type: 'reload' });
     }));
     // Mirror this view's visibility to Home so the files button shows active (and
     // toggles). Fires on show/hide (including when another container takes over).
@@ -160,9 +161,11 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   private list(dirPath: string): Entry[] {
     let names: string[] = [];
     try { names = fs.readdirSync(dirPath); } catch { return []; }
+    const showHidden = showHiddenFiles();
     const entries: Entry[] = [];
     for (const name of names) {
-      if (name.startsWith('.') || NOISE.has(name)) continue;
+      if (ALWAYS_HIDE.has(name)) continue;
+      if (!showHidden && name.startsWith('.')) continue;
       let dir = false;
       const full = path.join(dirPath, name);
       try { dir = fs.statSync(full).isDirectory(); } catch { continue; }

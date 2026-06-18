@@ -357,6 +357,11 @@
           "default": "ask",
           "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
         },
+        "aiosGlass.showHidden": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show hidden dotfiles (`.gitignore`, `.vscode`, `.github`, …) in the AIOS Explorer. `node_modules`, `.git`, build dirs, and `.DS_Store` stay hidden regardless. Toggle from the cog menu."
+        },
         "aiosGlass.fileIcons": {
           "type": "string",
           "enum": [

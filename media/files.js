@@ -152,7 +152,8 @@
           else { const open = kids.style.display !== 'none'; kids.style.display = open ? 'none' : ''; ic.innerHTML = icon(open ? 'chevR' : 'chevD', 11); }
         });
       } else {
-        row.addEventListener('click', () => { select(row); vscode.postMessage({ type: 'open', file: e.path, source: false }); });
+        // Click opens (md→preview, html→browser, …); ⌘/Ctrl-click opens the raw source.
+        row.addEventListener('click', (ev) => { select(row); vscode.postMessage({ type: 'open', file: e.path, source: ev.metaKey || ev.ctrlKey }); });
       }
     }
   }
@@ -230,6 +231,7 @@
     else if (msg.type === 'hints') { applyHints(msg.show); }
     else if (msg.type === 'icons') { iconsEnhanced = !!msg.enhanced; void paintExplorer(); }
     else if (msg.type === 'git') { applyGit(msg.files, msg.dirty); }
+    else if (msg.type === 'reload') { void paintExplorer(); }
   });
 
   vscode.postMessage({ type: 'ready' });

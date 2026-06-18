@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
@@ -297,11 +298,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       try { real = fs.realpathSync(cwd); } catch { /* keep raw */ }
       return fwReal && real === fwReal ? '' : path.basename(real);
     };
+    // Per-session memory: RSS of each session's whole process tree (claude + its
+    // children), one `ps` scan for all of them. Best-effort — omitted if ps fails.
+    const mem = sessionMemoryMB(running.map((a) => a.pid));
     this.post({
       type: 'running',
       running: running.map((a) => ({
         name: a.name, pid: a.pid, status: a.status,
-        proj: projOf(a.cwd), updatedAt: a.updatedAt,
+        proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
       })),
       quota,
     });
@@ -378,6 +382,43 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       return `<!DOCTYPE html><html><body><p>AIOS Glass: failed to load the panel UI — ${String(e)}</p></body></html>`;
     }
   }
+}
+
+/**
+ * RSS (in MB) of each given pid's full process tree, from a single `ps` scan.
+ * A Claude session spawns child processes (the model runtime, tools, shells);
+ * summing the subtree gives the session's real footprint. Returns an empty map
+ * if `ps` is unavailable (e.g. an exotic platform) — the UI just omits memory.
+ */
+function sessionMemoryMB(pids: number[]): Map<number, number> {
+  const out = new Map<number, number>();
+  if (!pids.length) return out;
+  let text = '';
+  try { text = execFileSync('ps', ['-Ao', 'rss=,pid=,ppid='], { encoding: 'utf8', timeout: 3000, maxBuffer: 1 << 22 }); }
+  catch { return out; }
+  const rss = new Map<number, number>();
+  const kids = new Map<number, number[]>();
+  for (const line of text.split('\n')) {
+    const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)$/);
+    if (!m) continue;
+    const r = Number(m[1]), pid = Number(m[2]), ppid = Number(m[3]);
+    rss.set(pid, r);
+    (kids.get(ppid) ?? kids.set(ppid, []).get(ppid)!).push(pid);
+  }
+  for (const root of pids) {
+    let totalKB = 0;
+    const stack = [root];
+    const seen = new Set<number>();
+    while (stack.length) {
+      const p = stack.pop()!;
+      if (seen.has(p)) continue;
+      seen.add(p);
+      totalKB += rss.get(p) ?? 0;
+      for (const c of kids.get(p) ?? []) stack.push(c);
+    }
+    if (totalKB > 0) out.set(root, Math.round(totalKB / 1024));
+  }
+  return out;
 }
 
 function makeNonce(): string {

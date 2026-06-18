@@ -318,9 +318,10 @@
           // tooltips render unreliably in Antigravity, so no hover detail).
           const dur = fmtAgo(a.updatedAt);
           const proj = String(a.proj || '').replace(/</g,'&lt;');
+          const mem = fmtMem(a.mem);
           const statusTxt = s.label + (dur ? ' ' + dur : '');
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
-            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
+            + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + (mem ? ' · ' + mem : '') + '</span>'
             + '<span class="runacts">'
             + interrupt
             + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
@@ -403,6 +404,12 @@
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }
     else if (msg.type === 'filesOpen'){ document.getElementById('filesBtn').classList.toggle('active', !!msg.open); }
   });
+
+  // Session memory (RSS of the process tree) — 'XXX MB' or 'X.X GB'.
+  function fmtMem(mb){
+    if (!mb || mb < 1) return '';
+    return mb >= 1024 ? (mb / 1024).toFixed(1) + ' GB' : mb + ' MB';
+  }
 
   // Compact "time since" for session rows — 'now', '4m', '2h 5m', '3d'.
   function fmtAgo(ts){
