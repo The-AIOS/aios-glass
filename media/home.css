@@ -203,8 +203,10 @@
   .runacts button{display:inline-flex; align-items:center; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer}
   .runint:hover{color:#e0a13a; background:color-mix(in srgb, #e0a13a 18%, transparent)}
   .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
-  .runkill{color:#f5564a}  /* trash is always red — destructive affordance */
-  .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 16%, transparent)}
+  /* destructive = red. Specific enough to beat `.runacts button` (subtle) so the
+     trash reads red whenever it's visible, and deepens its tint on hover. */
+  .runacts button.runkill{color:#f5564a}
+  .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 20%, transparent)}
   /* status/project text trims with ellipsis — a session row NEVER wraps to 2 lines
      (the hover action buttons take their space from the text, not a new line) */
   .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
