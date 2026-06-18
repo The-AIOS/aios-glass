@@ -39,6 +39,9 @@
   .xprimary .xsectlab{color:var(--ink)}
   .xsectsub{flex:1; min-width:0; font-size:9px; font-weight:600; letter-spacing:.02em; text-transform:none;
     color:var(--subtle); opacity:.55; margin-left:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  /* the descriptors (AIOS infra · your notes · external) are secondary hints —
+     follow the Home "Secondary hints" toggle (aiosGlass.showHints). */
+  body.no-hints .xsectsub{display:none}
   /* WORKSPACE divided off from the AIOS sections */
   .xext{margin-top:8px; border-top:1px solid var(--line); padding-top:11px}
   .xadd{margin-left:auto; background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:6px;

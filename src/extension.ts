@@ -52,6 +52,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.openWalkthrough', () =>
       vscode.commands.executeCommand('workbench.action.openWalkthrough', 'the-aios.aios-glass#aios.gettingStarted', false)),
 
+    // README in the title bar (book icon) — the project's front door.
+    vscode.commands.registerCommand('aios.openReadme', () => vscode.commands.executeCommand('aios.openDoc', 'readme')),
+
     // AIOS Files — the Finder-style explorer (Vault / Framework / Workspace),
     // a persistent view beside Home; the command focuses (and expands) it.
     vscode.window.registerWebviewViewProvider(FilesViewProvider.viewId, new FilesViewProvider(context.extensionUri), {

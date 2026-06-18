@@ -15,7 +15,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Home header** — the redundant in-panel "AIOS Glass" wordmark is gone (the view header already says it), making room for an explorer button beside the theme toggle.
 
 ### Changed
+- **Home header reorganised** — a small logo + *AIOS Glass* wordmark sits top-left, and the action controls span the full content width as one distributed toolbar (status · files · create · settings · theme · density · onboarding), flush with the card margins. *Settings* (config) and *create-custom* moved here out of the view title bar.
+- **View title bar trimmed** to three: a **book** (README), the **?** (cheatsheet), and **Ask AIOS** (the ✨ glyph). Graph/create/config/files left the title bar (now in the header toolbar or the command palette).
+- The Files explorer's section descriptors (*AIOS infra · your notes · external*) follow the **Secondary hints** toggle, like Home's hints.
 - The webview smoke gate now boots **every** panel (home + files) in headless Chrome, not just Home.
+
+### Fixed
+- **A follow-up Enter no longer re-fires the button.** Action terminals now open **focused** (they were opened with `preserveFocus`), and the webview drops focus off a button after it dispatches — so pressing Enter after, e.g., *Resume* lands in the `claude --resume` picker instead of spawning a second terminal.
 
 ## [0.1.8] — 2026-06-11
 

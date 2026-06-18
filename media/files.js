@@ -12,8 +12,9 @@
   };
   const icon = (name, size) => '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[name] || '') + '</svg>';
 
-  // ── theme (no toggle here — the explorer follows the shared aiosGlass.theme) ──
+  // ── theme + secondary hints (both follow the shared settings; no toggles here) ──
   const applyTheme = (t) => document.body.classList.toggle('light', t === 'light');
+  const applyHints = (show) => document.body.classList.toggle('no-hints', show === false);
 
   // ── fs bridge: postMessage round-trip exposed as an awaitable, so the tree can
   //    recurse the same way a synchronous fs would. Each request carries a reqId
@@ -146,8 +147,9 @@
   window.addEventListener('message', (e) => {
     const msg = e.data;
     if (msg.type === 'listing') { const r = pending.get(msg.reqId); if (r) { pending.delete(msg.reqId); r(msg.entries || []); } }
-    else if (msg.type === 'roots') { if (msg.theme) applyTheme(msg.theme); places = msg.places || []; void paintExplorer(); }
+    else if (msg.type === 'roots') { if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints); places = msg.places || []; void paintExplorer(); }
     else if (msg.type === 'theme') { applyTheme(msg.theme); }
+    else if (msg.type === 'hints') { applyHints(msg.show); }
   });
 
   vscode.postMessage({ type: 'ready' });

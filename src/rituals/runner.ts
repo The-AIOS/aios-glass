@@ -90,7 +90,7 @@ async function pickTarget(style?: TermStyle): Promise<{ terminal: vscode.Termina
 async function runInSession(slash: string, style?: TermStyle): Promise<void> {
   const target = await pickTarget(style);
   if (!target) return;
-  target.terminal.show(true);
+  target.terminal.show();
   const hasClaude = target.isNew ? false : await terminalHasClaude(target.terminal);
   if (hasClaude) {
     target.terminal.sendText(slash);
@@ -149,7 +149,7 @@ export async function terminalHasClaude(terminal: vscode.Terminal): Promise<bool
 /** Run a full shell command line in a fresh terminal (always-new actions). */
 function runNew(cmdline: string, style?: TermStyle): void {
   const t = newTerminal(style);
-  t.show(true);
+  t.show();
   t.sendText(cmdline);
 }
 
@@ -209,7 +209,7 @@ export async function runInPrimarySession(slash: string): Promise<void> {
     const live = (await listRunningAgents()).find((a) => a.name === name);
     if (live) {
       const t = await findAgentTerminal(name, live.pid);
-      if (t) { t.show(true); t.sendText(slash); return; }
+      if (t) { t.show(); t.sendText(slash); return; }
     }
   }
   await runInSession(slash, { name: slash.replace(/^\/aios:/, '').split(' ')[0], icon: 'play', color: 'terminal.ansiBlue' });
@@ -222,20 +222,20 @@ export async function runInPrimarySession(slash: string): Promise<void> {
  */
 export async function runInActiveClaude(slash: string): Promise<void> {
   const active = vscode.window.activeTerminal;
-  if (active && (await terminalHasClaude(active))) { active.show(true); active.sendText(slash); return; }
+  if (active && (await terminalHasClaude(active))) { active.show(); active.sendText(slash); return; }
 
   const claudeTerms: vscode.Terminal[] = [];
   for (const t of vscode.window.terminals) {
     if (await terminalHasClaude(t)) claudeTerms.push(t);
   }
-  if (claudeTerms.length === 1) { claudeTerms[0].show(true); claudeTerms[0].sendText(slash); return; }
+  if (claudeTerms.length === 1) { claudeTerms[0].show(); claudeTerms[0].sendText(slash); return; }
   if (claudeTerms.length > 1) {
     const pick = await vscode.window.showQuickPick(
       claudeTerms.map((t) => ({ label: t.name, t })),
       { title: 'Close which session?', placeHolder: 'Pick the Claude session to close' }
     );
     if (!pick) return;
-    pick.t.show(true);
+    pick.t.show();
     pick.t.sendText(slash);
     return;
   }
@@ -309,7 +309,7 @@ export async function launchPrimary(name: string): Promise<void> {
  */
 export async function launchResume(): Promise<void> {
   const t = newTerminal({ name: 'resume', icon: 'history', color: 'terminal.ansiBlue' });
-  t.show(true);
+  t.show();
   t.sendText(`${claudeBin()} --resume`);
 
   const shellPid = await t.processId;

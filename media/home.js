@@ -8,10 +8,15 @@
   let lastData = null;     // last month payload, for re-render on toggle/week-nav
   document.getElementById('calToggle').textContent = calView === 'month' ? 'Week' : 'Month';
   let pendingWeek = null;  // 'first' | 'last' — pick edge week after a cross-month nav
-  const run = (command, ...args) => vscode.postMessage({ type: 'cmd', command, args });
+  // After a click that opens a terminal/editor, drop focus off the button so a
+  // follow-up Enter (e.g. to pick a session in `claude --resume`) goes to the
+  // terminal — not back into the button, re-firing it. (Pairs with the extension
+  // now showing terminals focused instead of preserveFocus.)
+  const blurActive = () => { const a = document.activeElement; if (a && typeof a.blur === 'function') a.blur(); };
+  const run = (command, ...args) => { vscode.postMessage({ type: 'cmd', command, args }); blurActive(); };
 
   document.querySelectorAll('[data-ritual]').forEach((b) =>
-    b.addEventListener('click', () => vscode.postMessage({ type: 'ritual', name: b.getAttribute('data-ritual') })));
+    b.addEventListener('click', () => { vscode.postMessage({ type: 'ritual', name: b.getAttribute('data-ritual') }); blurActive(); }));
   document.querySelectorAll('[data-doc]').forEach((b) =>
     b.addEventListener('click', (ev) => run('aios.openDoc', b.getAttribute('data-doc'), ev.metaKey || ev.ctrlKey)));
   document.querySelectorAll('[data-create]').forEach((b) =>
@@ -121,6 +126,8 @@
   }
 
   document.getElementById('filesBtn').addEventListener('click', () => run('aios.openFiles'));
+  document.getElementById('settingsBtn').addEventListener('click', () => run('aios.openConfigMenu'));
+  document.getElementById('addBtn').addEventListener('click', () => run('aios.createCustom'));
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
   document.getElementById('ingestQuick').addEventListener('click', () => run('aios.ingest'));
   document.getElementById('onboard').addEventListener('click', () => run('aios.onboarding'));
@@ -145,6 +152,7 @@
     const k=e.currentTarget.dataset.kind, cmd=e.currentTarget.dataset.command;
     if(k==='sessions') vscode.postMessage({ type:'ritual', name:'close-session' });
     else if(cmd) vscode.postMessage({ type:'nudgeRun', command:cmd });
+    blurActive();
   });
   document.getElementById('nudgeDismiss').addEventListener('click', () => {
     const k=document.getElementById('nudgeAction').dataset.kind;

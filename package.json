@@ -83,6 +83,11 @@
         "title": "AIOS: Open Getting Started"
       },
       {
+        "command": "aios.openReadme",
+        "title": "AIOS: Open README",
+        "icon": "$(book)"
+      },
+      {
         "command": "aios.openFiles",
         "title": "AIOS: Browse Files (Finder)",
         "icon": "$(folder-opened)"
@@ -285,29 +290,19 @@
       ],
       "view/title": [
         {
-          "command": "aios.openFiles",
+          "command": "aios.openReadme",
           "when": "view == aios.home",
           "group": "navigation@0"
         },
         {
-          "command": "aios.showGraph",
+          "command": "aios.cheatsheet",
           "when": "view == aios.home",
           "group": "navigation@1"
         },
         {
-          "command": "aios.createCustom",
+          "command": "aios.askAios",
           "when": "view == aios.home",
           "group": "navigation@2"
-        },
-        {
-          "command": "aios.openConfigMenu",
-          "when": "view == aios.home",
-          "group": "navigation@3"
-        },
-        {
-          "command": "aios.cheatsheet",
-          "when": "view == aios.home",
-          "group": "navigation@4"
         }
       ],
       "commandPalette": [

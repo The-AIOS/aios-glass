@@ -3,23 +3,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
-import { currentTheme } from '../home/config';
+import { currentTheme, showHints } from '../home/config';
 import { stateGet, stateSet } from '../state';
 
 /**
- * AIOS Files — a Finder-style explorer that lives PERMANENTLY beside Home (a
- * second view in the AIOS container), not a transient editor tab. Big folder
- * tiles, breadcrumbs, single-click to open. Glass, not engine: it lists real
- * folders and opens files through the same viewer logic the Home panel uses
- * (aios.openOutput); it owns no AIOS logic.
+ * AIOS Files — a tidy collapsible file TREE in its own activity-bar container.
+ * Glass, not engine: it lists real folders and opens files through the same
+ * viewer logic the Home panel uses (aios.openOutput); it owns no AIOS logic.
  *
- * It is RESPONSIVE — the roomy tile-grid when it has width (e.g. dragged to the
- * secondary side bar), a comfortable Finder list when it's a narrow sidebar.
- *
- * Three "places" mirror how the AIOS is actually organised:
+ * Three sections mirror how the AIOS is actually organised (the webview renders
+ * them; this class just supplies the roots + per-directory listings):
+ *   - INFRA / FRAMEWORK — the framework itself (agents, skills, plugins, …); its
+ *                         own `vault/` is hidden here (it's the VAULT section)
  *   - VAULT     — the operator's own notes, calendar, projects, context
- *   - INFRA     — the framework itself (agents, skills, plugins, commands, …)
  *   - WORKSPACE — operator-added folders (repos, drives), persisted in glass state
+ *
+ * The webview can't touch the fs, so directory reads come back over postMessage
+ * (reqId-correlated) — see media/files.js `fsList`.
  */
 
 const WORKSPACE_KEY = 'filesWorkspaceFolders'; // string[] of absolute folder paths, in glass state
@@ -44,6 +44,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     // Re-skin live when the shared theme setting flips (Home toggle or the cog).
     const cfg = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiosGlass.theme')) this.post({ type: 'theme', theme: currentTheme() });
+      if (e.affectsConfiguration('aiosGlass.showHints')) this.post({ type: 'hints', show: showHints() });
     });
     webviewView.onDidDispose(() => cfg.dispose());
   }
@@ -96,7 +97,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   private async onMessage(msg: any): Promise<void> {
     switch (msg?.type) {
       case 'ready': {
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints() });
         return;
       }
       case 'list': {
@@ -125,14 +126,14 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         const p = picked[0].fsPath;
         const folders = this.workspaceFolders();
         if (!folders.includes(p)) { folders.push(p); await stateSet(WORKSPACE_KEY, folders); }
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), focus: p });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), focus: p });
         return;
       }
       case 'removeFolder': {
         if (typeof msg.path !== 'string') return;
         const folders = this.workspaceFolders().filter((p) => p !== msg.path);
         await stateSet(WORKSPACE_KEY, folders);
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints() });
         return;
       }
     }

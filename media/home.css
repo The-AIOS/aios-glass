@@ -33,14 +33,15 @@
   body{margin:0; background:var(--canvas); color:var(--ink); font-family:var(--font);
     padding:30px clamp(20px,5vw,56px); line-height:1.6; -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01","ss03";}
   ::selection{background:var(--accent); color:var(--canvas)}
-  header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px}
-  .brand{display:flex; align-items:center; gap:11px}
+  /* Small logo + wordmark, top-left. */
+  header.topbar{display:flex; align-items:center; margin-bottom:12px}
+  .brand{display:flex; align-items:center; gap:8px}
   .brand .mark{display:inline-flex}
   .brand .mark .o{stroke:var(--accent)} .brand .mark .i{fill:var(--accent)}
-  h1{font-weight:700; font-size:clamp(1.5rem,2.4vw,2.1rem); letter-spacing:-.022em; line-height:1; margin:0}
-  /* Four header controls (status · theme · density · onboard) sit tight so the
-     rightmost stays flush with the cards' right edge — no overflow at narrow widths. */
-  .headright{display:flex; align-items:center; gap:7px}
+  .brand .wordmark{font-weight:700; font-size:1rem; letter-spacing:-.015em; color:var(--ink); line-height:1}
+  /* The seven action controls span the full content width — first flush with the
+     left card margin, last flush with the right — distributed evenly between. */
+  .toolbar{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:24px}
   .greet{color:var(--muted); font-size:14px}
   .cog{background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:9px;
     width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s}
