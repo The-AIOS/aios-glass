@@ -142,6 +142,26 @@ export async function setShowHidden(on: boolean): Promise<void> {
   await vscode.workspace.getConfiguration('aiosGlass').update('showHidden', on, vscode.ConfigurationTarget.Global);
 }
 
+/** Whether the Sessions card shows each session's process-tree RAM. Default true. */
+export function showMemory(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showMemory', true);
+}
+
+export async function setShowMemory(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('showMemory', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: session memory ${on ? 'shown' : 'hidden'}.`);
+}
+
+/** Whether the explorer follows the active editor (expand to + select it). Default true. */
+export function autoReveal(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('autoReveal', true);
+}
+
+export async function setAutoReveal(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('autoReveal', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: auto-reveal active file ${on ? 'on' : 'off'}.`);
+}
+
 /** Explorer file icons — 'enhanced' (colorful per-type) or 'plain' (one neutral doc). */
 export function fileIconsEnhanced(): boolean {
   return vscode.workspace.getConfiguration('aiosGlass').get<string>('fileIcons', 'enhanced') !== 'plain';

@@ -15,7 +15,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, setTheme } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, setTheme, showMemory } from './config';
 import { getFilesVisible } from '../files/filesState';
 
 /**
@@ -299,8 +299,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       return fwReal && real === fwReal ? '' : path.basename(real);
     };
     // Per-session memory: RSS of each session's whole process tree (claude + its
-    // children), one `ps` scan for all of them. Best-effort — omitted if ps fails.
-    const mem = sessionMemoryMB(running.map((a) => a.pid));
+    // children), one `ps` scan for all of them. Best-effort — omitted if ps fails,
+    // or when the operator turns the display off (cog → Session memory).
+    const mem = showMemory() ? sessionMemoryMB(running.map((a) => a.pid)) : new Map<number, number>();
     this.post({
       type: 'running',
       running: running.map((a) => ({

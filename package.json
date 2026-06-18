@@ -93,6 +93,11 @@
         "icon": "$(folder-opened)"
       },
       {
+        "command": "aios.filesCollapseAll",
+        "title": "AIOS: Collapse Explorer",
+        "icon": "$(collapse-all)"
+      },
+      {
         "command": "aios.openConfigMenu",
         "title": "AIOS: Config",
         "icon": "$(gear)"
@@ -303,6 +308,11 @@
           "command": "aios.onboarding",
           "when": "view == aios.home",
           "group": "navigation@1"
+        },
+        {
+          "command": "aios.filesCollapseAll",
+          "when": "view == aios.files",
+          "group": "navigation@0"
         }
       ],
       "commandPalette": [
@@ -361,6 +371,16 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Show hidden dotfiles (`.gitignore`, `.vscode`, `.github`, …) in the AIOS Explorer. `node_modules`, `.git`, build dirs, and `.DS_Store` stay hidden regardless. Toggle from the cog menu."
+        },
+        "aiosGlass.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Auto-reveal the active file in the AIOS Explorer — when you switch editor tabs (source, PDF, image, or markdown preview), the tree expands to and selects that file. Toggle from the cog menu."
+        },
+        "aiosGlass.showMemory": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show each running session's process-tree RAM (RSS) in the Sessions card. Toggle from the cog menu."
         },
         "aiosGlass.fileIcons": {
           "type": "string",

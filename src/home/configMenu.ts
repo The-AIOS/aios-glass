@@ -11,7 +11,9 @@ import {
   nativeTabsEnabled, setNativeTabs,
   currentTheme, setTheme,
   fileIconsEnhanced, setFileIcons,
-  showHiddenFiles, setShowHidden
+  showHiddenFiles, setShowHidden,
+  autoReveal, setAutoReveal,
+  showMemory, setShowMemory
 } from './config';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 
@@ -19,28 +21,40 @@ import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/run
 export async function openConfigMenu(): Promise<void> {
   const account = currentAccount() || 'not signed in';
   const multiAccount = anthropicAccounts().length > 1; // swap only matters with 2+
+  const sep = (label: string): vscode.QuickPickItem & { id?: string } => ({ label, kind: vscode.QuickPickItemKind.Separator });
   const items: (vscode.QuickPickItem & { id?: string })[] = [
+    // ── Appearance — how the Glass surfaces look ──
+    sep('Appearance'),
     { label: '$(color-mode) Theme', description: currentTheme(), id: 'theme' },
-    { label: '$(symbol-file) Explorer icons', description: fileIconsEnhanced() ? 'enhanced' : 'plain', id: 'fileicons' },
+    { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
+    { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
+    { label: '$(pulse) Session memory', description: showMemory() ? 'shown' : 'hidden', id: 'memory' },
+    // ── Explorer — the file tree ──
+    sep('Explorer'),
+    { label: '$(symbol-file) File icons', description: fileIconsEnhanced() ? 'enhanced' : 'plain', id: 'fileicons' },
     { label: '$(eye) Hidden files', description: showHiddenFiles() ? 'shown' : 'hidden', id: 'hidden' },
+    { label: '$(target) Auto-reveal active file', description: autoReveal() ? 'on' : 'off', id: 'autoreveal' },
+    // ── Claude — the engine behind the surfaces ──
+    sep('Claude'),
     { label: '$(server) Model', description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) Permission mode', description: currentMode(), id: 'mode' },
     { label: '$(terminal) Terminal mode', description: currentTerminalMode(), id: 'terminal' },
-    { label: '$(sync) Automatic updates', description: automaticUpdates() ? 'on' : 'off', id: 'autoupdate' },
-    { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
-    { label: '$(eye) Secondary hints', description: showHints() ? 'on' : 'off', id: 'hints' },
-    { label: '$(bell) Ritual nudges', description: showNudges() ? 'on' : 'off', id: 'nudges' },
     { label: '$(list-flat) Native terminal tabs', description: nativeTabsEnabled() ? 'shown' : 'hidden', id: 'nativetabs' },
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    { label: '$(broadcast) Remote control', description: remoteControlOn() ? 'on' : 'off', id: 'remote' },
+    { label: '$(sync) Automatic updates', description: automaticUpdates() ? 'on' : 'off', id: 'autoupdate' },
+    // ── Session — kick off a focused run ──
+    sep('Session'),
     { label: '$(target) Set a session goal', description: '/goal', id: 'goal' },
     { label: '$(check-all) Fewer permission prompts', description: '/fewer-permission-prompts', id: 'fewerperms' },
     { label: '$(clock) Schedule work', description: '/schedule', id: 'schedule' },
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    // ── Account ──
+    sep('Account'),
     ...(multiAccount ? [{ label: '$(arrow-swap) Swap account', description: currentAnthropicAccount(), id: 'swap' }] : []),
     { label: '$(account) Login', description: account, id: 'login' },
     { label: '$(sign-out) Logout', id: 'logout' },
     { label: '$(info) Auth status', id: 'status' },
-    { label: '', kind: vscode.QuickPickItemKind.Separator },
+    // ── Help ──
+    sep('Help'),
     { label: '$(rocket) Getting started', description: 'the six-step walkthrough', id: 'walkthrough' },
     { label: '$(output) Show logs', description: 'diagnostics — swallowed action failures', id: 'logs' }
   ];
@@ -74,6 +88,28 @@ export async function openConfigMenu(): Promise<void> {
         { title: `Hidden files — currently ${showHiddenFiles() ? 'shown' : 'hidden'}` }
       );
       if (choice) await setShowHidden(choice.value);
+      return;
+    }
+    case 'memory': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye) Shown', description: "each session's process-tree RAM in the Sessions card", value: true },
+          { label: '$(eye-closed) Hidden', description: 'hide the per-session memory readout', value: false }
+        ],
+        { title: `Session memory — currently ${showMemory() ? 'shown' : 'hidden'}` }
+      );
+      if (choice) await setShowMemory(choice.value);
+      return;
+    }
+    case 'autoreveal': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(target) On', description: 'explorer follows the active editor — expand to + select it', value: true },
+          { label: '$(circle-slash) Off', description: 'explorer stays put when you switch tabs', value: false }
+        ],
+        { title: `Auto-reveal active file — currently ${autoReveal() ? 'on' : 'off'}` }
+      );
+      if (choice) await setAutoReveal(choice.value);
       return;
     }
     case 'fileicons': {

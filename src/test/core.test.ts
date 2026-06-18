@@ -112,3 +112,57 @@ test('ttlMemo: caches within TTL, recomputes after, injectable clock', () => {
   clock = 5001; assert.equal(f(), 2); // expired → recomputed
   clock = 5002; assert.equal(f(), 2);
 });
+
+import { parseAgentSection } from '../tasks/agentParse';
+
+test('parseAgentSection: counts pending agent + command suggestions', () => {
+  const md = [
+    '## 🤖 Agents can handle',
+    '- **Ingest the YouTube talk** → `/aios:ingest` https://youtu.be/abc',
+    '- **Review the contract** → agent: [[lawyer]]',
+    '## Next section',
+  ].join('\n');
+  const s = parseAgentSection(md);
+  assert.equal(s.length, 2);
+  assert.equal(s[0].command, '/aios:ingest');
+  assert.equal(s[0].arg, 'https://youtu.be/abc');
+  assert.deepEqual(s[1].agents, ['lawyer']);
+});
+
+test('parseAgentSection: skips inline-marked done lines (checkbox, strike, 🚀)', () => {
+  const md = [
+    '## Agents can handle',
+    '- [x] **Done task** → agent: [[lawyer]]',
+    '- 🤖 ~~Struck task~~ → agent: [[accountant]]',
+    '- **In-flight task** → agent: [[writer]] 🚀',
+    '- **Real pending** → agent: [[lawyer]]',
+  ].join('\n');
+  const s = parseAgentSection(md);
+  assert.equal(s.length, 1);
+  assert.equal(s[0].task, 'Real pending');
+});
+
+test('parseAgentSection: drops a suggestion when its canonical task is done in ANOTHER section', () => {
+  // The over-count case: ledger struck the canonical copy in the timeline, but the
+  // mirror under "Agents can handle" was never marked. Identity-match catches it.
+  const md = [
+    '## ✅ Today',
+    '- [x] 09:00 🤖 Ingest the YouTube talk ✅ → notes filed in #reflections',
+    '## Agents can handle',
+    '- **Ingest the YouTube talk** → `/aios:ingest`',
+    '- **Draft the Q3 memo** → agent: [[writer]]',
+  ].join('\n');
+  const s = parseAgentSection(md);
+  assert.equal(s.length, 1, 'the done-elsewhere ingest should drop out');
+  assert.equal(s[0].task, 'Draft the Q3 memo');
+});
+
+test('parseAgentSection: does not false-match distinct tasks', () => {
+  const md = [
+    '## Today',
+    '- [x] Call the bank',
+    '## Agents can handle',
+    '- **Draft the investor update** → agent: [[writer]]',
+  ].join('\n');
+  assert.equal(parseAgentSection(md).length, 1);
+});

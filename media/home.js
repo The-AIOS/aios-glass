@@ -174,6 +174,7 @@
     if (it && it.getAttribute('data-path')) run('aios.openOutput', it.getAttribute('data-path'), ev.metaKey || ev.ctrlKey);
   });
   document.getElementById('goWithAgents').addEventListener('click', () => run('aios.goWithAgents'));
+  document.getElementById('goAgentsTop').addEventListener('click', () => run('aios.goWithAgents'));
 
   // Click (or Enter) a running-session row → reveal its terminal. Delegated so
   // it survives the list re-rendering on every refresh.
@@ -276,6 +277,10 @@
       const ga = msg.goAgents || 0;
       document.getElementById('vGoAgents').textContent = ga + '';
       document.getElementById('goWithAgents').classList.toggle('dim', ga === 0);
+      const gaBadge = document.getElementById('goAgentsBadge');
+      gaBadge.textContent = ga + '';
+      gaBadge.hidden = ga === 0;
+      document.getElementById('goAgentsTop').classList.toggle('dim', ga === 0);
       const ll = msg.learnings || [];
       document.getElementById('learnList').innerHTML = ll.map((x) => {
         const t = (x.title || '').replace(/</g,'&lt;');

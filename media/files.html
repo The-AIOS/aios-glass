@@ -10,12 +10,19 @@
 <link rel="stylesheet" href="{{CSS_URI}}" />
 </head>
 <body>
-  <nav class="explorer" id="explorer" aria-label="AIOS Explorer">
+  <div class="xfilter">
+    <input id="xfilterInput" type="text" placeholder="Find…" spellcheck="false" autocomplete="off" />
+    <button class="xfclear" id="xfClear" type="button" title="Clear" hidden>×</button>
+  </div>
+  <nav class="explorer" id="explorer" aria-label="AIOS Explorer" tabindex="0">
     <!-- sections injected by files.js -->
   </nav>
 
-  <!-- right-click affordance — explicit label so "Reveal in Finder" can't read as "open in editor" -->
+  <!-- right-click affordance — explicit labels so actions can't be misread -->
   <div class="ctx" id="ctx" role="menu" hidden>
+    <button class="ctxitem" id="ctxTerminalHere" role="menuitem" type="button">Open terminal here</button>
+    <button class="ctxitem" id="ctxTerminal" role="menuitem" type="button">Send path to terminal</button>
+    <button class="ctxitem" id="ctxCopy" role="menuitem" type="button">Copy path</button>
     <button class="ctxitem" id="ctxReveal" role="menuitem" type="button">Reveal in Finder</button>
   </div>
 

@@ -50,6 +50,13 @@
   .cog{background:transparent; border:1px solid transparent; color:var(--subtle); border-radius:9px;
     width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s,background .15s}
   .cog:hover{border-color:var(--line); background:var(--surface-2); color:var(--accent)}
+  /* Go-with-agents quick action — count badge in the corner; dims when nothing's pending. */
+  .cog.goagents{position:relative}
+  .cog.goagents.dim{opacity:.42}
+  .tbadge{position:absolute; top:-3px; right:-3px; min-width:15px; height:15px; padding:0 4px; border-radius:999px;
+    background:var(--accent); color:var(--on-accent); font-size:9.5px; font-weight:800; line-height:15px; text-align:center;
+    box-shadow:0 0 0 2px var(--canvas)}
+  .tbadge[hidden]{display:none}
   /* Toggle buttons never STAY accent — subtle at rest, accent only on hover (the
      .cog rules above). State is shown by the GLYPH swapping, not by colour. */
   /* Theme — icon = current mode: dark→moon, light→sun. */
@@ -203,10 +210,9 @@
   .runacts button{display:inline-flex; align-items:center; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer}
   .runint:hover{color:#e0a13a; background:color-mix(in srgb, #e0a13a 18%, transparent)}
   .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
-  /* destructive = red. Specific enough to beat `.runacts button` (subtle) so the
-     trash reads red whenever it's visible, and deepens its tint on hover. */
-  .runacts button.runkill{color:#f5564a}
-  .runkill:hover{color:#f5564a; background:color-mix(in srgb, #f5564a 20%, transparent)}
+  /* destructive — grey at rest (like its siblings), RED on hover. A deeper, truer
+     red than the coral accent (#ff5d4d) so the hover never reads as "just accent". */
+  .runkill:hover{color:#dc2626; background:color-mix(in srgb, #dc2626 22%, transparent)}
   /* status/project text trims with ellipsis — a session row NEVER wraps to 2 lines
      (the hover action buttons take their space from the text, not a new line) */
   .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
