@@ -37,6 +37,8 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'aios.files';
   public static current: FilesViewProvider | undefined;
   private view?: vscode.WebviewView;
+  private disposables: vscode.Disposable[] = [];
+  private gitTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly extensionUri: vscode.Uri) { FilesViewProvider.current = this; }
 
@@ -47,16 +49,58 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage((msg) =>
       void Promise.resolve(this.onMessage(msg)).catch((e) => swallow('files message ' + (msg && msg.type), e)));
     // Re-skin live when the shared theme setting flips (Home toggle or the cog).
-    const cfg = vscode.workspace.onDidChangeConfiguration((e) => {
+    this.disposables.push(vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('aiosGlass.theme')) this.post({ type: 'theme', theme: currentTheme() });
       if (e.affectsConfiguration('aiosGlass.showHints')) this.post({ type: 'hints', show: showHints() });
       if (e.affectsConfiguration('aiosGlass.fileIcons')) this.post({ type: 'icons', enhanced: fileIconsEnhanced() });
-    });
-    webviewView.onDidDispose(() => cfg.dispose());
+    }));
     // Mirror this view's visibility to Home so the files button shows active (and
     // toggles). Fires on show/hide (including when another container takes over).
     this.syncVisibility();
-    webviewView.onDidChangeVisibility(() => this.syncVisibility());
+    this.disposables.push(webviewView.onDidChangeVisibility(() => { this.syncVisibility(); if (this.isVisible()) this.scheduleGit(80); }));
+    // Live git status: watch working-tree edits under each section root + each
+    // repo's .git/index (commits), debounced → recompute and push to the webview.
+    this.watchGit();
+    webviewView.onDidDispose(() => { while (this.disposables.length) try { this.disposables.pop()?.dispose(); } catch { /* ignore */ } });
+  }
+
+  /** Set up file watchers that trigger a debounced git-status push. */
+  private watchGit(): void {
+    const repos = new Set<string>();
+    for (const pl of this.places()) {
+      const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(pl.path), '**/*'));
+      const fire = () => this.scheduleGit();
+      w.onDidChange(fire); w.onDidCreate(fire); w.onDidDelete(fire);
+      this.disposables.push(w);
+      const r = this.repoRoot(pl.path);
+      if (r) repos.add(r);
+    }
+    for (const r of repos) { // .git/index changes on commit/stage → status flips (e.g. all clean)
+      const gw = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(r), '.git/index'));
+      const fire = () => this.scheduleGit();
+      gw.onDidChange(fire); gw.onDidCreate(fire);
+      this.disposables.push(gw);
+    }
+  }
+
+  private scheduleGit(delay = 350): void {
+    if (this.gitTimer) clearTimeout(this.gitTimer);
+    this.gitTimer = setTimeout(() => this.pushGit(), delay);
+  }
+
+  /** Recompute git status (fresh) across every section repo and push a snapshot
+   *  the webview reconciles onto its rendered rows — no re-expand needed. */
+  private pushGit(): void {
+    const repos = new Set<string>();
+    for (const pl of this.places()) { const r = this.repoRoot(pl.path); if (r) repos.add(r); }
+    const files: Record<string, string> = {};
+    const dirty: string[] = [];
+    for (const r of repos) {
+      this.gitCache.delete(r);
+      const gs = this.gitStatus(r);
+      if (gs) { for (const [k, v] of gs.files) files[k] = v; for (const d of gs.dirty) dirty.push(d); }
+    }
+    this.post({ type: 'git', files, dirty });
   }
 
   /** True when the Files view is currently on screen. */
