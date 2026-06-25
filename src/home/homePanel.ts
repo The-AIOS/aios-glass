@@ -17,7 +17,7 @@ import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
 import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory } from './config';
 import { getFilesVisible } from '../files/filesState';
-import { resolveLocale, webviewCatalog } from '../i18n';
+import { effectiveLocale, webviewCatalog } from '../i18n';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -162,6 +162,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
   refresh(): void {
     this.recheck();
+  }
+
+  /** Full webview re-render — re-sets the document so the once-injected
+   *  `window.__nls` catalog is rebuilt for the current locale. `refresh()` only
+   *  pushes data messages, so a language change needs this to take visible
+   *  effect (it costs the panel's scroll/expand state — fine for a rare switch). */
+  rerender(): void {
+    if (this.view) this.view.webview.html = this.html(this.view.webview);
   }
 
   /** Collapse/expand all cards at once (the ⌘⌥G M chord). */
@@ -377,7 +385,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // [data-i18n]/[data-i18n-title] nodes and via NLS(key) for dynamic strings.
     // English text is baked into home.html as the literal fallback, so a missing
     // catalog/key degrades to English, never to a blank.
-    const locale = resolveLocale();
+    const locale = effectiveLocale();
     const catalog = webviewCatalog(this.extensionUri, locale);
     const nlsScript =
       `<script nonce="${nonce}">window.__nls=${JSON.stringify(catalog)};window.__lang=${JSON.stringify(locale)};</script>`;

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { Agent, discoverAgents, iconForAgent } from './agents';
 import { launchSpawn, launchAios, revealAgentTerminal, pickWithAsk } from '../rituals/runner';
 import { listRunningAgents } from './running';
+import { t } from '../i18n';
 
 /**
  * "Launch an agent": pick an agent (unless preselected) → optional task → wear
@@ -15,7 +16,7 @@ export async function spawnAgentFlow(preselected?: Agent): Promise<void> {
   if (!agent) {
     const agents = discoverAgents();
     if (agents.length === 0) {
-      void vscode.window.showWarningMessage('AIOS Glass: no agents found under agents/.');
+      void vscode.window.showWarningMessage(t('AIOS Glass: no agents found under agents/.'));
       return;
     }
     const pick = await pickWithAsk(
@@ -27,16 +28,16 @@ export async function spawnAgentFlow(preselected?: Agent): Promise<void> {
         detail: a.description + (a.keywords ? ` · ${a.keywords}` : ''),
         agent: a
       })),
-      { title: 'Launch an agent (wear its hat)', placeHolder: 'Pick an agent — or type what you need', matchOnDescription: true, matchOnDetail: true }
+      { title: t('Launch an agent (wear its hat)'), placeHolder: t('Pick an agent — or type what you need'), matchOnDescription: true, matchOnDetail: true }
     );
     if (!pick) return;
     agent = pick.agent;
   }
 
   const task = await vscode.window.showInputBox({
-    title: `Wear the ${agent.name} hat`,
-    prompt: 'Task (optional — becomes the hat\'s first assignment)',
-    placeHolder: agent.description || 'e.g. Review the Q1 financials',
+    title: `${t('Wear the hat of')} ${agent.name}`,
+    prompt: t("Task (optional — becomes the hat's first assignment)"),
+    placeHolder: agent.description || t('e.g. Review the Q1 financials'),
     ignoreFocusOut: true
   });
   if (task === undefined) return; // cancelled
@@ -55,16 +56,16 @@ const ANIMAL = ['otter', 'falcon', 'lynx', 'heron', 'ibex', 'marlin', 'quokka', 
  */
 export async function spawnWorker(): Promise<void> {
   const raw = await vscode.window.showInputBox({
-    title: 'Spawn a session',
-    prompt: 'Name (optional, kebab-case). An agent name (e.g. lawyer) loads that agent; anything else (e.g. feat-checkout) starts a fresh named session. Blank → random handle.',
-    placeHolder: 'feat-checkout  ·  or an agent: lawyer, deck-builder…',
+    title: t('Spawn a session'),
+    prompt: t('Name (optional, kebab-case). An agent name (e.g. lawyer) loads that agent; anything else (e.g. feat-checkout) starts a fresh named session. Blank → random handle.'),
+    placeHolder: t('feat-checkout  ·  or an agent: lawyer, deck-builder…'),
     ignoreFocusOut: true,
     validateInput: (v) => {
-      const t = v.trim();
-      if (!t) return undefined; // blank → random handle
-      return /^[a-z0-9][a-z0-9-]*$/.test(t)
+      const n = v.trim();
+      if (!n) return undefined; // blank → random handle
+      return /^[a-z0-9][a-z0-9-]*$/.test(n)
         ? undefined
-        : 'Lowercase letters, numbers and hyphens only (e.g. feat-glass-menu).';
+        : t('Lowercase letters, numbers and hyphens only (e.g. feat-glass-menu).');
     }
   });
   if (raw === undefined) return; // cancelled
@@ -78,10 +79,10 @@ export async function spawnWorker(): Promise<void> {
   if (live) {
     const choice = await vscode.window.showQuickPick(
       [
-        { label: '$(eye) Reveal it', id: 'reveal' },
-        { label: '$(add) Spawn anyway', id: 'spawn' }
+        { label: '$(eye) ' + t('Reveal it'), id: 'reveal' },
+        { label: '$(add) ' + t('Spawn anyway'), id: 'spawn' }
       ],
-      { title: `"${name}" is already running (pid ${live.pid})`, placeHolder: 'It would share the same session files — what do you want?' }
+      { title: `"${name}" ${t('is already running')} (pid ${live.pid})`, placeHolder: t('It would share the same session files — what do you want?') }
     );
     if (!choice) return;
     if (choice.id === 'reveal') { await revealAgentTerminal(name, live.pid); return; }
@@ -89,8 +90,8 @@ export async function spawnWorker(): Promise<void> {
 
   const task = await vscode.window.showInputBox({
     title: `spawn ${name}`,
-    prompt: 'Task for this session (optional — leave blank to start it idle)',
-    placeHolder: 'e.g. Draft the Q3 board update',
+    prompt: t('Task for this session (optional — leave blank to start it idle)'),
+    placeHolder: t('e.g. Draft the Q3 board update'),
     ignoreFocusOut: true
   });
   if (task === undefined) return;

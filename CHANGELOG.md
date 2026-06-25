@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-06-25
+
+> **AIOS Glass now speaks three languages.** Full **English / Español (neutral-LATAM) / Português (Brasil)** localization across the Home panel and every host popup, switchable from the cog menu **without an IDE reload**. Plus a one-click **Operating Manual** in the title bar, a unified **"open notes in"** setting that finally governs both Calendar and Explorer, and a more solid **"Go with agents"** task detector.
+
+### Added
+- **Localization — English · Español (neutral-LATAM) · Português (Brasil).** The whole Home panel *and* all host popups localize through one mechanism: the palette, the cog Config menu, Frequent tasks & routines, Reports, Companies / Collaboration, the skill / agent / command pickers, spawn, ingest, and the context browser. Auto-detects the IDE display language; a **new cog → Language switcher** (`aiosGlass.language`: auto / en / es / pt-br) overrides it and **re-renders the panel instantly — no IDE reload**. English stays baked in as the literal fallback, so a missing string degrades to English, never a blank. (~290 host strings + the full webview catalog, complete es + pt-br coverage.)
+- **Operating Manual in the title bar.** A new `AIOS: Open Operating Manual` command opens the manual on the website (the-aios.com); reachable from a title-bar book glyph and from the Glass palette (`⌘⌥G *` → *Help & docs*). The README title-bar icon is now a distinct document glyph, so the two actions no longer look identical, and each ships light/dark variants so they're legible on both themes.
+
+### Changed
+- **One "Open notes in" setting now governs BOTH Calendar days and Explorer files** (`aiosGlass.openNotesIn`) — previously the Explorer ignored it. Two options: **Preview to the side** (default — Foam-rendered beside the source) or **Editor** (raw source — faster, skips the preview webview + whole-vault link resolution; lighter under memory pressure). ⌘/Ctrl-click always opens the source. Toggle from the cog menu. (Legacy full-tab `preview` migrates to preview-to-the-side.)
+- **Workspaces card trimmed** — the redundant "Browse files" button is gone; the header folder glyph, the AIOS Explorer activity-bar icon, and the `⌘⌥G B` chord all still open Files.
+
+### Fixed
+- **"Go with agents" no longer over-counts.** The detector treated any line in the *Agents can handle* section that merely *mentioned* a backticked `/command` — the prose footer's `/ghost`, a `**Running now:**` status line — as a routed task, inflating the badge and picker. A routed task must now be a list item, so the count reflects only real tasks. Verified across 58 historical daily notes and locked with a regression test.
+
 ## [0.2.1] — 2026-06-18
 
 > Two matching **workbench themes** so the whole IDE speaks Glass's palette, plus a fix for adding Workspace folders to the Explorer.

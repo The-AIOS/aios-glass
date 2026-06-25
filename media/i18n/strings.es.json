@@ -34,7 +34,7 @@
   "calendar.month": "Mes",
   "calendar.hint": "Clic para leer · ⌘-clic para editar.",
 
-  "card.quick.title": "Rápido",
+  "card.quick.title": "Acceso rápido",
   "quick.frequent": "Tareas frecuentes",
   "quick.frequent.k": "agrega las tuyas",
   "quick.frequent.title": "Tus tareas frecuentes — elige una para ejecutar, o agrega / quita las tuyas",
@@ -107,7 +107,7 @@
   "reports.generate.title": "Genera un reporte — elige tipo (rol / semanal / estado / personalizado) + periodo",
   "reports.hint": "Clic para leer · ⌘-clic para ver la fuente.",
 
-  "shortcuts.toggle": "⌨ Atajos de teclado",
+  "shortcuts.toggle": "⌨ Atajos",
   "shortcuts.then": "luego una tecla",
   "sc.ask": "preguntar a aios",
   "sc.daily": "ritual diario",

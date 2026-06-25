@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -98,12 +98,18 @@
       {
         "command": "aios.openReadme",
         "title": "%cmd.openReadme%",
-        "icon": "$(book)"
+        "icon": {
+          "light": "media/readme-light.svg",
+          "dark": "media/readme-dark.svg"
+        }
       },
       {
         "command": "aios.openManual",
         "title": "%cmd.openManual%",
-        "icon": "$(book)"
+        "icon": {
+          "light": "media/manual-light.svg",
+          "dark": "media/manual-dark.svg"
+        }
       },
       {
         "command": "aios.openFiles",
@@ -323,12 +329,12 @@
       ],
       "view/title": [
         {
-          "command": "aios.openReadme",
+          "command": "aios.openManual",
           "when": "view == aios.home",
           "group": "navigation@0"
         },
         {
-          "command": "aios.openManual",
+          "command": "aios.openReadme",
           "when": "view == aios.home",
           "group": "navigation@1"
         },
@@ -375,17 +381,15 @@
         "aiosGlass.openNotesIn": {
           "type": "string",
           "enum": [
-            "preview",
-            "editor",
-            "previewToSide"
+            "previewToSide",
+            "editor"
           ],
           "enumDescriptions": [
-            "Rendered Markdown preview (Foam renders [[wikilinks]]) — Obsidian-style reading view",
-            "Source editor (raw Markdown)",
-            "Preview opened beside the source editor"
+            "Rendered Markdown preview (Foam renders [[wikilinks]]) beside the source — Obsidian-style reading view",
+            "Source editor (raw Markdown) — faster, skips the preview webview"
           ],
-          "default": "preview",
-          "markdownDescription": "How clicking a day in the Calendar opens its note. ⌘/Ctrl-click always opens the source editor; newly-created notes always open in the editor."
+          "default": "previewToSide",
+          "markdownDescription": "How clicking a Markdown note opens it — both Calendar days **and** AIOS Explorer files. `previewToSide` renders [[wikilinks]] (Obsidian-style) in a split beside the source; `editor` opens the raw source (faster — skips the preview webview + whole-vault link resolution, lighter under memory pressure). ⌘/Ctrl-click always opens the source editor; newly-created daily notes always open in the editor. Toggle from the cog menu."
         },
         "aiosGlass.terminalMode": {
           "type": "string",
@@ -427,6 +431,23 @@
           ],
           "default": "enhanced",
           "markdownDescription": "File icons in the AIOS Explorer — `enhanced` (colorful per-type) or `plain` (one neutral doc icon). Toggle from the cog menu."
+        },
+        "aiosGlass.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "es",
+            "pt-br"
+          ],
+          "enumDescriptions": [
+            "Follow the IDE display language",
+            "English",
+            "Español (LATAM neutral)",
+            "Português (Brasil)"
+          ],
+          "default": "auto",
+          "markdownDescription": "Language for the AIOS Glass Home panel. `auto` follows the IDE display language. Changing this re-renders the panel instantly. IDE command titles & native menus follow the IDE display language (Configure Display Language). Switch from the cog menu."
         },
         "aiosGlass.theme": {
           "type": "string",

@@ -7,6 +7,7 @@ import { Routine, listRoutines, runRoutine, removeRoutine, addRoutineFlow } from
 import { swallow } from '../log';
 import { stateGet, stateSet } from '../state';
 import { FreqTask, slug, migrateTask } from '../core/taskModel';
+import { t } from '../i18n';
 // Re-exported: routines.ts + extension.ts import these from here.
 export { slug } from '../core/taskModel';
 export type { FreqTask } from '../core/taskModel';
@@ -147,39 +148,39 @@ type MenuItem = vscode.QuickPickItem & { task?: FreqTask; routine?: Routine; add
 /** Open the Quick menu: routines (due-first) + tasks — pick to run, trash to remove, add either. */
 export async function openFrequentMenu(): Promise<void> {
   const qp = vscode.window.createQuickPick<MenuItem>();
-  qp.title = 'Frequent tasks & routines';
-  qp.placeholder = 'Pick to run — trash to remove, or add your own';
-  const removeBtn: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('trash'), tooltip: 'Remove' };
+  qp.title = t('Frequent tasks & routines');
+  qp.placeholder = t('Pick to run — trash to remove, or add your own');
+  const removeBtn: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('trash'), tooltip: t('Remove') };
 
   const refresh = () => {
     const items: MenuItem[] = [];
     // Routines first — bundled tasks, one click runs the whole sequence.
     const routines = listRoutines();
     if (routines.length) {
-      items.push({ label: 'Routines', kind: vscode.QuickPickItemKind.Separator });
+      items.push({ label: t('Routines'), kind: vscode.QuickPickItemKind.Separator });
       for (const r of routines) {
         const n = r.taskIds.length;
         items.push({
           label: '$(run-all) ' + r.label,
-          description: `${n} task${n === 1 ? '' : 's'} in one click`,
+          description: `${n} ${n === 1 ? t('task') : t('tasks')} ${t('in one click')}`,
           routine: r,
           buttons: [removeBtn],
         });
       }
-      items.push({ label: 'Tasks', kind: vscode.QuickPickItemKind.Separator });
+      items.push({ label: t('Tasks'), kind: vscode.QuickPickItemKind.Separator });
     }
-    items.push(...getTasks().map((t) => ({ label: t.label, description: t.hint, task: t, buttons: [removeBtn] })));
+    items.push(...getTasks().map((ft) => ({ label: ft.label, description: ft.hint, task: ft, buttons: [removeBtn] })));
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
-    items.push({ label: '$(add) Add a frequent task', add: true });
-    items.push({ label: '$(add) Add a routine', addRoutine: true });
+    items.push({ label: '$(add) ' + t('Add a frequent task'), add: true });
+    items.push({ label: '$(add) ' + t('Add a routine'), addRoutine: true });
     // Type-to-act: while there's a query, offer one-Enter create / ask fallbacks
     // (alwaysShow → survive the filter, so an unmatched search isn't a dead end).
     // Stable labels — no echoed value — so refresh() can run on the empty↔typed
     // TOGGLE only, never per keystroke (per-keystroke qp.items churn resets the
     // highlighted row + flickers the filter — the glitch).
     if (qp.value.trim()) {
-      items.push({ label: '$(add) Create a task from what you typed', alwaysShow: true, createNew: true });
-      items.push({ label: '$(sparkle) Ask AIOS with what you typed', description: 'Claude matches your ask to the right context & tools and runs it', alwaysShow: true, ask: true });
+      items.push({ label: '$(add) ' + t('Create a task from what you typed'), alwaysShow: true, createNew: true });
+      items.push({ label: '$(sparkle) ' + t('Ask AIOS with what you typed'), description: t('Claude matches your ask to the right context & tools and runs it'), alwaysShow: true, ask: true });
     }
     qp.items = items;
   };
@@ -231,9 +232,9 @@ export async function openFrequentMenu(): Promise<void> {
  *  `prefill` seeds the label (type-to-create from the Quick menu) — still editable. */
 async function addFrequentTask(prefill?: string): Promise<void> {
   const label = await vscode.window.showInputBox({
-    title: 'Add a frequent task',
-    prompt: 'Button label',
-    placeHolder: 'e.g. Summarize a PDF',
+    title: t('Add a frequent task'),
+    prompt: t('Button label'),
+    placeHolder: t('e.g. Summarize a PDF'),
     value: prefill,
     ignoreFocusOut: true,
   });
@@ -241,12 +242,12 @@ async function addFrequentTask(prefill?: string): Promise<void> {
 
   const kindPick = await vscode.window.showQuickPick(
     [
-      { label: '$(person) Agent', mech: 'agent' as const, detail: 'Wear an AIOS agent\'s hat' },
-      { label: '$(terminal) Command', mech: 'command' as const, detail: 'Run an /aios: command' },
-      { label: '$(sparkle) Skill', mech: 'skill' as const, detail: 'Load a skill' },
-      { label: '$(comment) None — just a prompt', mech: 'prompt' as const, detail: 'A free-form instruction sent to Claude' },
+      { label: '$(person) ' + t('Agent'), mech: 'agent' as const, detail: t("Wear an AIOS agent's hat") },
+      { label: '$(terminal) ' + t('Command'), mech: 'command' as const, detail: t('Run an /aios: command') },
+      { label: '$(sparkle) ' + t('Skill'), mech: 'skill' as const, detail: t('Load a skill') },
+      { label: '$(comment) ' + t('None — just a prompt'), mech: 'prompt' as const, detail: t('A free-form instruction sent to Claude') },
     ],
-    { title: 'Add a frequent task — what runs it?', placeHolder: 'Pick a mechanism' }
+    { title: t('Add a frequent task — what runs it?'), placeHolder: t('Pick a mechanism') }
   );
   if (!kindPick) return;
   const kind = kindPick.mech;
@@ -255,8 +256,8 @@ async function addFrequentTask(prefill?: string): Promise<void> {
   if (kind === 'prompt') {
     const instr = await vscode.window.showInputBox({
       title: label.trim(),
-      prompt: 'What should Claude do when you click this?',
-      placeHolder: "e.g. Summarize today's Slack and list my action items",
+      prompt: t('What should Claude do when you click this?'),
+      placeHolder: t("e.g. Summarize today's Slack and list my action items"),
       ignoreFocusOut: true,
     });
     if (!instr?.trim()) return;
@@ -271,25 +272,25 @@ async function addFrequentTask(prefill?: string): Promise<void> {
   if (kind === 'agent') {
     target = (await vscode.window.showQuickPick(
       discoverAgents().map((a) => ({ label: a.name, description: a.group, detail: a.description })),
-      { title: 'Which agent?', placeHolder: 'Pick an agent', matchOnDetail: true }
+      { title: t('Which agent?'), placeHolder: t('Pick an agent'), matchOnDetail: true }
     ))?.label;
   } else if (kind === 'command') {
     target = (await vscode.window.showQuickPick(
       discoverCommands().map((c) => ({ label: c.name, description: c.description })),
-      { title: 'Which command?', placeHolder: 'Pick a command', matchOnDescription: true }
+      { title: t('Which command?'), placeHolder: t('Pick a command'), matchOnDescription: true }
     ))?.label;
   } else {
     target = (await vscode.window.showQuickPick(
       discoverSkills().map((s) => ({ label: s.name, description: s.description })),
-      { title: 'Which skill?', placeHolder: 'Pick a skill', matchOnDescription: true }
+      { title: t('Which skill?'), placeHolder: t('Pick a skill'), matchOnDescription: true }
     ))?.label;
   }
   if (!target) return;
 
   const assignment = await vscode.window.showInputBox({
     title: label.trim(),
-    prompt: 'Optional — a fixed task to send every run (blank = one click launches it bare)',
-    placeHolder: "e.g. Review the open PRs and recommend take / adapt / decline",
+    prompt: t('Optional — a fixed task to send every run (blank = one click launches it bare)'),
+    placeHolder: t('e.g. Review the open PRs and recommend take / adapt / decline'),
     ignoreFocusOut: true,
   });
   if (assignment === undefined) return; // cancelled

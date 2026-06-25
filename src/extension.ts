@@ -22,6 +22,7 @@ import { listRunningAgents } from './agents/running';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
+import { initI18n, t } from './i18n';
 
 // The AIOS operating manual lives on the website (theme-aware reader + PDF
 // download) at the `#manual` section of the homepage — there is no standalone
@@ -40,6 +41,7 @@ const DOC_FILES: Record<string, string> = {
 export function activate(context: vscode.ExtensionContext): void {
   // Banner so the diagnostics channel is never blank — an empty Output pane
   // reads as "broken", not "healthy". Everything below the banner is a failure.
+  initI18n(context.extensionUri); // host-string translator (popups follow aiosGlass.language)
   const version = (context.extension.packageJSON as { version?: string }).version ?? '?';
   log(`AIOS Glass ${version} activated. This channel records ACTION FAILURES (a click that did nothing, a failed launch, a state write error). Nothing below this line = everything is healthy.`);
 
@@ -84,7 +86,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.openConfigMenu', () => openConfigMenu()),
     vscode.commands.registerCommand('aios.terminalMode', async () => {
-      const pick = await vscode.window.showQuickPick(TERMINAL_OPTIONS, { title: 'Terminal control', placeHolder: 'ask · active' });
+      const pick = await vscode.window.showQuickPick(TERMINAL_OPTIONS, { title: t('Terminal control'), placeHolder: 'ask · active' });
       if (pick) { await setTerminalMode(pick); HomeViewProvider.current?.refresh(); }
     }),
     vscode.commands.registerCommand('aios.openDoc', async (key: string, edit?: boolean) => {
@@ -115,17 +117,17 @@ export function activate(context: vscode.ExtensionContext): void {
         files = fs.readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '_index.md').sort();
       } catch { /* dir missing */ }
       if (files.length === 0) {
-        void vscode.window.showInformationMessage(`AIOS Glass: no notes in ${kind}.`);
+        void vscode.window.showInformationMessage(`${t('AIOS Glass: no notes in')} ${kind}.`);
         return;
       }
       const labels: Record<ContextKind, string> = {
-        declared: 'Declared — what you’ve told Claude',
-        observed: 'Observed — what Claude has learned',
-        projects: 'Projects'
+        declared: t('Declared — what you’ve told Claude'),
+        observed: t('Observed — what Claude has learned'),
+        projects: t('Projects')
       };
       const pick = await vscode.window.showQuickPick(
         files.map((f) => ({ label: f.replace(/\.md$/, ''), file: f })),
-        { title: labels[kind], placeHolder: 'Open a note' }
+        { title: labels[kind], placeHolder: t('Open a note') }
       );
       if (pick) await vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.file(path.join(dir, pick.file)));
     }),
@@ -134,8 +136,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.createCustom', async (kind?: CreateKind) => {
       if (!kind) {
         const pick = await vscode.window.showQuickPick(
-          CREATE_KINDS.map((k) => ({ label: `New ${k}`, value: k })),
-          { title: 'Add a custom element', placeHolder: 'Launches the AIOS builder' }
+          CREATE_KINDS.map((k) => ({ label: `${t('New')} ${k}`, value: k })),
+          { title: t('Add a custom element'), placeHolder: t('Launches the AIOS builder') }
         );
         if (!pick) return;
         kind = pick.value;
@@ -154,9 +156,9 @@ export function activate(context: vscode.ExtensionContext): void {
     // every picker's no-match fallback both land here.
     vscode.commands.registerCommand('aios.askAios', async () => {
       const intent = await vscode.window.showInputBox({
-        title: vscode.l10n.t('Ask AIOS'),
-        prompt: vscode.l10n.t('What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work'),
-        placeHolder: vscode.l10n.t("e.g. 'prep tomorrow's investor call' · 'post about our launch'"),
+        title: t('Ask AIOS'),
+        prompt: t('What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work'),
+        placeHolder: t("e.g. 'prep tomorrow's investor call' · 'post about our launch'"),
         ignoreFocusOut: true,
       });
       if (intent?.trim()) askAios(intent.trim());
@@ -178,22 +180,22 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.dailyPicker', async () => {
       const items: (vscode.QuickPickItem & { d: string; primary: boolean })[] = [
-        { label: '$(sun) ' + vscode.l10n.t('Plan my day'), description: '/today', d: '/aios:today', primary: true },
-        { label: '$(book) ' + vscode.l10n.t('Close session'), description: '/close-session', d: '/aios:close-session', primary: false },
-        { label: '$(moon) ' + vscode.l10n.t('Close the day'), description: '/close-day', d: '/aios:close-day', primary: true }
+        { label: '$(sun) ' + t('Plan my day'), description: '/today', d: '/aios:today', primary: true },
+        { label: '$(book) ' + t('Close session'), description: '/close-session', d: '/aios:close-session', primary: false },
+        { label: '$(moon) ' + t('Close the day'), description: '/close-day', d: '/aios:close-day', primary: true }
       ];
-      const pick = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('Daily ritual'), placeHolder: vscode.l10n.t('Run a daily ritual') });
+      const pick = await vscode.window.showQuickPick(items, { title: t('Daily ritual'), placeHolder: t('Run a daily ritual') });
       if (!pick) return;
       if (pick.primary) await runInPrimarySession(pick.d); else await runInActiveClaude(pick.d);
     }),
 
     vscode.commands.registerCommand('aios.workspacesPicker', async () => {
       const items: (vscode.QuickPickItem & { id: string })[] = [
-        { label: '$(organization) ' + vscode.l10n.t('Companies'), description: vscode.l10n.t('mount · sync'), id: 'companies' },
-        { label: '$(live-share) ' + vscode.l10n.t('Collaboration'), description: vscode.l10n.t('shared spaces'), id: 'collab' },
-        { label: '$(folder) ' + vscode.l10n.t('Projects'), description: vscode.l10n.t('your work'), id: 'projects' }
+        { label: '$(organization) ' + t('Companies'), description: t('mount · sync'), id: 'companies' },
+        { label: '$(live-share) ' + t('Collaboration'), description: t('shared spaces'), id: 'collab' },
+        { label: '$(folder) ' + t('Projects'), description: t('your work'), id: 'projects' }
       ];
-      const pick = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('Workspaces') });
+      const pick = await vscode.window.showQuickPick(items, { title: t('Workspaces') });
       if (!pick) return;
       if (pick.id === 'companies') await companyAction();
       else if (pick.id === 'collab') await collaborateAction();
@@ -202,19 +204,19 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.personalizationsPicker', async () => {
       const items: (vscode.QuickPickItem & { key: string })[] = [
-        { label: 'INTENT.md', description: 'autonomy · trust', key: 'intent' },
-        { label: 'USER.md', description: 'identity · settings', key: 'user' }
+        { label: 'INTENT.md', description: t('autonomy · trust'), key: 'intent' },
+        { label: 'USER.md', description: t('identity · settings'), key: 'user' }
       ];
-      const pick = await vscode.window.showQuickPick(items, { title: 'Personalizations' });
+      const pick = await vscode.window.showQuickPick(items, { title: t('Personalizations') });
       if (pick) await vscode.commands.executeCommand('aios.openDoc', pick.key);
     }),
 
     vscode.commands.registerCommand('aios.contextPicker', async () => {
       const items: (vscode.QuickPickItem & { ck: string })[] = [
-        { label: 'Declared', description: 'what you told Claude', ck: 'declared' },
-        { label: 'Observed', description: 'what Claude has learned', ck: 'observed' }
+        { label: t('Declared'), description: t('what you told Claude'), ck: 'declared' },
+        { label: t('Observed'), description: t('what Claude has learned'), ck: 'observed' }
       ];
-      const pick = await vscode.window.showQuickPick(items, { title: 'Context — about you' });
+      const pick = await vscode.window.showQuickPick(items, { title: t('Context — about you') });
       if (pick) await vscode.commands.executeCommand('aios.browseContext', pick.ck);
     }),
 
@@ -222,14 +224,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const sessions = await listRunningAgents();
       const sessionNames = new Set(sessions.map((a) => a.name));
       type RunItem = vscode.QuickPickItem & { rk: 'session' | 'terminal'; name?: string; pid?: number; term?: vscode.Terminal };
-      const items: RunItem[] = sessions.map((a) => ({ label: `$(server-process) ${a.name}`, description: a.status || 'session', rk: 'session', name: a.name, pid: a.pid }));
-      for (const t of vscode.window.terminals) {
-        if (sessionNames.has(t.name)) continue;
-        if (await terminalHasClaude(t)) continue;
-        items.push({ label: `$(terminal) ${t.name}`, description: 'terminal', rk: 'terminal', term: t });
+      const items: RunItem[] = sessions.map((a) => ({ label: `$(server-process) ${a.name}`, description: a.status || t('session'), rk: 'session', name: a.name, pid: a.pid }));
+      for (const term of vscode.window.terminals) {
+        if (sessionNames.has(term.name)) continue;
+        if (await terminalHasClaude(term)) continue;
+        items.push({ label: `$(terminal) ${term.name}`, description: t('terminal'), rk: 'terminal', term });
       }
-      if (!items.length) { void vscode.window.showInformationMessage('AIOS Glass: nothing running.'); return; }
-      const pick = await vscode.window.showQuickPick<RunItem>(items, { title: 'Running — sessions & terminals', placeHolder: 'Arrows to navigate · type to filter · Enter to reveal' });
+      if (!items.length) { void vscode.window.showInformationMessage(t('AIOS Glass: nothing running.')); return; }
+      const pick = await vscode.window.showQuickPick<RunItem>(items, { title: t('Running — sessions & terminals'), placeHolder: t('Arrows to navigate · type to filter · Enter to reveal') });
       if (!pick) return;
       if (pick.rk === 'session' && pick.name) await revealAgentTerminal(pick.name, pick.pid);
       else pick.term?.show();
@@ -291,25 +293,26 @@ export function activate(context: vscode.ExtensionContext): void {
     // Custom discriminator is `pk` — QuickPickItem.kind is reserved for separators.
     vscode.commands.registerCommand('aios.palette', async () => {
       type PalItem = vscode.QuickPickItem & {
-        pk?: 'session' | 'routine' | 'task' | 'agent' | 'command' | 'skill' | 'ask';
+        pk?: 'session' | 'routine' | 'task' | 'agent' | 'command' | 'skill' | 'ask' | 'open';
         id?: string;
         name?: string;
         pid?: number;
         cmd?: AiosCommand;
+        exec?: string;
       };
       const sep = (label: string): PalItem => ({ label, kind: vscode.QuickPickItemKind.Separator });
       const items: PalItem[] = [];
 
       const sessions = await listRunningAgents();
       if (sessions.length) {
-        items.push(sep('Sessions'));
+        items.push(sep(t('Sessions')));
         items.push(...sessions.map((s) => ({
           label: '$(terminal) ' + s.name, description: s.status || 'session', pk: 'session' as const, name: s.name, pid: s.pid,
         })));
       }
       const routines = listRoutines();
       if (routines.length) {
-        items.push(sep('Routines'));
+        items.push(sep(t('Routines')));
         items.push(...routines.map((r) => ({
           label: '$(run-all) ' + r.label,
           description: `routine · ${r.taskIds.length} tasks`,
@@ -318,35 +321,46 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const tasks = listFrequentTasks();
       if (tasks.length) {
-        items.push(sep('Tasks'));
+        items.push(sep(t('Tasks')));
         items.push(...tasks.map((t) => ({ label: '$(star) ' + t.label, description: t.hint, pk: 'task' as const, id: t.id })));
       }
       const agents = discoverAgents();
       if (agents.length) {
-        items.push(sep('Agents'));
+        items.push(sep(t('Agents')));
         items.push(...agents.map((a) => ({ label: '$(person) ' + a.name, description: a.group, detail: a.description + (a.keywords ? ' · ' + a.keywords : ''), pk: 'agent' as const, name: a.name })));
       }
       const cmds = discoverCommands();
       if (cmds.length) {
-        items.push(sep('Commands'));
+        items.push(sep(t('Commands')));
         items.push(...cmds.map((c) => ({ label: '$(terminal-bash) /aios:' + c.name, description: c.description, pk: 'command' as const, cmd: c })));
       }
       const skills = discoverSkills();
       if (skills.length) {
-        items.push(sep('Skills'));
+        items.push(sep(t('Skills')));
         items.push(...skills.map((s) => ({ label: '$(sparkle) ' + s.name, description: s.description, pk: 'skill' as const, name: s.name })));
       }
 
+      // Help & docs — the manual lives on the website, README is the project's
+      // front door; surfaced here so the palette is a single front door (we
+      // don't lean on the native command palette).
+      items.push(sep(t('Help & docs')));
+      items.push(
+        { label: '$(book) ' + t('Operating manual'), description: t('the-aios.com — read online + PDF'), pk: 'open' as const, exec: 'aios.openManual' },
+        { label: '$(markdown) ' + t('README'), description: t("the project's front door"), pk: 'open' as const, exec: 'aios.openReadme' },
+        { label: '$(question) ' + t('Cheatsheet'), description: t('commands · chords'), pk: 'open' as const, exec: 'aios.cheatsheet' },
+        { label: '$(rocket) ' + t('Getting started'), description: t('the six-step walkthrough'), pk: 'open' as const, exec: 'aios.openWalkthrough' },
+      );
+
       const qp = vscode.window.createQuickPick<PalItem>();
-      qp.title = 'AIOS — everything';
-      qp.placeholder = 'Type to find a session, routine, task, agent, command, or skill';
+      qp.title = t('AIOS — everything');
+      qp.placeholder = t('Type to find a session, routine, task, agent, command, or skill');
       qp.matchOnDescription = true;
       qp.matchOnDetail = true;
       // Semantic fallback: the picker's fuzzy match is lexical (names +
       // descriptions). When intent doesn't match words, hand the words to Claude
       // — the engine that CAN search by meaning. ONE stable item, toggled only on
       // empty↔typed (per-keystroke qp.items churn resets the highlight + flickers).
-      const askItem: PalItem = { label: '$(sparkle) Ask AIOS with what you typed', description: 'Claude matches your ask to the right context & tools in your AIOS — and puts them to work', alwaysShow: true, pk: 'ask' as const };
+      const askItem: PalItem = { label: '$(sparkle) ' + t('Ask AIOS with what you typed'), description: t('Claude matches your ask to the right context & tools in your AIOS — and puts them to work'), alwaysShow: true, pk: 'ask' as const };
       qp.items = items;
       let hasQuery = false;
       qp.onDidChangeValue((v) => {
@@ -372,6 +386,7 @@ export function activate(context: vscode.ExtensionContext): void {
           }
           else if (pick.pk === 'command' && pick.cmd) { const c = pick.cmd; go = () => void runRitual(c); } // honors arg-hint prompts
           else if (pick.pk === 'skill' && pick.name) { const n = pick.name; go = () => void launchSkill(n); }
+          else if (pick.pk === 'open' && pick.exec) { const e = pick.exec; go = () => void vscode.commands.executeCommand(e); }
           else if (pick.pk === 'ask' && typed) { go = () => void askAios(typed); } // fresh session named from the intent
         }
         qp.hide();
@@ -415,9 +430,9 @@ export function activate(context: vscode.ExtensionContext): void {
     // Ingest content — ask for the source(s), then run /aios:ingest in-session.
     vscode.commands.registerCommand('aios.ingest', async () => {
       const src = await vscode.window.showInputBox({
-        title: vscode.l10n.t('Ingest content'),
-        prompt: vscode.l10n.t('One or more sources — URLs, file paths, or a topic (blank to be guided)'),
-        placeHolder: vscode.l10n.t('e.g. https://… · ~/Downloads/notes.pdf · "the Q3 board call"'),
+        title: t('Ingest content'),
+        prompt: t('One or more sources — URLs, file paths, or a topic (blank to be guided)'),
+        placeHolder: t('e.g. https://… · ~/Downloads/notes.pdf · "the Q3 board call"'),
         ignoreFocusOut: true,
       });
       if (src === undefined) return;
@@ -427,7 +442,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.manageAgents', async () => {
       const running = await listRunningAgents();
       if (running.length === 0) {
-        void vscode.window.showInformationMessage('AIOS Glass: no running sessions detected.');
+        void vscode.window.showInformationMessage(t('AIOS Glass: no running sessions detected.'));
         return;
       }
       const pick = await vscode.window.showQuickPick(
@@ -436,19 +451,19 @@ export function activate(context: vscode.ExtensionContext): void {
           description: `pid ${a.pid}${a.spawned ? '' : ' · not spawn-managed'}`,
           agent: a
         })),
-        { title: 'Running sessions', placeHolder: 'Pick a session' }
+        { title: t('Running sessions'), placeHolder: t('Pick a session') }
       );
       if (!pick) return;
 
       const actions = [
-        { label: '$(eye) Reveal terminal', id: 'reveal' },
-        { label: '$(copy) Copy name', id: 'copy' },
-        { label: '$(trash) Close Terminal (Kill)', id: 'kill' }
+        { label: '$(eye) ' + t('Reveal terminal'), id: 'reveal' },
+        { label: '$(copy) ' + t('Copy name'), id: 'copy' },
+        { label: '$(trash) ' + t('Close Terminal (Kill)'), id: 'kill' }
       ];
-      const action = await vscode.window.showQuickPick(actions, { title: pick.agent.name, placeHolder: 'Action' });
+      const action = await vscode.window.showQuickPick(actions, { title: pick.agent.name, placeHolder: t('Action') });
       if (!action) return;
       if (action.id === 'reveal') await revealAgentTerminal(pick.agent.name, pick.agent.pid);
-      else if (action.id === 'copy') { await vscode.env.clipboard.writeText(pick.agent.name); void vscode.window.showInformationMessage(`Copied “${pick.agent.name}”.`); }
+      else if (action.id === 'copy') { await vscode.env.clipboard.writeText(pick.agent.name); void vscode.window.showInformationMessage(t('Copied') + ` “${pick.agent.name}”.`); }
       else if (action.id === 'kill') await disposeAgentTerminal(pick.agent.name, pick.agent.pid);
     }),
 

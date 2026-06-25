@@ -123,6 +123,15 @@ export async function setTerminalMode(value: string): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: terminal mode set to ${value}.`);
 }
 
+/** Glass Home panel language. `auto` follows the IDE display language. */
+export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br';
+export function currentLanguage(): GlassLang {
+  return vscode.workspace.getConfiguration('aiosGlass').get<GlassLang>('language', 'auto') || 'auto';
+}
+export async function setLanguage(value: GlassLang): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('language', value, vscode.ConfigurationTarget.Global);
+}
+
 /** Whether to show secondary hint texts — button hints (.k) + header subtitles (.sub). Default true. */
 export function showHints(): boolean {
   return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showHints', true);
@@ -131,6 +140,17 @@ export function showHints(): boolean {
 export async function setShowHints(on: boolean): Promise<void> {
   await vscode.workspace.getConfiguration('aiosGlass').update('showHints', on, vscode.ConfigurationTarget.Global);
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
+}
+
+/** How Glass opens a Markdown note on plain click — Calendar days AND Explorer files.
+ *  'previewToSide' (Foam-rendered, beside the source — default) or 'editor' (raw source, faster).
+ *  Legacy 'preview' (full-tab) migrates to 'previewToSide'. */
+export type OpenNotesMode = 'previewToSide' | 'editor';
+export function openNotesIn(): OpenNotesMode {
+  return vscode.workspace.getConfiguration('aiosGlass').get<string>('openNotesIn', 'previewToSide') === 'editor' ? 'editor' : 'previewToSide';
+}
+export async function setOpenNotesIn(value: OpenNotesMode): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('openNotesIn', value, vscode.ConfigurationTarget.Global);
 }
 
 /** Whether the explorer shows dotfiles (.gitignore, .vscode, …). Default false. */

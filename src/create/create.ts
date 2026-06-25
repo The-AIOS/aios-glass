@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { launchSpawn } from '../rituals/runner';
+import { t } from '../i18n';
 
 export type CreateKind = 'agent' | 'skill' | 'plugin' | 'template' | 'hook' | 'mcp';
 
@@ -55,9 +56,9 @@ export const CREATE_KINDS: CreateKind[] = ['agent', 'skill', 'plugin', 'template
 export async function createCustom(kind: CreateKind): Promise<void> {
   const spec = SPECS[kind];
   const seed = await vscode.window.showInputBox({
-    title: `New custom ${spec.label.toLowerCase()}`,
-    prompt: 'What do you want to build? (optional — the builder will interview you)',
-    placeHolder: `e.g. a ${spec.label.toLowerCase()} that …`,
+    title: `${t('New custom')} ${spec.label.toLowerCase()}`,
+    prompt: t('What do you want to build? (optional — the builder will interview you)'),
+    placeHolder: `${t('e.g. a')} ${spec.label.toLowerCase()} ${t('that …')}`,
     ignoreFocusOut: true
   });
   if (seed === undefined) return; // cancelled

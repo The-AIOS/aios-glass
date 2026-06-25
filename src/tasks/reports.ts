@@ -3,8 +3,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
 import { launchAios } from '../rituals/runner';
+import { t } from '../i18n';
 
-const PERIODS = ['This week', 'This month', 'This quarter', 'This year', 'All time', 'Custom…'];
+// Period values stay English (passed verbatim to the AIOS command); only the
+// displayed labels localize.
+const PERIODS = (): { label: string; value: string }[] => [
+  { label: t('This week'), value: 'This week' },
+  { label: t('This month'), value: 'This month' },
+  { label: t('This quarter'), value: 'This quarter' },
+  { label: t('This year'), value: 'This year' },
+  { label: t('All time'), value: 'All time' },
+  { label: t('Custom…'), value: 'Custom…' }
+];
 
 /**
  * Generate a report: pick the type (role / weekly / status / custom), then a
@@ -14,20 +24,20 @@ const PERIODS = ['This week', 'This month', 'This quarter', 'This year', 'All ti
 export async function runReports(): Promise<void> {
   const type = await vscode.window.showQuickPick(
     [
-      { label: '$(person) Role report', detail: '/aios:role-report — your activity by role', id: 'role' },
-      { label: '$(mortar-board) Weekly learnings', detail: '/aios:weekly-learnings — consolidate what you learned', id: 'weekly' },
-      { label: '$(output) Status report', detail: 'report-drafter — status / board-style update', id: 'status' },
-      { label: '$(edit) Custom report…', detail: 'describe exactly what you want', id: 'custom' }
+      { label: '$(person) ' + t('Role report'), detail: t('/aios:role-report — your activity by role'), id: 'role' },
+      { label: '$(mortar-board) ' + t('Weekly learnings'), detail: t('/aios:weekly-learnings — consolidate what you learned'), id: 'weekly' },
+      { label: '$(output) ' + t('Status report'), detail: t('report-drafter — status / board-style update'), id: 'status' },
+      { label: '$(edit) ' + t('Custom report…'), detail: t('describe exactly what you want'), id: 'custom' }
     ],
-    { title: 'Generate a report', placeHolder: 'Pick a report type', matchOnDetail: true }
+    { title: t('Generate a report'), placeHolder: t('Pick a report type'), matchOnDetail: true }
   );
   if (!type) return;
 
-  const pick = await vscode.window.showQuickPick(PERIODS, { title: 'Report period', placeHolder: 'Over what period?' });
+  const pick = await vscode.window.showQuickPick(PERIODS(), { title: t('Report period'), placeHolder: t('Over what period?') });
   if (!pick) return;
-  let period = pick;
+  let period = pick.value;
   if (period === 'Custom…') {
-    const c = await vscode.window.showInputBox({ title: 'Custom period', prompt: 'e.g. "May 2026", "last 2 weeks", "Q2"', ignoreFocusOut: true });
+    const c = await vscode.window.showInputBox({ title: t('Custom period'), prompt: t('e.g. "May 2026", "last 2 weeks", "Q2"'), ignoreFocusOut: true });
     if (c === undefined) return;
     period = c.trim() || 'recent';
   }
@@ -39,7 +49,7 @@ export async function runReports(): Promise<void> {
   if (type.id === 'status') return launchAios('agent', `report-drafter — Status report (period: ${period})`, style);
 
   // custom
-  const desc = await vscode.window.showInputBox({ title: 'Custom report', prompt: 'What should the report cover?', placeHolder: 'e.g. "what shipped + what\'s blocked this week"', ignoreFocusOut: true });
+  const desc = await vscode.window.showInputBox({ title: t('Custom report'), prompt: t('What should the report cover?'), placeHolder: t('e.g. "what shipped + what\'s blocked this week"'), ignoreFocusOut: true });
   if (!desc?.trim()) return;
   return launchAios('agent', `report-drafter — ${desc.trim()} (period: ${period})`, style);
 }

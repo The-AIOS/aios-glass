@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { vaultRoot } from './vault';
+import { openNotesIn } from './config';
+import { t } from '../i18n';
 
 export interface DayCell {
   /** ISO date YYYY-MM-DD, or null for padding cells */
@@ -110,7 +112,7 @@ export function getMonthData(year: number, month: number): MonthData {
 export async function openDailyNote(iso: string, opts: { forceEditor?: boolean; forcePreview?: boolean } = {}): Promise<void> {
   const target = dailyNotePath(iso);
   if (!target) {
-    void vscode.window.showWarningMessage('AIOS Glass: could not resolve the vault calendar path.');
+    void vscode.window.showWarningMessage(t('AIOS Glass: could not resolve the vault calendar path.'));
     return;
   }
   let created = false;
@@ -129,7 +131,7 @@ export async function openDailyNote(iso: string, opts: { forceEditor?: boolean; 
     ? 'preview'
     : created || opts.forceEditor
     ? 'editor'
-    : vscode.workspace.getConfiguration('aiosGlass').get<string>('openNotesIn', 'preview');
+    : openNotesIn(); // shared with the Explorer — 'previewToSide' | 'editor'
 
   if (mode === 'editor') {
     const doc = await vscode.workspace.openTextDocument(uri);

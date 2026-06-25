@@ -152,7 +152,6 @@
   }
 
   document.getElementById('filesBtn').addEventListener('click', () => run('aios.openFiles'));
-  { const mb = document.getElementById('manualBtn'); if (mb) mb.addEventListener('click', () => run('aios.openManual')); }
   document.getElementById('settingsBtn').addEventListener('click', () => run('aios.openConfigMenu'));
   document.getElementById('addBtn').addEventListener('click', () => run('aios.createCustom'));
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
@@ -255,7 +254,6 @@
   document.getElementById('skillsPicker').addEventListener('click', () => run('aios.skillsPicker'));
   document.getElementById('companyAction').addEventListener('click', () => run('aios.companyAction'));
   document.getElementById('collaborateAction').addEventListener('click', () => run('aios.collaborateAction'));
-  document.getElementById('browseFiles').addEventListener('click', () => run('aios.openFiles'));
   document.getElementById('browseProjects').addEventListener('click', () => run('aios.browseContext', 'projects'));
   document.getElementById('browseDeclared').addEventListener('click', () => run('aios.browseContext', 'declared'));
   document.getElementById('browseObserved').addEventListener('click', () => run('aios.browseContext', 'observed'));

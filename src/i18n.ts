@@ -37,6 +37,58 @@ export function resolveLocale(lang?: string): GlassLocale {
   return 'en';
 }
 
+/**
+ * The locale the webview should render in. Honors the `aiosGlass.language`
+ * override first (en / es / pt-br); `auto` (or unset) follows the IDE display
+ * language. Host chrome (package.json titles, vscode.l10n) still follows the
+ * IDE display language only — VS Code owns that and it needs a reload.
+ */
+export function effectiveLocale(): GlassLocale {
+  const override = vscode.workspace.getConfiguration('aiosGlass').get<string>('language', 'auto');
+  if (override && override !== 'auto') return resolveLocale(override);
+  return resolveLocale();
+}
+
+// ── Host-string translation (QuickPicks, InputBoxes, notifications) ──
+//
+// `vscode.l10n.t` follows the IDE display language and can't be overridden at
+// runtime, so it ignores the `aiosGlass.language` setting. To make the cog-menu
+// switcher govern the popups too (instantly, no IDE reload), we read the SAME
+// `l10n/bundle.l10n.<locale>.json` bundles ourselves, keyed by the effective
+// locale. Keys are the English source string (the vscode.l10n convention), so a
+// missing key degrades to English. `en` returns the source verbatim.
+let _extensionRoot: string | undefined;
+let cachedHostCatalogs: Partial<Record<GlassLocale, Record<string, string>>> = {};
+
+/** Record the extension root so the host translator can find its bundles. Call once at activation. */
+export function initI18n(extensionUri: vscode.Uri): void {
+  _extensionRoot = extensionUri.fsPath;
+}
+
+function hostCatalog(locale: GlassLocale): Record<string, string> {
+  if (locale === 'en' || !_extensionRoot) return {};
+  if (cachedHostCatalogs[locale]) return cachedHostCatalogs[locale]!;
+  try {
+    const p = path.join(_extensionRoot, 'l10n', `bundle.l10n.${locale}.json`);
+    const raw = JSON.parse(fs.readFileSync(p, 'utf8')) as Record<string, string>;
+    delete (raw as Record<string, unknown>)._comment;
+    cachedHostCatalogs[locale] = raw;
+    return raw;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Translate a host-side popup string, following `aiosGlass.language`. Drop-in
+ * for `vscode.l10n.t(message)`; falls back to the English source on any miss.
+ */
+export function t(message: string): string {
+  const loc = effectiveLocale();
+  if (loc === 'en') return message;
+  return hostCatalog(loc)[message] ?? message;
+}
+
 let cachedCatalogs: Partial<Record<GlassLocale, Record<string, string>>> = {};
 
 /** Load (and cache) the webview string catalog for a locale, falling back to en. */
