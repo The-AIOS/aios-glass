@@ -9,6 +9,7 @@ import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow } from '../log';
 import { askSessionName } from '../core/taskModel';
+import { t } from '../i18n';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -70,10 +71,10 @@ async function pickTarget(style?: TermStyle): Promise<{ terminal: vscode.Termina
   }
 
   // ask
-  const NEW = '＋ New terminal';
-  const names = vscode.window.terminals.map((t) => t.name);
+  const NEW = '＋ ' + t('New terminal');
+  const names = vscode.window.terminals.map((term) => term.name);
   const choice = await vscode.window.showQuickPick([NEW, ...names], {
-    title: 'Run in…', placeHolder: 'Pick a terminal'
+    title: t('Run in…'), placeHolder: t('Pick a terminal')
   });
   if (choice === undefined) return undefined;
   if (choice === NEW) return { terminal: newTerminal(style), isNew: true };
@@ -161,7 +162,7 @@ export async function runRitual(command: AiosCommand): Promise<void> {
   if (command.argumentHint) {
     const arg = await vscode.window.showInputBox({
       title: `/aios:${command.name}`,
-      prompt: `Arguments (optional) — ${command.argumentHint}`,
+      prompt: `${t('Arguments (optional)')} — ${command.argumentHint}`,
       placeHolder: command.argumentHint,
       ignoreFocusOut: true
     });
@@ -231,15 +232,15 @@ export async function runInActiveClaude(slash: string): Promise<void> {
   if (claudeTerms.length === 1) { claudeTerms[0].show(); claudeTerms[0].sendText(slash); return; }
   if (claudeTerms.length > 1) {
     const pick = await vscode.window.showQuickPick(
-      claudeTerms.map((t) => ({ label: t.name, t })),
-      { title: 'Close which session?', placeHolder: 'Pick the Claude session to close' }
+      claudeTerms.map((term) => ({ label: term.name, t: term })),
+      { title: t('Close which session?'), placeHolder: t('Pick the Claude session to close') }
     );
     if (!pick) return;
     pick.t.show();
     pick.t.sendText(slash);
     return;
   }
-  void vscode.window.showInformationMessage('AIOS Glass: no live Claude session to close. Open or focus the session you want to close, then try again.');
+  void vscode.window.showInformationMessage(t('AIOS Glass: no live Claude session to close. Open or focus the session you want to close, then try again.'));
 }
 
 /** Quick-pick across all commands, then run the chosen one. */
@@ -247,7 +248,7 @@ export async function runRitualPicker(): Promise<void> {
   const cmds = discoverCommands();
   const pick = await pickWithAsk(
     cmds.map((c) => ({ label: `/aios:${c.name}`, description: c.cadence, detail: c.description, cmd: c })),
-    { title: 'Run an AIOS command', placeHolder: 'Pick a command — or type what you need', matchOnDetail: true }
+    { title: t('Run an AIOS command'), placeHolder: t('Pick a command — or type what you need'), matchOnDetail: true }
   );
   if (pick) await runRitual(pick.cmd);
 }
@@ -398,9 +399,9 @@ async function findAgentTerminal(name: string, pid?: number): Promise<vscode.Ter
 }
 
 export async function revealAgentTerminal(name: string, pid?: number): Promise<void> {
-  const t = await findAgentTerminal(name, pid);
-  if (t) { t.show(false); return; }
-  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" isn't a terminal in this window — it may be running in another window.`);
+  const term = await findAgentTerminal(name, pid);
+  if (term) { term.show(false); return; }
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" ${t("isn't a terminal in this window — it may be running in another window.")}`);
 }
 
 /**
@@ -411,9 +412,9 @@ export async function revealAgentTerminal(name: string, pid?: number): Promise<v
  * a notice if it isn't an integrated terminal in this window.
  */
 export async function closeSessionInTerminal(name: string, pid?: number): Promise<void> {
-  const t = await findAgentTerminal(name, pid);
-  if (t) { t.show(); t.sendText('/aios:close-session'); return; }
-  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" isn't a terminal in this window — open it there to run /aios:close-session.`);
+  const term = await findAgentTerminal(name, pid);
+  if (term) { term.show(); term.sendText('/aios:close-session'); return; }
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" ${t("isn't a terminal in this window — open it there to run /aios:close-session.")}`);
 }
 
 /**
@@ -422,9 +423,9 @@ export async function closeSessionInTerminal(name: string, pid?: number): Promis
  * flips busy→idle on the next poll). No-op-with-notice if it's not in this window.
  */
 export async function interruptSessionTerminal(name: string, pid?: number): Promise<void> {
-  const t = await findAgentTerminal(name, pid);
-  if (t) { t.sendText('\u001b', false); return; } // ESC, no newline
-  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" isn't a terminal in this window.`);
+  const term = await findAgentTerminal(name, pid);
+  if (term) { term.sendText('\u001b', false); return; } // ESC, no newline
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" ${t("isn't a terminal in this window.")}`);
 }
 
 /**
@@ -483,7 +484,7 @@ export function pickWithAsk<T extends vscode.QuickPickItem>(
     // typed). Appended only while there's a query, and ONLY when that query toggles
     // empty↔typed — never per keystroke. (Reassigning qp.items on each character
     // resets the highlighted row and makes native filtering flicker.)
-    const askItem: AskItem = { label: '$(sparkle) Ask AIOS with what you typed', description: 'no exact match? — Claude matches your ask to the right context & tools and runs it', alwaysShow: true, __ask: true };
+    const askItem: AskItem = { label: '$(sparkle) ' + t('Ask AIOS with what you typed'), description: t('no exact match? — Claude matches your ask to the right context & tools and runs it'), alwaysShow: true, __ask: true };
     qp.items = items;
     let hasQuery = false;
     qp.onDidChangeValue((v) => {
@@ -527,7 +528,7 @@ export async function launchClaude(subcommand: string): Promise<void> {
  */
 export async function launchAccountSwap(email: string): Promise<void> {
   const root = frameworkRoot();
-  if (!root) { void vscode.window.showWarningMessage('AIOS Glass: framework path not found — cannot swap account.'); return; }
+  if (!root) { void vscode.window.showWarningMessage(t('AIOS Glass: framework path not found — cannot swap account.')); return; }
   const script = path.join(root, 'hooks', 'claude-identity', 'claude-identity.sh');
   const claudeJson = path.join(os.homedir(), '.claude.json');
   const readAccount = (): string => {
@@ -536,7 +537,7 @@ export async function launchAccountSwap(email: string): Promise<void> {
   const fromEmail = readAccount(); // outgoing account, for the statusline banner
   return new Promise((resolve) => {
     execFile('bash', [script, 'switch', email], { timeout: 20000 }, (err, _out, stderr) => {
-      if (err) { void vscode.window.showWarningMessage(`AIOS Glass: account swap failed — ${(stderr || err.message).slice(0, 160)}`); return resolve(); }
+      if (err) { void vscode.window.showWarningMessage(`${t('AIOS Glass: account swap failed —')} ${(stderr || err.message).slice(0, 160)}`); return resolve(); }
       // The manual `switch` only logs; write the swap-notification marker the
       // statusline (context-monitor.py) reads, so the swap banner shows for its
       // TTL — exactly what the autopilot (_watch.py) does after its swaps.

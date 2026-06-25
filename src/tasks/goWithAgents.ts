@@ -4,6 +4,7 @@ import * as path from 'path';
 import { vaultRoot } from '../home/vault';
 import { launchSpawn, launchCommandInNewSession } from '../rituals/runner';
 import { parseAgentSection } from './agentParse';
+import { t } from '../i18n';
 
 /**
  * Newest `YYYY-MM-DD.md` under `<vault>/01 - calendar/YYYY-MM/`, **ignoring
@@ -51,19 +52,19 @@ export function countAgentSuggestions(): number {
 /** Read the latest daily note's agent suggestions and spawn the chosen ones. */
 export async function goWithAgents(): Promise<void> {
   const note = latestDailyNote();
-  if (!note) { void vscode.window.showInformationMessage('AIOS Glass: no daily note found.'); return; }
+  if (!note) { void vscode.window.showInformationMessage(t('AIOS Glass: no daily note found.')); return; }
 
   let md: string;
   try {
     md = fs.readFileSync(note, 'utf8');
   } catch {
-    void vscode.window.showWarningMessage('AIOS Glass: could not read the daily note.');
+    void vscode.window.showWarningMessage(t('AIOS Glass: could not read the daily note.'));
     return;
   }
 
   const suggestions = parseAgentSection(md);
   if (!suggestions.length) {
-    void vscode.window.showInformationMessage(`AIOS Glass: no agent suggestions in ${path.basename(note)}.`);
+    void vscode.window.showInformationMessage(`${t('AIOS Glass: no agent suggestions in')} ${path.basename(note)}.`);
     return;
   }
 
@@ -72,10 +73,10 @@ export async function goWithAgents(): Promise<void> {
   // dispatches many parallel workers — you can't wear multiple hats at once —
   // so it always opens a terminal per task.
   const picks = await vscode.window.showQuickPick(
-    suggestions.map((s) => ({ label: s.task || s.agents[0] || s.command || 'task', description: s.agents.length ? s.agents.join(' / ') : (s.command ?? ''), detail: s.raw, picked: true, s })),
+    suggestions.map((s) => ({ label: s.task || s.agents[0] || s.command || t('task'), description: s.agents.length ? s.agents.join(' / ') : (s.command ?? ''), detail: s.raw, picked: true, s })),
     {
-      title: `Go with agents — ${path.basename(note, '.md')}`,
-      placeHolder: 'Each spawns its agent in its own terminal — uncheck any to skip',
+      title: `${t('Go with agents —')} ${path.basename(note, '.md')}`,
+      placeHolder: t('Each spawns its agent in its own terminal — uncheck any to skip'),
       canPickMany: true,
       matchOnDetail: true,
     }

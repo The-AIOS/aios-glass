@@ -62,6 +62,7 @@ function bootPanel(name) {
     .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '') // testing boot, not CSP
     .replace(/{{NONCE}}/g, 'smoke')
     .replace(/{{CSP}}/g, '')
+    .replace(/{{NLS}}/g, '') // no i18n catalog in smoke → home.js falls back to the English baked into the HTML
     .replace(/<link rel="stylesheet"[^>]*{{CSS_URI}}[^>]*\/>/, '<style>' + css.replace(/\$/g, '$$$$') + '</style>')
     .replace(/<script[^>]*{{JS_URI}}[^>]*><\/script>/, () => '<script>' + js + '</script>');
   // trap must run BEFORE the inlined panel script — top of <head>

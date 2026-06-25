@@ -17,6 +17,7 @@ import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
 import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory } from './config';
 import { getFilesVisible } from '../files/filesState';
+import { effectiveLocale, webviewCatalog } from '../i18n';
 
 /**
  * The AIOS Home dashboard — a branded webview VIEW that docks in a sidebar.
@@ -161,6 +162,14 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
 
   refresh(): void {
     this.recheck();
+  }
+
+  /** Full webview re-render — re-sets the document so the once-injected
+   *  `window.__nls` catalog is rebuilt for the current locale. `refresh()` only
+   *  pushes data messages, so a language change needs this to take visible
+   *  effect (it costs the panel's scroll/expand state — fine for a rare switch). */
+  rerender(): void {
+    if (this.view) this.view.webview.html = this.html(this.view.webview);
   }
 
   /** Collapse/expand all cards at once (the ⌘⌥G M chord). */
@@ -371,6 +380,15 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // The panel UI lives in media/home.{html,css,js} — real files (lintable, smoke-
     // testable, shareable with a future standalone shell), not a template literal
     // the compiler can't see into. Only CSP/nonce/URIs are injected at load.
+    // Webview localization: load the catalog for the editor's display language
+    // and inline it as `window.__nls` BEFORE home.js runs. home.js applies it to
+    // [data-i18n]/[data-i18n-title] nodes and via NLS(key) for dynamic strings.
+    // English text is baked into home.html as the literal fallback, so a missing
+    // catalog/key degrades to English, never to a blank.
+    const locale = effectiveLocale();
+    const catalog = webviewCatalog(this.extensionUri, locale);
+    const nlsScript =
+      `<script nonce="${nonce}">window.__nls=${JSON.stringify(catalog)};window.__lang=${JSON.stringify(locale)};</script>`;
     try {
       const page = fs.readFileSync(vscode.Uri.joinPath(media, 'home.html').fsPath, 'utf8');
       return page
@@ -378,6 +396,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         .replace('<body>', currentTheme() === 'light' ? '<body class="light">' : '<body>')
         .replace(/{{CSP}}/g, csp)
         .replace(/{{NONCE}}/g, nonce)
+        .replace(/{{NLS}}/g, nlsScript)
         .replace(/{{CSS_URI}}/g, webview.asWebviewUri(vscode.Uri.joinPath(media, 'home.css')).toString())
         .replace(/{{JS_URI}}/g, webview.asWebviewUri(vscode.Uri.joinPath(media, 'home.js')).toString());
     } catch (e) {

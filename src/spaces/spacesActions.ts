@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { launchAios } from '../rituals/runner';
 import { readCompanies } from './spaces';
+import { t } from '../i18n';
 
 /**
  * Args-as-forms: turn `/aios:company` and `/aios:collaborate` subcommands into
@@ -11,12 +12,12 @@ import { readCompanies } from './spaces';
 async function pickCompanyName(): Promise<string | undefined> {
   const companies = readCompanies();
   if (companies.length === 0) {
-    void vscode.window.showWarningMessage('AIOS Glass: no mounted companies found in USER.md.');
+    void vscode.window.showWarningMessage(t('AIOS Glass: no mounted companies found in USER.md.'));
     return undefined;
   }
   const pick = await vscode.window.showQuickPick(
-    companies.map((c) => ({ label: c.name, description: `${c.substrate} · synced ${c.lastSync}` })),
-    { title: 'Pick a company', placeHolder: 'Mounted companies' }
+    companies.map((c) => ({ label: c.name, description: `${c.substrate} · ${t('synced')} ${c.lastSync}` })),
+    { title: t('Pick a company'), placeHolder: t('Mounted companies') }
   );
   return pick?.label;
 }
@@ -24,26 +25,31 @@ async function pickCompanyName(): Promise<string | undefined> {
 /** Company actions. If `preselected`, jump straight to per-company actions. */
 export async function companyAction(preselected?: string): Promise<void> {
   if (preselected) {
-    const sub = await vscode.window.showQuickPick(['Sync', 'Status', 'Invite'], {
-      title: `Company: ${preselected}`, placeHolder: 'Action'
-    });
+    const sub = await vscode.window.showQuickPick(
+      [
+        { label: t('Sync'), id: 'sync' },
+        { label: t('Status'), id: 'status' },
+        { label: t('Invite'), id: 'invite' }
+      ],
+      { title: `${t('Company:')} ${preselected}`, placeHolder: t('Action') }
+    );
     if (!sub) return;
-    if (sub === 'Sync') return launchAios('company', `--sync ${preselected}`);
-    if (sub === 'Status') return launchAios('company', '--status');
-    if (sub === 'Invite') return launchAios('company', `--invite ${preselected}`);
+    if (sub.id === 'sync') return launchAios('company', `--sync ${preselected}`);
+    if (sub.id === 'status') return launchAios('company', '--status');
+    if (sub.id === 'invite') return launchAios('company', `--invite ${preselected}`);
     return;
   }
 
   const action = await vscode.window.showQuickPick(
     [
-      { label: 'Sync all companies', id: 'sync-all' },
-      { label: 'Sync a company…', id: 'sync' },
-      { label: 'Mount a company…', id: 'mount' },
-      { label: 'Status', id: 'status' },
-      { label: 'Invite to a company…', id: 'invite' },
-      { label: 'Create a company…', id: 'create' }
+      { label: t('Sync all companies'), id: 'sync-all' },
+      { label: t('Sync a company…'), id: 'sync' },
+      { label: t('Mount a company…'), id: 'mount' },
+      { label: t('Status'), id: 'status' },
+      { label: t('Invite to a company…'), id: 'invite' },
+      { label: t('Create a company…'), id: 'create' }
     ],
-    { title: 'Companies', placeHolder: 'Pick an action' }
+    { title: t('Companies'), placeHolder: t('Pick an action') }
   );
   if (!action) return;
 
@@ -53,7 +59,7 @@ export async function companyAction(preselected?: string): Promise<void> {
     case 'create': return launchAios('company', '--create');
     case 'mount': {
       const url = await vscode.window.showInputBox({
-        title: 'Mount a company', prompt: 'Git remote URL (or substrate source)',
+        title: t('Mount a company'), prompt: t('Git remote URL (or substrate source)'),
         placeHolder: 'git@github.com:org/company-context.git', ignoreFocusOut: true
       });
       if (url && url.trim()) return launchAios('company', `--mount ${url.trim()}`);
@@ -76,12 +82,12 @@ export async function companyAction(preselected?: string): Promise<void> {
 export async function collaborateAction(): Promise<void> {
   const action = await vscode.window.showQuickPick(
     [
-      { label: 'Add a project to a space…', id: 'add-project' },
-      { label: 'Status', id: 'status' },
-      { label: 'New space…', id: 'new' },
-      { label: 'Dry run', id: 'dry-run' }
+      { label: t('Add a project to a space…'), id: 'add-project' },
+      { label: t('Status'), id: 'status' },
+      { label: t('New space…'), id: 'new' },
+      { label: t('Dry run'), id: 'dry-run' }
     ],
-    { title: 'Collaboration spaces', placeHolder: 'Pick an action' }
+    { title: t('Collaboration spaces'), placeHolder: t('Pick an action') }
   );
   if (!action) return;
 
@@ -91,7 +97,7 @@ export async function collaborateAction(): Promise<void> {
     case 'dry-run': return launchAios('collaborate', '--dry-run');
     case 'new': {
       const name = await vscode.window.showInputBox({
-        title: 'New collaboration space', prompt: 'Space name (optional — leave blank for the suggester)',
+        title: t('New collaboration space'), prompt: t('Space name (optional — leave blank for the suggester)'),
         placeHolder: 'e.g. acme-partnership', ignoreFocusOut: true
       });
       if (name === undefined) return;

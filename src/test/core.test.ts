@@ -157,6 +157,21 @@ test('parseAgentSection: drops a suggestion when its canonical task is done in A
   assert.equal(s[0].task, 'Draft the Q3 memo');
 });
 
+test('parseAgentSection: ignores prose header + footer that mention a /command', () => {
+  // The real /today output: a count header above and an instruction footer below
+  // the list. The footer names `/ghost`; only the list item is a real task.
+  const md = [
+    '## Agents can handle',
+    '🤖 **1 task an agent can handle:**',
+    '- 🤖 **Draft the forum post** _(→ agent: [[content-writer]])_',
+    '',
+    'Say "go with agents" to spawn it, or `/ghost` to write it in this session.',
+  ].join('\n');
+  const s = parseAgentSection(md);
+  assert.equal(s.length, 1, 'the prose footer mentioning /ghost must not count as a task');
+  assert.equal(s[0].task, 'Draft the forum post');
+});
+
 test('parseAgentSection: does not false-match distinct tasks', () => {
   const md = [
     '## Today',

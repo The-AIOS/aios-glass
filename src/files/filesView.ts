@@ -4,7 +4,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
-import { currentTheme, showHints, fileIconsEnhanced, showHiddenFiles, autoReveal } from '../home/config';
+import { currentTheme, showHints, fileIconsEnhanced, showHiddenFiles, autoReveal, openNotesIn } from '../home/config';
 import { stateGet, stateSet } from '../state';
 import { setFilesVisible } from './filesState';
 import { HomeViewProvider } from '../home/homePanel';
@@ -386,8 +386,16 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
           vscode.window.showInformationMessage(`Opened ${path.basename(msg.file)} in your browser`);
           await vscode.env.openExternal(uri); // HTML can't render in-editor → browser
         } else if (ext === '.md' || ext === '.markdown') {
-          this.previewPaths.set(path.basename(msg.file), msg.file); // so auto-reveal can follow the preview tab
-          await vscode.commands.executeCommand('markdown.showPreview', uri); // rendered note, not raw source
+          // Plain click honors the shared `openNotesIn` setting (same one the
+          // Calendar uses): 'editor' = raw source (faster), else 'previewToSide'
+          // = Foam-rendered beside the source. ⌘-click is the `source` branch
+          // above regardless.
+          if (openNotesIn() === 'editor') {
+            await vscode.window.showTextDocument(uri, { preview: false });
+          } else {
+            this.previewPaths.set(path.basename(msg.file), msg.file); // so auto-reveal can follow the preview tab
+            await vscode.commands.executeCommand('markdown.showPreviewToSide', uri);
+          }
         } else {
           // pdf / image / etc. → their default editor renders them; code → its source.
           // preview:false makes it a PERSISTENT tab so the explorer can follow the active editor.

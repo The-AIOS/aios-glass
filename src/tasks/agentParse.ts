@@ -71,6 +71,12 @@ export function parseAgentSection(md: string): Suggestion[] {
     if (/^##\s+.*Agents can handle/i.test(line)) { inSection = true; continue; }
     if (inSection && /^##\s/.test(line)) break;
     if (!inSection) continue;
+    // A routed task is ALWAYS a list item. This is the load-bearing guard: it
+    // excludes the section's prose — the count header (`**1 task an agent…**`)
+    // and the footer (`Say "go with agents"… or `/ghost`…`) — which would
+    // otherwise be mis-read as a command-routed task purely because they mention
+    // a backticked `/command` in passing (the over-count bug).
+    if (!/^\s*[-*]\s/.test(line)) continue;
     if (/^\s*[-*]\s*\[[xX]\]/.test(line)) continue; // done: checkbox form
     if (/^\s*[-*]\s*(?:\u{1F916}\s*)*~~/u.test(line)) continue; // done: the ledger's strike-the-title form
     if (line.includes('\u{1F680}')) continue; // already spawned from Glass (in flight)
