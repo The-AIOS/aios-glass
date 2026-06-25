@@ -23,6 +23,12 @@ import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 
+// The AIOS operating manual lives on the website (theme-aware reader + PDF
+// download) at the `#manual` section of the homepage — there is no standalone
+// `/manual` route (it was folded into the 5-act homepage). Update here if the
+// site IA changes.
+const MANUAL_URL = 'https://www.the-aios.com/#manual';
+
 const DOC_FILES: Record<string, string> = {
   cheatsheet: 'CHEATSHEET.md',
   intent: 'INTENT.md',
@@ -54,6 +60,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // README in the title bar (book icon) — the project's front door.
     vscode.commands.registerCommand('aios.openReadme', () => vscode.commands.executeCommand('aios.openDoc', 'readme')),
+
+    // Operating manual — opens the AIOS manual on the website in the browser.
+    // The manual is a web artifact (the-aios.com → #manual section: theme-aware
+    // reader + PDF download), not a vault file, so we open it externally rather
+    // than reaching into the framework. URL is the single source of truth here.
+    vscode.commands.registerCommand('aios.openManual', () =>
+      vscode.env.openExternal(vscode.Uri.parse(MANUAL_URL))),
 
     // AIOS Files — the Finder-style explorer (Vault / Framework / Workspace),
     // a persistent view beside Home; the command focuses (and expands) it.
@@ -141,9 +154,9 @@ export function activate(context: vscode.ExtensionContext): void {
     // every picker's no-match fallback both land here.
     vscode.commands.registerCommand('aios.askAios', async () => {
       const intent = await vscode.window.showInputBox({
-        title: 'Ask AIOS',
-        prompt: 'What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work',
-        placeHolder: "e.g. 'prep tomorrow's investor call' · 'post about our launch'",
+        title: vscode.l10n.t('Ask AIOS'),
+        prompt: vscode.l10n.t('What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work'),
+        placeHolder: vscode.l10n.t("e.g. 'prep tomorrow's investor call' · 'post about our launch'"),
         ignoreFocusOut: true,
       });
       if (intent?.trim()) askAios(intent.trim());
@@ -165,22 +178,22 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('aios.dailyPicker', async () => {
       const items: (vscode.QuickPickItem & { d: string; primary: boolean })[] = [
-        { label: '$(sun) Plan my day', description: '/today', d: '/aios:today', primary: true },
-        { label: '$(book) Close session', description: '/close-session', d: '/aios:close-session', primary: false },
-        { label: '$(moon) Close the day', description: '/close-day', d: '/aios:close-day', primary: true }
+        { label: '$(sun) ' + vscode.l10n.t('Plan my day'), description: '/today', d: '/aios:today', primary: true },
+        { label: '$(book) ' + vscode.l10n.t('Close session'), description: '/close-session', d: '/aios:close-session', primary: false },
+        { label: '$(moon) ' + vscode.l10n.t('Close the day'), description: '/close-day', d: '/aios:close-day', primary: true }
       ];
-      const pick = await vscode.window.showQuickPick(items, { title: 'Daily ritual', placeHolder: 'Run a daily ritual' });
+      const pick = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('Daily ritual'), placeHolder: vscode.l10n.t('Run a daily ritual') });
       if (!pick) return;
       if (pick.primary) await runInPrimarySession(pick.d); else await runInActiveClaude(pick.d);
     }),
 
     vscode.commands.registerCommand('aios.workspacesPicker', async () => {
       const items: (vscode.QuickPickItem & { id: string })[] = [
-        { label: '$(organization) Companies', description: 'mount · sync', id: 'companies' },
-        { label: '$(live-share) Collaboration', description: 'shared spaces', id: 'collab' },
-        { label: '$(folder) Projects', description: 'your work', id: 'projects' }
+        { label: '$(organization) ' + vscode.l10n.t('Companies'), description: vscode.l10n.t('mount · sync'), id: 'companies' },
+        { label: '$(live-share) ' + vscode.l10n.t('Collaboration'), description: vscode.l10n.t('shared spaces'), id: 'collab' },
+        { label: '$(folder) ' + vscode.l10n.t('Projects'), description: vscode.l10n.t('your work'), id: 'projects' }
       ];
-      const pick = await vscode.window.showQuickPick(items, { title: 'Workspaces' });
+      const pick = await vscode.window.showQuickPick(items, { title: vscode.l10n.t('Workspaces') });
       if (!pick) return;
       if (pick.id === 'companies') await companyAction();
       else if (pick.id === 'collab') await collaborateAction();
@@ -402,9 +415,9 @@ export function activate(context: vscode.ExtensionContext): void {
     // Ingest content — ask for the source(s), then run /aios:ingest in-session.
     vscode.commands.registerCommand('aios.ingest', async () => {
       const src = await vscode.window.showInputBox({
-        title: 'Ingest content',
-        prompt: 'One or more sources — URLs, file paths, or a topic (blank to be guided)',
-        placeHolder: 'e.g. https://… · ~/Downloads/notes.pdf · "the Q3 board call"',
+        title: vscode.l10n.t('Ingest content'),
+        prompt: vscode.l10n.t('One or more sources — URLs, file paths, or a topic (blank to be guided)'),
+        placeHolder: vscode.l10n.t('e.g. https://… · ~/Downloads/notes.pdf · "the Q3 board call"'),
         ignoreFocusOut: true,
       });
       if (src === undefined) return;

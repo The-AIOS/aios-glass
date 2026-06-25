@@ -29,6 +29,7 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "themes": [
       {
@@ -84,7 +85,7 @@
     "commands": [
       {
         "command": "aios.openHome",
-        "title": "AIOS: Open Home",
+        "title": "%cmd.openHome%",
         "icon": {
           "light": "media/aios-color.svg",
           "dark": "media/aios-color.svg"
@@ -92,113 +93,118 @@
       },
       {
         "command": "aios.openWalkthrough",
-        "title": "AIOS: Open Getting Started"
+        "title": "%cmd.openWalkthrough%"
       },
       {
         "command": "aios.openReadme",
-        "title": "AIOS: Open README",
+        "title": "%cmd.openReadme%",
+        "icon": "$(book)"
+      },
+      {
+        "command": "aios.openManual",
+        "title": "%cmd.openManual%",
         "icon": "$(book)"
       },
       {
         "command": "aios.openFiles",
-        "title": "AIOS: Browse Files (Finder)",
+        "title": "%cmd.openFiles%",
         "icon": "$(folder-opened)"
       },
       {
         "command": "aios.filesCollapseAll",
-        "title": "AIOS: Collapse Explorer",
+        "title": "%cmd.filesCollapseAll%",
         "icon": "$(collapse-all)"
       },
       {
         "command": "aios.filesRefresh",
-        "title": "AIOS: Refresh Explorer",
+        "title": "%cmd.filesRefresh%",
         "icon": "$(refresh)"
       },
       {
         "command": "aios.openConfigMenu",
-        "title": "AIOS: Config",
+        "title": "%cmd.openConfigMenu%",
         "icon": "$(gear)"
       },
       {
         "command": "aios.runRitualPicker",
-        "title": "AIOS: Run a Command"
+        "title": "%cmd.runRitualPicker%"
       },
       {
         "command": "aios.openSource",
-        "title": "AIOS: Open Source of Preview"
+        "title": "%cmd.openSource%"
       },
       {
         "command": "aios.skillsPicker",
-        "title": "AIOS: Browse Skills"
+        "title": "%cmd.skillsPicker%"
       },
       {
         "command": "aios.createCustom",
-        "title": "AIOS: Create Custom (agent / skill / plugin)",
+        "title": "%cmd.createCustom%",
         "icon": "$(add)"
       },
       {
         "command": "aios.showGraph",
-        "title": "AIOS: Open Vault Graph",
+        "title": "%cmd.showGraph%",
         "icon": "$(type-hierarchy)"
       },
       {
         "command": "aios.cheatsheet",
-        "title": "AIOS: Cheatsheet",
+        "title": "%cmd.cheatsheet%",
         "icon": "$(question)"
       },
       {
         "command": "aios.onboarding",
-        "title": "AIOS: Onboarding Guide",
+        "title": "%cmd.onboarding%",
         "icon": "$(question)"
       },
       {
         "command": "aios.runRitual",
-        "title": "AIOS: Run Ritual"
+        "title": "%cmd.runRitual%"
       },
       {
         "command": "aios.spawnAgent",
-        "title": "AIOS: Spawn Agent"
+        "title": "%cmd.spawnAgent%"
       },
       {
         "command": "aios.spawnWorker",
-        "title": "AIOS: Spawn Worker (adjective-animal)"
+        "title": "%cmd.spawnWorker%"
       },
       {
         "command": "aios.openCapability",
-        "title": "AIOS: Open Capability"
+        "title": "%cmd.openCapability%"
       },
       {
         "command": "aios.companyAction",
-        "title": "AIOS: Company Actions"
+        "title": "%cmd.companyAction%"
       },
       {
         "command": "aios.collaborateAction",
-        "title": "AIOS: Collaborate Actions"
+        "title": "%cmd.collaborateAction%"
       },
       {
         "command": "aios.updateFramework",
-        "title": "AIOS: Update Framework"
+        "title": "%cmd.updateFramework%"
       },
       {
         "command": "aios.setFrameworkPath",
-        "title": "AIOS: Set Framework Path"
+        "title": "%cmd.setFrameworkPath%"
       },
       {
         "command": "aios.showLogs",
-        "title": "AIOS: Show Logs"
+        "title": "%cmd.showLogs%"
       },
       {
         "command": "aios.askAios",
-        "title": "AIOS: Ask AIOS",
+        "title": "%cmd.askAios%",
         "icon": "$(sparkle)"
       },
       {
         "command": "aios.frequentMenu",
-        "title": "AIOS: Frequent Tasks & Routines"
+        "title": "%cmd.frequentMenu%"
       },
       {
         "command": "aios.palette",
-        "title": "AIOS: Search Everything (Palette)"
+        "title": "%cmd.palette%"
       }
     ],
     "keybindings": [
@@ -322,9 +328,14 @@
           "group": "navigation@0"
         },
         {
-          "command": "aios.onboarding",
+          "command": "aios.openManual",
           "when": "view == aios.home",
           "group": "navigation@1"
+        },
+        {
+          "command": "aios.onboarding",
+          "when": "view == aios.home",
+          "group": "navigation@2"
         },
         {
           "command": "aios.filesRefresh",

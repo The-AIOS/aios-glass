@@ -1,4 +1,30 @@
   const vscode = acquireVsCodeApi();
+
+  // ── i18n ──────────────────────────────────────────────────────────────────
+  // The host injects `window.__nls` (a key→string catalog for the editor's
+  // display language) and `window.__lang` before this script runs. NLS(key)
+  // returns the translated string, or the given fallback (the English baked into
+  // home.html), so a missing catalog/key always degrades to English — never blank.
+  const NLS_MAP = (typeof window !== 'undefined' && window.__nls) || {};
+  const NLS = (key, fallback) => (key && NLS_MAP[key] != null ? NLS_MAP[key] : (fallback != null ? fallback : ''));
+  // Apply the catalog to static markup: [data-i18n] → textContent,
+  // [data-i18n-title] → title attr, [data-i18n-aria] → aria-label.
+  function localizeStatic(){
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const v = NLS_MAP[el.getAttribute('data-i18n')];
+      if (v != null) el.textContent = v;
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      const v = NLS_MAP[el.getAttribute('data-i18n-title')];
+      if (v != null) el.setAttribute('title', v);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+      const v = NLS_MAP[el.getAttribute('data-i18n-aria')];
+      if (v != null) el.setAttribute('aria-label', v);
+    });
+  }
+  localizeStatic();
+
   let cur = { year: 0, month: 0 };
   const killed = new Set();  // pids killed via 🗑, filtered from the list until the registry confirms
   // View persists across reloads (webview state, like collapsed cards). On a
@@ -6,7 +32,7 @@
   let calView = ((((vscode.getState && vscode.getState()) || {}).calView) === 'week') ? 'week' : 'month';
   let weekIdx = calView === 'week' ? -1 : 0; // -1 → render() picks today's week
   let lastData = null;     // last month payload, for re-render on toggle/week-nav
-  document.getElementById('calToggle').textContent = calView === 'month' ? 'Week' : 'Month';
+  document.getElementById('calToggle').textContent = calView === 'month' ? NLS('calendar.week', 'Week') : NLS('calendar.month', 'Month');
   let pendingWeek = null;  // 'first' | 'last' — pick edge week after a cross-month nav
   // After a click that opens a terminal/editor, drop focus off the button so a
   // follow-up Enter (e.g. to pick a session in `claude --resume`) goes to the
@@ -126,6 +152,7 @@
   }
 
   document.getElementById('filesBtn').addEventListener('click', () => run('aios.openFiles'));
+  { const mb = document.getElementById('manualBtn'); if (mb) mb.addEventListener('click', () => run('aios.openManual')); }
   document.getElementById('settingsBtn').addEventListener('click', () => run('aios.openConfigMenu'));
   document.getElementById('addBtn').addEventListener('click', () => run('aios.createCustom'));
   document.getElementById('frequentMenu').addEventListener('click', () => run('aios.frequentMenu'));
@@ -241,7 +268,7 @@
   document.getElementById('next').addEventListener('click', () => step(1));
   document.getElementById('calToggle').addEventListener('click', () => {
     calView = calView === 'month' ? 'week' : 'month';
-    document.getElementById('calToggle').textContent = calView === 'month' ? 'Week' : 'Month';
+    document.getElementById('calToggle').textContent = calView === 'month' ? NLS('calendar.week', 'Week') : NLS('calendar.month', 'Month');
     { const st=(vscode.getState && vscode.getState()) || {}; vscode.setState(Object.assign({}, st, { calView })); }
     if (calView === 'week') { pendingWeek = null; weekIdx = -1; } // -1 → render() picks today's week
     if (lastData) render(lastData);

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="{{CSS_URI}}" />
+{{NLS}}
 </head>
 <body>
   <header class="topbar">
@@ -16,36 +17,40 @@
       <span class="wordmark">AIOS Glass</span>
     </div>
     <!-- framework status — a quiet indicator (dot + label), not a boxed button; clickable only when an update is available -->
-    <button class="status" id="updBadge" title="Checking framework status…"><span class="dot" id="updDot"></span><span class="updtext" id="updText">checking…</span></button>
+    <button class="status" id="updBadge" title="Checking framework status…"><span class="dot" id="updDot"></span><span class="updtext" id="updText" data-i18n="topbar.update.checking">checking…</span></button>
   </header>
 
   <div class="toolbar" role="toolbar" aria-label="AIOS actions">
     <!-- Everyday: browse + view controls -->
     <div class="tgroup">
-      <button class="cog" id="filesBtn" title="Browse files — open / hide the AIOS Files explorer">
+      <button class="cog" id="filesBtn" data-i18n-title="topbar.files.title" title="Browse files — open / hide the AIOS Files explorer">
         <svg class="ic-folder" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         <svg class="ic-folder-open" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>
       </button>
-      <button class="cog" id="themeToggle" title="Switch between dark and light">
+      <button class="cog" id="themeToggle" data-i18n-title="topbar.theme.title" title="Switch between dark and light">
         <svg class="ic-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.2M12 19.4v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.4 12h2.2M19.4 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
         <svg class="ic-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5Z"/></svg>
       </button>
-      <button class="cog" id="density" title="Density — comfortable / compact">
+      <button class="cog" id="density" data-i18n-title="topbar.density.title" title="Density — comfortable / compact">
         <svg class="ic-comfort" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="6" rx="1.6"/><rect x="3" y="13.5" width="18" height="6" rx="1.6"/></svg>
         <svg class="ic-compact" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="3.4" rx="1"/><rect x="3" y="10.3" width="18" height="3.4" rx="1"/><rect x="3" y="16.6" width="18" height="3.4" rx="1"/></svg>
       </button>
       <!-- Go with agents — at-hand quick spawn; the badge shows how many the daily note suggests -->
-      <button class="cog goagents" id="goAgentsTop" title="Go with agents — spawn the agents your daily note suggests (one terminal each)">
+      <button class="cog goagents" id="goAgentsTop" data-i18n-title="topbar.goagents.title" title="Go with agents — spawn the agents your daily note suggests (one terminal each)">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.7"/><circle cx="12" cy="3.5" r="1.1"/><circle cx="9.2" cy="13" r="1.05"/><circle cx="14.8" cy="13" r="1.05"/><path d="M2.7 12.5v3M21.3 12.5v3"/></svg>
         <span class="tbadge" id="goAgentsBadge" hidden>0</span>
+      </button>
+      <!-- Operating manual — opens the-aios.com manual in the browser (book + external-link glyph) -->
+      <button class="cog" id="manualBtn" data-i18n-title="topbar.manual.title" title="Open the AIOS operating manual (the-aios.com) in your browser">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
       </button>
     </div>
     <!-- Configure: create + settings -->
     <div class="tgroup">
-      <button class="cog" id="addBtn" title="Create a custom agent · skill · plugin">
+      <button class="cog" id="addBtn" data-i18n-title="topbar.add.title" title="Create a custom agent · skill · plugin">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-      <button class="cog" id="settingsBtn" title="Config — account · model · mode · theme">
+      <button class="cog" id="settingsBtn" data-i18n-title="topbar.settings.title" title="Config — account · model · mode · theme">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
       </button>
     </div>
@@ -53,135 +58,135 @@
 
   <div class="nudge" id="nudgeCard" style="display:none">
     <button class="nudgebody" id="nudgeAction"></button>
-    <button class="nudgex" id="nudgeDismiss" title="Dismiss for now" aria-label="Dismiss">✕</button>
+    <button class="nudgex" id="nudgeDismiss" data-i18n-title="nudge.dismiss.title" title="Dismiss for now" aria-label="Dismiss">✕</button>
   </div>
 
   <div class="cols">
     <div class="col">
       <div class="launch">
-        <button class="btn primary" id="launchPrimary">▶ Launch <span id="vPrimary">aios</span></button>
-        <button class="btn ghost" id="resume">Resume</button>
+        <button class="btn primary" id="launchPrimary">▶ <span data-i18n="launch.primary">Launch</span> <span id="vPrimary">aios</span></button>
+        <button class="btn ghost" id="resume" data-i18n="launch.resume">Resume</button>
       </div>
-      <button class="btn ask" id="askBtn" title="Type what you need — Claude matches your ask to the right context & tools in your AIOS — and puts them to work">✨ Ask AIOS anything you need</button>
+      <button class="btn ask" id="askBtn" data-i18n="ask.label" data-i18n-title="ask.title" title="Type what you need — Claude matches your ask to the right context & tools in your AIOS — and puts them to work">✨ Ask AIOS anything you need</button>
 
       <section class="card hero">
-        <p class="ctitle">Daily <span class="sub">discipline compounds</span></p>
-        <button class="btn" data-ritual="today">Plan my day <span class="k">/today</span></button>
-        <button class="btn" data-ritual="close-session">Close session <span class="k">/close-session</span></button>
-        <button class="btn" data-ritual="close-day">Close the day <span class="k">/close-day</span></button>
-        <button class="btn accent" id="goWithAgents" title="Spawn the agents your latest daily note suggests under “Agents can handle” — one terminal each">🤖 Go with agents <span class="k">multi spawn</span> <span class="val" id="vGoAgents">—</span></button>
+        <p class="ctitle"><span data-i18n="card.daily.title">Daily</span> <span class="sub" data-i18n="card.daily.sub">discipline compounds</span></p>
+        <button class="btn" data-ritual="today"><span data-i18n="daily.planDay">Plan my day</span> <span class="k">/today</span></button>
+        <button class="btn" data-ritual="close-session"><span data-i18n="daily.closeSession">Close session</span> <span class="k">/close-session</span></button>
+        <button class="btn" data-ritual="close-day"><span data-i18n="daily.closeDay">Close the day</span> <span class="k">/close-day</span></button>
+        <button class="btn accent" id="goWithAgents" data-i18n-title="daily.goWithAgents.title" title="Spawn the agents your latest daily note suggests under “Agents can handle” — one terminal each"><span data-i18n="daily.goWithAgents">🤖 Go with agents</span> <span class="k" data-i18n="daily.goWithAgents.k">multi spawn</span> <span class="val" id="vGoAgents">—</span></button>
       </section>
 
       <section class="card">
-        <p class="ctitle">Calendar</p>
+        <p class="ctitle" data-i18n="card.calendar.title">Calendar</p>
         <div class="calhead">
-          <button class="nav" id="prev" aria-label="Previous">‹</button>
+          <button class="nav" id="prev" data-i18n-aria="calendar.prev" aria-label="Previous">‹</button>
           <span class="label" id="calLabel">—</span>
-          <button class="nav" id="next" aria-label="Next">›</button>
-          <button class="vtoggle" id="calToggle" title="Switch month / week view">Week</button>
+          <button class="nav" id="next" data-i18n-aria="calendar.next" aria-label="Next">›</button>
+          <button class="vtoggle" id="calToggle" data-i18n-title="calendar.toggle.title" title="Switch month / week view">Week</button>
         </div>
         <table><thead><tr id="dow"></tr></thead><tbody id="cal"></tbody></table>
-        <p class="muted" id="calHint">Click to read · ⌘-click to edit.</p>
+        <p class="muted" id="calHint" data-i18n="calendar.hint">Click to read · ⌘-click to edit.</p>
       </section>
     </div>
 
     <div class="col">
       <section class="card">
-        <p class="ctitle">Quick</p>
-        <button class="btn" id="frequentMenu" title="Your frequent tasks — pick one to run, or add / remove your own">Frequent tasks <span class="k">add your own</span> <span class="val" id="vFrequent">—</span></button>
-        <button class="btn" id="browseAgents" title="Browse and spawn any agent — bundled, custom, or company">Launch an agent <span class="k">browse · task</span> <span class="val" id="vAgents">—</span></button>
-        <button class="btn" id="skillsPicker" title="Browse and load any registered skill">Load a skill <span class="k">browse · run</span> <span class="val" id="vSkills">—</span></button>
-        <button class="btn" id="cmdPicker" title="Browse and run any /aios: command">Run a command <span class="k">aios plugins</span> <span class="val" id="vCommands">—</span></button>
-        <button class="btn" id="ingestQuick" title="Turn one or more sources (URLs, files, transcripts) into structured vault context">Ingest content <span class="k">→ vault context</span></button>
-        <button class="btn" id="spawnWorker" title="Spawn a session you name (e.g. feat-checkout) — or leave the name blank for a random handle — with an optional task">Spawn a session <span class="k">name · task</span></button>
+        <p class="ctitle" data-i18n="card.quick.title">Quick</p>
+        <button class="btn" id="frequentMenu" data-i18n-title="quick.frequent.title" title="Your frequent tasks — pick one to run, or add / remove your own"><span data-i18n="quick.frequent">Frequent tasks</span> <span class="k" data-i18n="quick.frequent.k">add your own</span> <span class="val" id="vFrequent">—</span></button>
+        <button class="btn" id="browseAgents" data-i18n-title="quick.agents.title" title="Browse and spawn any agent — bundled, custom, or company"><span data-i18n="quick.agents">Launch an agent</span> <span class="k" data-i18n="quick.agents.k">browse · task</span> <span class="val" id="vAgents">—</span></button>
+        <button class="btn" id="skillsPicker" data-i18n-title="quick.skills.title" title="Browse and load any registered skill"><span data-i18n="quick.skills">Load a skill</span> <span class="k" data-i18n="quick.skills.k">browse · run</span> <span class="val" id="vSkills">—</span></button>
+        <button class="btn" id="cmdPicker" data-i18n-title="quick.commands.title" title="Browse and run any /aios: command"><span data-i18n="quick.commands">Run a command</span> <span class="k" data-i18n="quick.commands.k">aios plugins</span> <span class="val" id="vCommands">—</span></button>
+        <button class="btn" id="ingestQuick" data-i18n-title="quick.ingest.title" title="Turn one or more sources (URLs, files, transcripts) into structured vault context"><span data-i18n="quick.ingest">Ingest content</span> <span class="k" data-i18n="quick.ingest.k">→ vault context</span></button>
+        <button class="btn" id="spawnWorker" data-i18n-title="quick.spawn.title" title="Spawn a session you name (e.g. feat-checkout) — or leave the name blank for a random handle — with an optional task"><span data-i18n="quick.spawn">Spawn a session</span> <span class="k" data-i18n="quick.spawn.k">name · task</span></button>
       </section>
 
       <section class="card">
-        <p class="ctitle">Running</p>
+        <p class="ctitle" data-i18n="card.running.title">Running</p>
         <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k" id="quotaLabel">5h</span></div>
-        <button class="quota" id="quotaWarn" style="display:none" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
+        <button class="quota" id="quotaWarn" style="display:none" data-i18n-title="running.quotaWarn.title" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <div class="lhead">
-          <button class="btn" id="toggleRunning" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> Sessions <span class="val" id="vRunning">0</span></button>
-          <button class="lhead-add" id="addSession" title="Spawn a session — name it (or blank for a random handle), optional task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="btn" id="toggleRunning" data-i18n-title="running.toggle.title" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> <span data-i18n="running.sessions">Sessions</span> <span class="val" id="vRunning">0</span></button>
+          <button class="lhead-add" id="addSession" data-i18n-title="running.sessions.add.title" title="Spawn a session — name it (or blank for a random handle), optional task"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <div class="runlist" id="runningList"></div>
         <div class="lhead">
-          <button class="btn" id="toggleTerms" title="Show / hide open terminals"><span id="termCaret">▾</span> Terminals <span class="val" id="vTerms">0</span></button>
-          <button class="lhead-add" id="addTerm" title="Open a new terminal (not a Claude session)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="btn" id="toggleTerms" data-i18n-title="running.terms.toggle.title" title="Show / hide open terminals"><span id="termCaret">▾</span> <span data-i18n="running.terminals">Terminals</span> <span class="val" id="vTerms">0</span></button>
+          <button class="lhead-add" id="addTerm" data-i18n-title="running.terminals.add.title" title="Open a new terminal (not a Claude session)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <div class="runlist" id="termList"></div>
-        <p class="muted" id="runHint">Click to reveal.<br>Hover to interrupt, close session or kill.</p>
+        <p class="muted" id="runHint"><span data-i18n="running.hint.line1">Click to reveal.</span><br><span data-i18n="running.hint.line2">Hover to interrupt, close session or kill.</span></p>
       </section>
 
       <section class="card">
-        <p class="ctitle">Workspaces</p>
-        <button class="btn" id="browseFiles" title="Open the Finder-style file browser — your vault, the framework, and any folders you add">📁 Browse files <span class="k">finder view</span></button>
-        <button class="btn" id="companyAction" title="Mount, sync, or invite to a company's venture context">Companies <span class="k">ventures context</span> <span class="val" id="vCompanies">—</span></button>
-        <button class="btn" id="collaborateAction" title="Shared spaces with external collaborators">Collaboration <span class="k">shared spaces</span> <span class="val" id="vCollab">—</span></button>
-        <button class="btn" id="browseProjects" title="Your project notes (top-level)">Projects <span class="k">your work</span> <span class="val" id="vProjects">—</span></button>
+        <p class="ctitle" data-i18n="card.workspaces.title">Workspaces</p>
+        <button class="btn" id="browseFiles" data-i18n-title="workspaces.browseFiles.title" title="Open the Finder-style file browser — your vault, the framework, and any folders you add"><span data-i18n="workspaces.browseFiles">📁 Browse files</span> <span class="k" data-i18n="workspaces.browseFiles.k">finder view</span></button>
+        <button class="btn" id="companyAction" data-i18n-title="workspaces.companies.title" title="Mount, sync, or invite to a company's venture context"><span data-i18n="workspaces.companies">Companies</span> <span class="k" data-i18n="workspaces.companies.k">ventures context</span> <span class="val" id="vCompanies">—</span></button>
+        <button class="btn" id="collaborateAction" data-i18n-title="workspaces.collaboration.title" title="Shared spaces with external collaborators"><span data-i18n="workspaces.collaboration">Collaboration</span> <span class="k" data-i18n="workspaces.collaboration.k">shared spaces</span> <span class="val" id="vCollab">—</span></button>
+        <button class="btn" id="browseProjects" data-i18n-title="workspaces.projects.title" title="Your project notes (top-level)"><span data-i18n="workspaces.projects">Projects</span> <span class="k" data-i18n="workspaces.projects.k">your work</span> <span class="val" id="vProjects">—</span></button>
       </section>
     </div>
 
     <div class="col minor">
       <section class="card">
-        <p class="ctitle">Customize <span class="sub">personalizations</span></p>
-        <button class="btn" data-doc="intent">INTENT.md <span class="k">autonomy · trust</span></button>
-        <button class="btn" data-doc="user">USER.md <span class="k">identity · settings</span></button>
-        <p class="muted">Ask Claude to update them for you.</p>
+        <p class="ctitle"><span data-i18n="card.customize.title">Customize</span> <span class="sub" data-i18n="card.customize.sub">personalizations</span></p>
+        <button class="btn" data-doc="intent">INTENT.md <span class="k" data-i18n="customize.intent.k">autonomy · trust</span></button>
+        <button class="btn" data-doc="user">USER.md <span class="k" data-i18n="customize.user.k">identity · settings</span></button>
+        <p class="muted" data-i18n="customize.hint">Ask Claude to update them for you.</p>
       </section>
 
       <section class="card">
-        <p class="ctitle">Context <span class="sub">about you</span></p>
-        <button class="btn" id="browseDeclared">Declared <span class="k">you stated</span> <span class="val" id="vDeclared">—</span></button>
-        <button class="btn" id="browseObserved">Observed <span class="k">claude learned</span> <span class="val" id="vObserved">—</span></button>
+        <p class="ctitle"><span data-i18n="card.context.title">Context</span> <span class="sub" data-i18n="card.context.sub">about you</span></p>
+        <button class="btn" id="browseDeclared"><span data-i18n="context.declared">Declared</span> <span class="k" data-i18n="context.declared.k">you stated</span> <span class="val" id="vDeclared">—</span></button>
+        <button class="btn" id="browseObserved"><span data-i18n="context.observed">Observed</span> <span class="k" data-i18n="context.observed.k">claude learned</span> <span class="val" id="vObserved">—</span></button>
       </section>
 
       <section class="card">
-        <p class="ctitle">Learned <span class="sub">lately</span></p>
+        <p class="ctitle"><span data-i18n="card.learned.title">Learned</span> <span class="sub" data-i18n="card.learned.sub">lately</span></p>
         <div class="learnlist" id="learnList"></div>
-        <p class="muted" id="learnHint">Your second brain, getting smarter — click to read.</p>
+        <p class="muted" id="learnHint" data-i18n="learned.hint">Your second brain, getting smarter — click to read.</p>
       </section>
 
       <section class="card">
-        <p class="ctitle">Shipped <span class="sub">recently</span></p>
+        <p class="ctitle"><span data-i18n="card.shipped.title">Shipped</span> <span class="sub" data-i18n="card.shipped.sub">recently</span></p>
         <div class="learnlist" id="outputList"></div>
-        <p class="muted" id="outputHint">Click to read · ⌘-click for source.</p>
+        <p class="muted" id="outputHint" data-i18n="shipped.hint">Click to read · ⌘-click for source.</p>
       </section>
 
       <section class="card">
-        <p class="ctitle">Reports <span class="sub">recent · create new</span></p>
-        <button class="btn" id="genReport" title="Generate a report — pick type (role / weekly / status / custom) + period">Generate a report <span class="k">type · period</span></button>
+        <p class="ctitle"><span data-i18n="card.reports.title">Reports</span> <span class="sub" data-i18n="card.reports.sub">recent · create new</span></p>
+        <button class="btn" id="genReport" data-i18n-title="reports.generate.title" title="Generate a report — pick type (role / weekly / status / custom) + period"><span data-i18n="reports.generate">Generate a report</span> <span class="k" data-i18n="reports.generate.k">type · period</span></button>
         <div class="learnlist" id="reportList"></div>
-        <p class="muted" id="reportHint" style="display:none">Click to read · ⌘-click for source.</p>
+        <p class="muted" id="reportHint" style="display:none" data-i18n="reports.hint">Click to read · ⌘-click for source.</p>
       </section>
     </div>
   </div>
 
   <section class="shortcuts">
-    <button class="scbar" id="scToggle"><span id="scCaret">▸</span> ⌨ Key shortcuts <span class="scsub"><kbd class="lead">⌘</kbd><kbd class="lead">⌥</kbd><kbd class="lead">G</kbd><span class="dim">then a key</span></span></button>
+    <button class="scbar" id="scToggle"><span id="scCaret">▸</span> <span data-i18n="shortcuts.toggle">⌨ Key shortcuts</span> <span class="scsub"><kbd class="lead">⌘</kbd><kbd class="lead">⌥</kbd><kbd class="lead">G</kbd><span class="dim" data-i18n="shortcuts.then">then a key</span></span></button>
     <div class="scgrid collapsed" id="scGrid">
-      <div><kbd>Q</kbd>ask aios</div>
-      <div><kbd>D</kbd>daily ritual</div>
-      <div><kbd>Y</kbd>today's note</div>
-      <div><kbd>B</kbd>browse files</div>
-      <div><kbd>G</kbd>go-with-agents</div>
-      <div><kbd>X</kbd>context files</div>
-      <div><kbd>P</kbd>preferences</div>
-      <div><kbd>W</kbd>workspaces</div>
-      <div><kbd>M</kbd>minimize cards</div>
-      <div><kbd>H</kbd>toggle glass</div>
-      <div><kbd>,</kbd>open config</div>
-      <div><kbd>A</kbd>launch agent</div>
-      <div><kbd>K</kbd>load skill</div>
-      <div><kbd>C</kbd>run command</div>
-      <div><kbd>I</kbd>ingest content</div>
-      <div><kbd>R</kbd>running now</div>
-      <div><kbd>S</kbd>new session</div>
-      <div><kbd>T</kbd>new terminal</div>
-      <div><kbd>E</kbd>create report</div>
-      <div><kbd>F</kbd>frequent tasks</div>
-      <div><kbd>*</kbd>palette</div>
-      <div class="scwide"><kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd>move selected card</div>
+      <div><kbd>Q</kbd><span data-i18n="sc.ask">ask aios</span></div>
+      <div><kbd>D</kbd><span data-i18n="sc.daily">daily ritual</span></div>
+      <div><kbd>Y</kbd><span data-i18n="sc.today">today's note</span></div>
+      <div><kbd>B</kbd><span data-i18n="sc.browseFiles">browse files</span></div>
+      <div><kbd>G</kbd><span data-i18n="sc.goWithAgents">go-with-agents</span></div>
+      <div><kbd>X</kbd><span data-i18n="sc.context">context files</span></div>
+      <div><kbd>P</kbd><span data-i18n="sc.preferences">preferences</span></div>
+      <div><kbd>W</kbd><span data-i18n="sc.workspaces">workspaces</span></div>
+      <div><kbd>M</kbd><span data-i18n="sc.minimize">minimize cards</span></div>
+      <div><kbd>H</kbd><span data-i18n="sc.toggleGlass">toggle glass</span></div>
+      <div><kbd>,</kbd><span data-i18n="sc.config">open config</span></div>
+      <div><kbd>A</kbd><span data-i18n="sc.agent">launch agent</span></div>
+      <div><kbd>K</kbd><span data-i18n="sc.skill">load skill</span></div>
+      <div><kbd>C</kbd><span data-i18n="sc.command">run command</span></div>
+      <div><kbd>I</kbd><span data-i18n="sc.ingest">ingest content</span></div>
+      <div><kbd>R</kbd><span data-i18n="sc.running">running now</span></div>
+      <div><kbd>S</kbd><span data-i18n="sc.session">new session</span></div>
+      <div><kbd>T</kbd><span data-i18n="sc.terminal">new terminal</span></div>
+      <div><kbd>E</kbd><span data-i18n="sc.report">create report</span></div>
+      <div><kbd>F</kbd><span data-i18n="sc.frequent">frequent tasks</span></div>
+      <div><kbd>*</kbd><span data-i18n="sc.palette">palette</span></div>
+      <div class="scwide"><kbd>⌥</kbd><kbd>↑</kbd><kbd>↓</kbd><span data-i18n="sc.moveCard">move selected card</span></div>
     </div>
   </section>
 

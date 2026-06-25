@@ -1,0 +1,20 @@
+{
+  "Ask AIOS": "Pregúntale a AIOS",
+  "What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work": "¿Qué necesitas? Claude conecta tu petición con el contexto y las herramientas adecuadas de tu AIOS — y las pone a trabajar",
+  "e.g. 'prep tomorrow's investor call' · 'post about our launch'": "p. ej. 'prepara la llamada con inversionistas de mañana' · 'publica sobre nuestro lanzamiento'",
+  "Daily ritual": "Ritual diario",
+  "Run a daily ritual": "Ejecuta un ritual diario",
+  "Plan my day": "Planear mi día",
+  "Close session": "Cerrar sesión",
+  "Close the day": "Cerrar el día",
+  "Workspaces": "Espacios de trabajo",
+  "Companies": "Empresas",
+  "Collaboration": "Colaboración",
+  "Projects": "Proyectos",
+  "mount · sync": "montar · sincronizar",
+  "shared spaces": "espacios compartidos",
+  "your work": "tu trabajo",
+  "Ingest content": "Ingerir contenido",
+  "One or more sources — URLs, file paths, or a topic (blank to be guided)": "Una o más fuentes — URLs, rutas de archivos o un tema (déjalo en blanco para que te guíe)",
+  "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "p. ej. https://… · ~/Downloads/notas.pdf · \"la junta directiva del Q3\""
+}
