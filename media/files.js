@@ -1,6 +1,19 @@
   const vscode = acquireVsCodeApi();
   const explorerEl = document.getElementById('explorer');
   let places = [];
+  let sorts = {}; // AI-58: { workspaceRootPath: 'name' | 'mtime' } — from the host
+
+  // ── i18n (AI-19) ── mirror of the Home panel's localizer. The host injects
+  // `window.__nls` before this runs; NLS(key, fallback) returns the translation or
+  // the English fallback (also baked into files.html), so a miss degrades to English.
+  const NLS_MAP = (typeof window !== 'undefined' && window.__nls) || {};
+  const NLS = (key, fallback) => (key && NLS_MAP[key] != null ? NLS_MAP[key] : (fallback != null ? fallback : ''));
+  function localizeStatic(){
+    document.querySelectorAll('[data-i18n]').forEach((n) => { const v = NLS_MAP[n.getAttribute('data-i18n')]; if (v != null) n.textContent = v; });
+    document.querySelectorAll('[data-i18n-title]').forEach((n) => { const v = NLS_MAP[n.getAttribute('data-i18n-title')]; if (v != null) n.setAttribute('title', v); });
+    document.querySelectorAll('[data-i18n-ph]').forEach((n) => { const v = NLS_MAP[n.getAttribute('data-i18n-ph')]; if (v != null) n.setAttribute('placeholder', v); });
+  }
+  localizeStatic();
 
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
@@ -144,6 +157,32 @@
   window.addEventListener('blur', hideCtx);
   window.addEventListener('scroll', hideCtx, true);
 
+  // ── per-folder sort (AI-58) — a hover-reveal control on each Workspace-folder
+  //    header opens this 2-option menu; the choice persists per folder in .glass/. ──
+  const sortMenu = document.getElementById('sortMenu');
+  let sortRoot = ''; // the workspace root the menu is acting on
+  const hideSort = () => { sortMenu.hidden = true; };
+  function openSortMenu(ev, root){
+    sortRoot = root;
+    sortMenu.hidden = false;
+    sortMenu.style.left = Math.min(ev.clientX, window.innerWidth - 190) + 'px';
+    sortMenu.style.top = Math.min(ev.clientY, window.innerHeight - 90) + 'px';
+    const mode = sorts[root] || 'name';
+    document.getElementById('sortName').classList.toggle('on', mode === 'name');
+    document.getElementById('sortMtime').classList.toggle('on', mode === 'mtime');
+  }
+  const setSort = (mode) => { if (sortRoot) vscode.postMessage({ type: 'setSort', root: sortRoot, mode }); hideSort(); };
+  document.getElementById('sortName').addEventListener('click', (e) => { e.stopPropagation(); setSort('name'); });
+  document.getElementById('sortMtime').addEventListener('click', (e) => { e.stopPropagation(); setSort('mtime'); });
+  window.addEventListener('click', hideSort);
+  window.addEventListener('blur', hideSort);
+  window.addEventListener('scroll', hideSort, true);
+
+  // The sort glyph shown on a Workspace-folder header — arrows for name, a clock for mtime.
+  const sortGlyph = (mode) => mode === 'mtime'
+    ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M4 17l3 3 3-3"/><path d="M13.5 6h6M13.5 11h4.5M13.5 16h3"/></svg>';
+
   // Best-effort native drag — sets the path as text + a file URI so a drop target
   // (e.g. the terminal) inserts it. Webview→terminal DnD isn't guaranteed across the
   // iframe boundary, so "Send path to terminal" / "Copy path" (right-click) are the
@@ -248,22 +287,24 @@
   // The AIOS mark (rounded square + offset inner square) for the AIOS group header.
   const MARK = '<svg viewBox="0 0 18 18" width="15" height="15" aria-hidden="true"><rect x="1" y="1" width="16" height="16" rx="2.4" fill="none" stroke="var(--accent)" stroke-width="1.5"/><rect x="9" y="2" width="6" height="6" rx="1" fill="var(--accent)"/></svg>';
 
-  // A collapsible SECTION (FRAMEWORK / VAULT) rendered into a parent container.
-  async function addSection(label, opts, buildBody, parent) {
+  // A collapsible SECTION (FRAMEWORK / VAULT). `key` is the STABLE identity
+  // (collapse state + ensureExpand + auto-reveal all key off it, English-fixed);
+  // `label` is the translated text shown to the operator (AI-19).
+  async function addSection(key, label, opts, buildBody, parent) {
     const head = el('div', 'xsect xsub' + (opts.primary ? ' xprimary' : ''));
     const car = el('span', 'xcaret'); head.appendChild(car);
     if (opts.dot) head.appendChild(el('span', 'xdot' + (opts.dot === 'ring' ? ' ring' : '')));
     head.appendChild(el('span', 'xsectlab', label));
     if (opts.sub) head.appendChild(el('span', 'xsectsub', opts.sub));
     const box = el('div', 'xsectbody');
-    let collapsed = collapsedSet.has(label);
+    let collapsed = collapsedSet.has(key);
     const apply = () => { car.innerHTML = icon(collapsed ? 'chevR' : 'chevD', 11); box.style.display = collapsed ? 'none' : ''; };
     head.addEventListener('click', () => {
       collapsed = !collapsed;
-      if (collapsed) collapsedSet.add(label); else collapsedSet.delete(label);
+      if (collapsed) collapsedSet.add(key); else collapsedSet.delete(key);
       persistCollapsed(); apply();
     });
-    ensureExpand.set('sect:' + label, () => { if (collapsed) { collapsed = false; collapsedSet.delete(label); persistCollapsed(); apply(); } });
+    ensureExpand.set('sect:' + key, () => { if (collapsed) { collapsed = false; collapsedSet.delete(key); persistCollapsed(); apply(); } });
     (parent || explorerEl).append(head, box);
     apply();
     await buildBody(box);
@@ -278,7 +319,7 @@
     head.appendChild(el('span', 'xglabel', opts.label));
     if (opts.sub) head.appendChild(el('span', 'xsectsub', opts.sub));
     if (opts.add) {
-      const addB = el('button', 'xadd'); addB.type = 'button'; addB.title = 'Add a folder to your workspace'; addB.textContent = '+';
+      const addB = el('button', 'xadd'); addB.type = 'button'; addB.title = NLS('files.addFolder', 'Add a folder to your workspace'); addB.textContent = '+';
       addB.addEventListener('click', (ev) => { ev.stopPropagation(); vscode.postMessage({ type: 'addFolder' }); });
       head.appendChild(addB);
     }
@@ -307,24 +348,30 @@
     // AIOS — the framework itself: Framework + Vault, nested under one collapsible mark.
     await addGroup('AIOS', { mark: true, label: 'AIOS' }, async (g) => {
       if (framework && (!vault || framework.path !== vault.path)) {
-        await addSection('FRAMEWORK', { dot: 'ring', sub: 'AIOS infra' }, (box) => buildTree(framework.path, box, 0, "vault", 14), g);
+        await addSection('FRAMEWORK', NLS('files.section.framework', 'FRAMEWORK'), { dot: 'ring', sub: NLS('files.sub.frameworkInfra', 'AIOS infra') }, (box) => buildTree(framework.path, box, 0, "vault", 14), g);
       }
       if (vault) {
-        await addSection('VAULT', { dot: 'solid', sub: 'your notes', primary: true }, (box) => buildTree(vault.path, box, 0, null, 14), g);
+        await addSection('VAULT', NLS('files.section.vault', 'VAULT'), { dot: 'solid', sub: NLS('files.sub.yourNotes', 'your notes'), primary: true }, (box) => buildTree(vault.path, box, 0, null, 14), g);
       }
     });
 
     // WORKSPACE — external folders you add (repos, drives), each removable — not AIOS.
-    await addGroup('WORKSPACE', { external: true, label: 'WORKSPACE', sub: 'external', add: true }, async (g) => {
+    await addGroup('WORKSPACE', { external: true, label: NLS('files.group.workspace', 'WORKSPACE'), sub: NLS('files.sub.external', 'external'), add: true }, async (g) => {
       for (const w of workspace) {
         const fh = el('div', 'xrow dir xroot');
         fh.dataset.path = w.path; // wire the folder row for git status (the yellow-dot marker)
         fh.style.paddingLeft = '10px';
         const ic = el('span', 'xicon'); ic.innerHTML = icon('chevR', 11);
         const nm = el('span', 'xname', w.label);
-        const rm = el('span', 'xrm'); rm.title = 'Remove from workspace'; rm.textContent = '×';
+        // AI-58: per-folder sort control — hover-reveal, shows current mode, opens the menu.
+        const smode = sorts[w.path] || 'name';
+        const sb = el('span', 'xsort' + (smode === 'mtime' ? ' active' : ''));
+        sb.title = NLS('files.sort.title', 'Sort this folder — name or last-modified');
+        sb.innerHTML = sortGlyph(smode);
+        sb.addEventListener('click', (ev) => { ev.stopPropagation(); openSortMenu(ev, w.path); });
+        const rm = el('span', 'xrm'); rm.title = NLS('files.removeFolder', 'Remove from workspace'); rm.textContent = '×';
         rm.addEventListener('click', (ev) => { ev.stopPropagation(); vscode.postMessage({ type: 'removeFolder', path: w.path }); });
-        fh.append(ic, nm, rm);
+        fh.append(ic, nm, sb, rm);
         g.appendChild(fh);
         attachCtx(fh, w.path); attachDrag(fh, w.path);
         let kids = null;
@@ -340,7 +387,7 @@
           else await ensure();
         });
       }
-      if (!workspace.length) g.appendChild(el('div', 'xempty', 'Add a folder (a repo, a Drive folder) to navigate it here.'));
+      if (!workspace.length) g.appendChild(el('div', 'xempty', NLS('files.empty', 'Add a folder (a repo, a Drive folder) to navigate it here.')));
     });
 
     vscode.postMessage({ type: 'requestGit' }); // immediate git colors after (re)paint
@@ -465,6 +512,7 @@
       if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints);
       if (msg.iconsEnhanced != null) iconsEnhanced = msg.iconsEnhanced;
       places = msg.places || [];
+      if (msg.sorts) sorts = msg.sorts; // AI-58: per-folder sort modes
       // Await the repaint, then reveal a just-added folder (msg.focus) — expands the
       // WORKSPACE group to it + selects it, so adding a folder gives instant feedback.
       paintExplorer().then(() => { if (msg.focus) void revealPath(msg.focus); });
@@ -477,6 +525,7 @@
     else if (msg.type === 'revealPath') { void revealPath(msg.path); }
     else if (msg.type === 'collapseAll') { collapseAll(); }
     else if (msg.type === 'refresh') { void refreshTree(); }
+    else if (msg.type === 'sortChanged') { sorts[msg.root] = msg.mode; void refreshTree(); } // AI-58: re-list with the new order (host re-sorts)
     else if (msg.type === 'relist') { for (const d of (msg.dirs || [])) void relistFolder(d); } // targeted auto-update
   });
 

@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { addSessionNote, getSessionNotes } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
 import { listRoutines, runRoutine } from './tasks/routines';
@@ -271,10 +272,37 @@ export function activate(context: vscode.ExtensionContext): void {
       if (typeof name === 'string') return revealAgentTerminal(name, typeof pid === 'number' ? pid : undefined);
     }),
 
-    // Close a running session's terminal (kill) directly from the Home list.
-    vscode.commands.registerCommand('aios.closeAgent', (name?: string, pid?: number) => {
-      if (typeof name === 'string') return disposeAgentTerminal(name, typeof pid === 'number' ? pid : undefined);
+    // Close a running session's terminal (kill) directly from the Home list —
+    // through the kill-guard (AI-18): busy / has-notes sessions get the 3-option
+    // QuickPick; idle-empty ones kill straight. Refresh so the row drops promptly.
+    vscode.commands.registerCommand('aios.closeAgent', async (name?: string, pid?: number) => {
+      if (typeof name !== 'string') return;
+      await killGuardedDispose(name, typeof pid === 'number' ? pid : undefined);
+      HomeViewProvider.current?.refresh();
     }),
+
+    // Session post-it (AI-18 / AI-39) — jot a reminder on a live session. Notes are
+    // session-scoped and die at kill (harvested first by the kill-guard).
+    vscode.commands.registerCommand('aios.sessionNote', async (name?: string) => {
+      if (typeof name !== 'string' || !name) return;
+      const existing = getSessionNotes(name);
+      const note = await vscode.window.showInputBox({
+        title: `${t('Note on')} ${name}`,
+        prompt: existing.length
+          ? `${existing.length} ${existing.length > 1 ? t('notes') : t('note')} ${t('so far — add another (dies at kill, harvested first)')}`
+          : t('A reminder for this session — what did you want to do here next? (dies at kill, harvested first)'),
+        placeHolder: t('e.g. review the diff before merging'),
+        ignoreFocusOut: true,
+      });
+      if (note === undefined) return;
+      await addSessionNote(name, note);
+      HomeViewProvider.current?.refresh();
+    }),
+
+    // Health-card fix-its (AI-18): sign in to Claude, install Foam.
+    vscode.commands.registerCommand('aios.login', () => launchClaude('auth login')),
+    vscode.commands.registerCommand('aios.installFoam', () =>
+      vscode.commands.executeCommand('workbench.extensions.installExtension', 'foam.foam-vscode')),
 
     // Capture a running session (/aios:close-session) in its OWN terminal — the
     // ritual you'd want before killing it, so the session's work gets logged.
@@ -464,7 +492,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!action) return;
       if (action.id === 'reveal') await revealAgentTerminal(pick.agent.name, pick.agent.pid);
       else if (action.id === 'copy') { await vscode.env.clipboard.writeText(pick.agent.name); void vscode.window.showInformationMessage(t('Copied') + ` “${pick.agent.name}”.`); }
-      else if (action.id === 'kill') await disposeAgentTerminal(pick.agent.name, pick.agent.pid);
+      else if (action.id === 'kill') await killGuardedDispose(pick.agent.name, pick.agent.pid); // shared kill-guard
     }),
 
     vscode.commands.registerCommand('aios.runRitual', (cmd: AiosCommand) => runRitual(cmd)),

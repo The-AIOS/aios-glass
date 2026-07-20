@@ -8,6 +8,9 @@ import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from 
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
 import { listRunningAgents } from '../agents/running';
+import { sessionNoteCounts } from '../agents/sessionNotes';
+import { readAttention } from '../agents/attention';
+import { computeHealth } from './health';
 import { discoverSkills } from '../capabilities/capabilities';
 import { discoverCommands } from '../aios/commands';
 import { countAgentSuggestions } from '../tasks/goWithAgents';
@@ -312,14 +315,23 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // children), one `ps` scan for all of them. Best-effort — omitted if ps fails,
     // or when the operator turns the display off (cog → Session memory).
     const mem = showMemory() ? sessionMemoryMB(running.map((a) => a.pid)) : new Map<number, number>();
-    this.post({
-      type: 'running',
-      running: running.map((a) => ({
+    // AI-18 post-it counts + AI-7 needs-input registry, joined onto each session.
+    const notes = sessionNoteCounts();
+    const attention = readAttention();
+    let needsInputCount = 0;
+    const rows = running.map((a) => {
+      const busy = /busy|working|running/i.test(a.status || '');
+      const needsInput = !busy && attention.has(a.sessionId); // waiting-on-you overrides idle, never busy
+      if (needsInput) needsInputCount++;
+      return {
         name: a.name, pid: a.pid, status: a.status,
         proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
-      })),
-      quota,
+        notes: notes[a.name] || 0,
+        needsInput,
+        needsMsg: needsInput ? (attention.get(a.sessionId)?.message || '') : '',
+      };
     });
+    this.post({ type: 'running', running: rows, quota, needsInput: needsInputCount });
     void this.postTerminals(new Set(running.map((a) => a.name))); // reconcile Terminals vs the live registry each poll
   }
 
@@ -364,7 +376,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       learnings: recentLearnings(4).map((l) => ({ title: l.title, date: l.date, source: l.source, file: l.file, line: l.line })),
       nudge: showNudges() ? nudgeState(now.getHours(), now.getDay(), this.lastRunningCount) : null,
       outputs: recentOutputs(6).map((o) => ({ name: o.name, group: o.group, path: o.path })),
-      reports: recentReports(5).map((r) => ({ name: r.name, path: r.path }))
+      reports: recentReports(5).map((r) => ({ name: r.name, path: r.path })),
+      health: computeHealth() // AI-18 setup/health card
     });
   }
 

@@ -231,6 +231,26 @@
   @media (prefers-reduced-motion: reduce){ .runitem .dot{animation:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dc) 22%, transparent)} }
   .runitem .dot.error{--dc:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
   .runitem .dot.unk{--dc:var(--subtle)}
+  /* AI-18 post-it badge on a session row */
+  .runitem .rnote{flex:0 0 auto; margin-left:6px; font-size:10px; color:var(--subtle); opacity:.75; white-space:nowrap}
+  /* AI-7 needs-input row emphasis (the amber-bucket 'input' state) */
+  .runitem.attn .rname{color:#4aa3ff; font-weight:600}
+  /* AI-7 needs-input bucket — blue-tinted variant of the amber quota pill */
+  .quota.needsinput{background:color-mix(in srgb, #4aa3ff 16%, var(--surface-1)); border-color:color-mix(in srgb, #4aa3ff 55%, var(--line))}
+  .quota.needsinput:hover{background:color-mix(in srgb, #4aa3ff 26%, var(--surface-1))}
+  /* AI-18 setup/health card */
+  .hlist{display:flex; flex-direction:column; gap:2px}
+  .hcheck{display:flex; align-items:center; gap:7px; font-size:12.5px; padding:3px 2px}
+  .hcheck .hdot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}
+  .hcheck.ok .hdot{background:var(--ok)}
+  .hcheck.warn .hdot{background:#f5a623}
+  .hcheck .hlabel{flex:0 0 auto; color:var(--ink)}
+  .hcheck .hdetail{flex:1; min-width:0; font-size:11px; color:var(--subtle); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .hcheck.warn .hdetail{color:#d9962a}
+  .hcheck .hfix{flex:0 0 auto; background:transparent; border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:#d9962a;
+    border-radius:6px; padding:1px 8px; font-size:11px; font-family:var(--font); cursor:pointer}
+  .hcheck .hfix:hover{background:color-mix(in srgb, #f5a623 18%, transparent); color:var(--ink)}
+  .hallgood{margin:6px 0 0}
   .btn.accent{border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background:color-mix(in srgb, var(--accent) 12%, var(--surface-2))}
   .btn.accent:hover{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2))}
   .btn.accent .val{color:var(--accent)}

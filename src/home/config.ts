@@ -112,10 +112,10 @@ export const MODEL_OPTIONS: ModelOption[] = [
 
 export const MODE_OPTIONS = ['default', 'auto', 'acceptEdits', 'plan', 'bypassPermissions'];
 
-export const TERMINAL_OPTIONS = ['ask', 'active'];
+export const TERMINAL_OPTIONS = ['auto', 'ask', 'active'];
 
 export function currentTerminalMode(): string {
-  return vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'ask') || 'ask';
+  return vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'auto') || 'auto';
 }
 
 export async function setTerminalMode(value: string): Promise<void> {

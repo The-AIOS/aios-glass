@@ -181,3 +181,67 @@ test('parseAgentSection: does not false-match distinct tasks', () => {
   ].join('\n');
   assert.equal(parseAgentSection(md).length, 1);
 });
+
+// ── AI-58 per-folder sort (pure comparator + pref map) ───────────────────────
+
+import { compareEntries, sortEntries, setFolderSort, getFolderSort, owningRoot } from '../files/sort';
+
+const E = (name: string, dir: boolean, mtime: number) => ({ name, dir, mtime });
+
+test('sort: folders always precede files, in BOTH modes', () => {
+  assert.ok(compareEntries(E('z-dir', true, 1), E('a-file', false, 9), 'name') < 0);
+  assert.ok(compareEntries(E('z-dir', true, 1), E('a-file', false, 9), 'mtime') < 0);
+});
+
+test('sort: name mode is A→Z, numeric-prefix aware', () => {
+  const out = sortEntries([E('10 - x', false, 1), E('2 - a', false, 2), E('1 - b', false, 3)], 'name').map((e) => e.name);
+  assert.deepEqual(out, ['1 - b', '2 - a', '10 - x']);
+});
+
+test('sort: mtime mode is newest-first with a stable name tiebreak', () => {
+  const out = sortEntries([E('old', false, 100), E('new', false, 900), E('tieB', false, 500), E('tieA', false, 500)], 'mtime').map((e) => e.name);
+  assert.deepEqual(out, ['new', 'tieA', 'tieB', 'old']);
+});
+
+test('sort: setFolderSort prunes the default, stores non-default', () => {
+  const m1 = setFolderSort({}, '/code', 'mtime');
+  assert.equal(getFolderSort(m1, '/code'), 'mtime');
+  const m2 = setFolderSort(m1, '/code', 'name'); // back to default → pruned
+  assert.equal('/code' in m2, false);
+  assert.equal(getFolderSort(m2, '/code'), 'name'); // default read still works
+});
+
+test('sort: owningRoot picks the longest-matching workspace root', () => {
+  const roots = ['/code', '/code/nested'];
+  assert.equal(owningRoot(roots, '/code/nested/src/x.ts'), '/code/nested');
+  assert.equal(owningRoot(roots, '/code/other/y.ts'), '/code');
+  assert.equal(owningRoot(roots, '/elsewhere/z.ts'), undefined);
+});
+
+// ── AI-7 needs-input registry reader (TTL + parse) ───────────────────────────
+
+import { readAttention, ATTENTION_TTL_MS } from '../agents/attention';
+import * as os from 'node:os';
+import * as fsx from 'node:fs';
+import * as pathx from 'node:path';
+
+test('readAttention: fresh markers in, stale ones swept, garbage skipped', () => {
+  const dir = fsx.mkdtempSync(pathx.join(os.tmpdir(), 'glass-attn-'));
+  const now = 1_000_000_000_000;
+  fsx.writeFileSync(pathx.join(dir, 'sess-a.json'), JSON.stringify({ sessionId: 'sess-a', message: 'waiting', ts: now - 1000 }));
+  fsx.writeFileSync(pathx.join(dir, 'sess-b.json'), JSON.stringify({ sessionId: 'sess-b', message: 'old', ts: now - ATTENTION_TTL_MS - 1 })); // stale
+  fsx.writeFileSync(pathx.join(dir, 'broken.json'), '{ not json');
+  try {
+    const map = readAttention(now, dir);
+    assert.equal(map.size, 1);
+    assert.equal(map.get('sess-a')?.message, 'waiting');
+    assert.equal(map.has('sess-b'), false);
+    assert.equal(fsx.existsSync(pathx.join(dir, 'sess-b.json')), false, 'stale marker should be swept');
+  } finally {
+    fsx.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('readAttention: missing registry dir → empty map (the normal state)', () => {
+  assert.equal(readAttention(Date.now(), pathx.join(os.tmpdir(), 'glass-attn-does-not-exist-xyz')).size, 0);
+});

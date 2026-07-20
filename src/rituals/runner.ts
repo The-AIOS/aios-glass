@@ -9,6 +9,7 @@ import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow } from '../log';
 import { askSessionName } from '../core/taskModel';
+import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 
 /**
@@ -63,7 +64,19 @@ function shellQuote(s: string): string {
 /** Resolve the target terminal for an in-session action (ask/active). `style`
  *  names/icons a NEW terminal if one is created (existing terminals keep theirs). */
 async function pickTarget(style?: TermStyle): Promise<{ terminal: vscode.Terminal; isNew: boolean } | undefined> {
-  const mode = vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'ask');
+  const mode = vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'auto');
+
+  // auto (default) — smart-route with NO prompt: prefer the focused Claude, else
+  // the sole live Claude session, else a fresh terminal. Only ambiguity (0 or 2+
+  // live sessions and no focused one) opens a new terminal — never a wrong guess.
+  if (mode === 'auto') {
+    const active = vscode.window.activeTerminal;
+    if (active && await terminalHasClaude(active)) return { terminal: active, isNew: false };
+    const claudeTerms: vscode.Terminal[] = [];
+    for (const term of vscode.window.terminals) { if (await terminalHasClaude(term)) claudeTerms.push(term); }
+    if (claudeTerms.length === 1) return { terminal: claudeTerms[0], isNew: false };
+    return { terminal: newTerminal(style), isNew: true };
+  }
 
   if (mode === 'active') {
     const t = vscode.window.activeTerminal;
@@ -438,6 +451,37 @@ export async function disposeAgentTerminal(name: string, pid?: number): Promise<
   const t = await findAgentTerminal(name, pid);
   if (t) { t.dispose(); return; }
   runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
+}
+
+/**
+ * AI-18 — kill-guard (the shared sentinel; every kill surface calls this one
+ * primitive). Guards a session close against silent loss: when the session is
+ * BUSY or carries un-harvested post-its, a 3-option QuickPick asks how to close
+ * it — capture the work first, kill now (harvesting the notes so they aren't
+ * lost), or cancel. Nothing to lose (idle + no notes) → a straight, frictionless
+ * kill. Post-its die at kill either way (harvested first, never dropped).
+ */
+export async function killGuardedDispose(name: string, pid?: number): Promise<void> {
+  const running = await listRunningAgents();
+  const me = running.find((a) => (pid && a.pid === pid) || a.name === name);
+  const busy = /busy|working|running/i.test(me?.status || '');
+  const noteCount = getSessionNotes(name).length;
+
+  if (!busy && !noteCount) { await disposeAgentTerminal(name, pid); return; } // nothing to lose → straight kill
+
+  const notesTag = noteCount ? ` · ${noteCount} ${noteCount > 1 ? t('notes') : t('note')}` : '';
+  const pick = await vscode.window.showQuickPick(
+    [
+      { label: '$(book) ' + t('Capture & close'), description: t('run /close-session first — keep the work'), id: 'capture' },
+      { label: '$(trash) ' + t('Kill now'), description: noteCount ? t('harvest the notes, then kill') : t('close the terminal — stops Claude'), id: 'kill' },
+      { label: '$(close) ' + t('Cancel'), description: t('leave it running'), id: 'cancel' },
+    ],
+    { title: `${t('Close')} “${name}”?${busy ? ' · ' + t('busy') : ''}${notesTag}`, placeHolder: t('This session has work or notes to lose — how do you want to close it?') }
+  );
+  if (!pick || pick.id === 'cancel') return;
+  if (noteCount) await harvestSessionNotes(name); // harvest before either close path — never drop a reminder
+  if (pick.id === 'capture') { await closeSessionInTerminal(name, pid); return; }
+  await disposeAgentTerminal(name, pid);
 }
 
 /** Launch native Claude with a natural-language prompt — fresh terminal. */

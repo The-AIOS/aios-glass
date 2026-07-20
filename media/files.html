@@ -8,11 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="{{CSS_URI}}" />
+{{NLS}}
 </head>
 <body>
   <div class="xfilter">
-    <input id="xfilterInput" type="text" placeholder="Find…" spellcheck="false" autocomplete="off" />
-    <button class="xfclear" id="xfClear" type="button" title="Clear" hidden>×</button>
+    <input id="xfilterInput" type="text" placeholder="Find…" data-i18n-ph="files.find" spellcheck="false" autocomplete="off" />
+    <button class="xfclear" id="xfClear" type="button" title="Clear" data-i18n-title="files.clear" hidden>×</button>
   </div>
   <nav class="explorer" id="explorer" aria-label="AIOS Explorer" tabindex="0">
     <!-- sections injected by files.js -->
@@ -20,10 +21,16 @@
 
   <!-- right-click affordance — explicit labels so actions can't be misread -->
   <div class="ctx" id="ctx" role="menu" hidden>
-    <button class="ctxitem" id="ctxTerminalHere" role="menuitem" type="button">Open terminal here</button>
-    <button class="ctxitem" id="ctxTerminal" role="menuitem" type="button">Send path to terminal</button>
-    <button class="ctxitem" id="ctxCopy" role="menuitem" type="button">Copy path</button>
-    <button class="ctxitem" id="ctxReveal" role="menuitem" type="button">Reveal in Finder</button>
+    <button class="ctxitem" id="ctxTerminalHere" role="menuitem" type="button" data-i18n="files.ctx.terminalHere">Open terminal here</button>
+    <button class="ctxitem" id="ctxTerminal" role="menuitem" type="button" data-i18n="files.ctx.sendPath">Send path to terminal</button>
+    <button class="ctxitem" id="ctxCopy" role="menuitem" type="button" data-i18n="files.ctx.copyPath">Copy path</button>
+    <button class="ctxitem" id="ctxReveal" role="menuitem" type="button" data-i18n="files.ctx.reveal">Reveal in Finder</button>
+  </div>
+
+  <!-- per-folder sort menu (AI-58) — opened from a Workspace-folder header -->
+  <div class="ctx" id="sortMenu" role="menu" hidden>
+    <button class="ctxitem" id="sortName" role="menuitem" type="button" data-i18n="files.sort.name">Name (A→Z)</button>
+    <button class="ctxitem" id="sortMtime" role="menuitem" type="button" data-i18n="files.sort.mtime">Last modified (newest)</button>
   </div>
 
 <script nonce="{{NONCE}}" src="{{JS_URI}}"></script>
