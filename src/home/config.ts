@@ -147,6 +147,11 @@ export function showWeekNumbers(): boolean {
   return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showWeekNumbers', true);
 }
 
+export async function setShowWeekNumbers(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('showWeekNumbers', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: calendar week numbers ${on ? 'shown' : 'hidden'}.`);
+}
+
 /** How Glass opens a Markdown note on plain click — Calendar days AND Explorer files.
  *  'previewToSide' (Foam-rendered, beside the source — default) or 'editor' (raw source, faster).
  *  Legacy 'preview' (full-tab) migrates to 'previewToSide'. */
