@@ -100,8 +100,6 @@
       <section class="card">
         <p class="ctitle" data-i18n="card.running.title">Running</p>
         <div class="quotarow" id="quotaLine" style="display:none"><div class="quotabar" id="quotaBar"><div class="qfill" id="quotaFill"></div></div><span class="k" id="quotaLabel">5h</span></div>
-        <!-- AI-7: needs-input amber bucket — sessions waiting on the human. -->
-        <button class="quota needsinput" id="needsInputBucket" style="display:none" data-i18n-title="running.needsInput.title" title="A session is waiting on you — click to reveal it"></button>
         <button class="quota" id="quotaWarn" style="display:none" data-i18n-title="running.quotaWarn.title" title="Swap to your other account — silent, in-place (statusline shows it)"></button>
         <div class="lhead">
           <button class="btn" id="toggleRunning" data-i18n-title="running.toggle.title" title="Show / hide your live Claude sessions"><span id="runCaret">▾</span> <span data-i18n="running.sessions">Sessions</span> <span class="val" id="vRunning">0</span></button>
@@ -126,7 +124,7 @@
 
     <div class="col minor">
       <section class="card">
-        <p class="ctitle"><span data-i18n="card.setup.title">Setup</span> <span class="sub" data-i18n="card.setup.sub">health</span></p>
+        <p class="ctitle"><span data-i18n="card.setup.title">Health</span></p>
         <div class="hlist" id="healthList"></div>
       </section>
 

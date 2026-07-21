@@ -234,12 +234,7 @@
   /* AI-18 post-it badge on a session row */
   .runitem .rnote{flex:0 0 auto; margin-left:6px; font-size:10px; color:var(--subtle); opacity:.75; white-space:nowrap; cursor:pointer; border-radius:4px}
   .runitem .rnote:hover{opacity:1; color:var(--ink)}
-  /* AI-7 needs-input row emphasis (the amber-bucket 'input' state) */
-  .runitem.attn .rname{color:#4aa3ff; font-weight:600}
-  /* AI-7 needs-input bucket — blue-tinted variant of the amber quota pill */
-  .quota.needsinput{background:color-mix(in srgb, #4aa3ff 16%, var(--surface-1)); border-color:color-mix(in srgb, #4aa3ff 55%, var(--line))}
-  .quota.needsinput:hover{background:color-mix(in srgb, #4aa3ff 26%, var(--surface-1))}
-  /* AI-18 setup/health card */
+  /* AI-18 health card */
   .hlist{display:flex; flex-direction:column; gap:2px}
   .hcheck{display:flex; align-items:center; gap:7px; font-size:12.5px; padding:3px 2px}
   .hcheck .hdot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}

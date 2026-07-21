@@ -351,10 +351,8 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    // Health-card fix-its (AI-18): sign in to Claude, install Foam.
+    // Health-card fix-its (AI-18): sign in to Claude.
     vscode.commands.registerCommand('aios.login', () => launchClaude('auth login')),
-    vscode.commands.registerCommand('aios.installFoam', () =>
-      vscode.commands.executeCommand('workbench.extensions.installExtension', 'foam.foam-vscode')),
 
     // Capture a running session (/aios:close-session) in its OWN terminal — the
     // ritual you'd want before killing it, so the session's work gets logged.

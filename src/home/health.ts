@@ -1,4 +1,6 @@
-import * as vscode from 'vscode';
+import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 import { resolveCommandsDir } from '../aios/commands';
 import { vaultRoot } from './vault';
 import { currentAnthropicAccount } from './config';
@@ -16,14 +18,14 @@ import { currentAnthropicAccount } from './config';
  * the webview to existing commands.
  */
 export interface HealthCheck {
-  id: 'framework' | 'vault' | 'account' | 'foam';
+  id: 'framework' | 'vault' | 'account' | 'skills';
   /** Short label shown on the row. */
   label: string;
   ok: boolean;
   /** One-line current-state detail (path found, account email, …). */
   detail: string;
   /** The fix action id when NOT ok — mapped to a command in home.js. */
-  fix?: 'setPath' | 'login' | 'installFoam';
+  fix?: 'setPath' | 'login';
 }
 
 /** Compute the setup-health checks (order = display order). */
@@ -48,11 +50,17 @@ export function computeHealth(): HealthCheck[] {
     ? { id: 'account', label: 'Claude account', ok: true, detail: acct }
     : { id: 'account', label: 'Claude account', ok: false, detail: 'not signed in', fix: 'login' });
 
-  // 4. Foam — optional (renders [[wikilinks]] + the graph). Amber, not red.
-  const foam = !!vscode.extensions.getExtension('foam.foam-vscode');
-  checks.push(foam
-    ? { id: 'foam', label: 'Foam', ok: true, detail: 'installed' }
-    : { id: 'foam', label: 'Foam', ok: false, detail: 'optional — renders wikilinks & the graph', fix: 'installFoam' });
+  // 4. Skills & commands — the /aios:* commands + skills must be registered
+  //    (marketplace plugin + `skills/setup.sh` symlinks into ~/.claude/skills)
+  //    or they silently don't load. Amber if the skills dir is empty/missing.
+  let skillCount = 0;
+  try {
+    const skillsDir = path.join(os.homedir(), '.claude', 'skills');
+    skillCount = fs.existsSync(skillsDir) ? fs.readdirSync(skillsDir).length : 0;
+  } catch { skillCount = 0; }
+  checks.push(skillCount > 0
+    ? { id: 'skills', label: 'Skills & commands', ok: true, detail: `${skillCount} registered` }
+    : { id: 'skills', label: 'Skills & commands', ok: false, detail: 'not registered — run `bash skills/setup.sh`' });
 
   return checks;
 }

@@ -257,30 +257,3 @@ test('parseStoredNotes: non-array (absent / corrupt) → empty list', () => {
   assert.deepEqual(parseStoredNotes({}), []);
 });
 
-// ── AI-7 needs-input registry reader (TTL + parse) ───────────────────────────
-
-import { readAttention, ATTENTION_TTL_MS } from '../agents/attention';
-import * as os from 'node:os';
-import * as fsx from 'node:fs';
-import * as pathx from 'node:path';
-
-test('readAttention: fresh markers in, stale ones swept, garbage skipped', () => {
-  const dir = fsx.mkdtempSync(pathx.join(os.tmpdir(), 'glass-attn-'));
-  const now = 1_000_000_000_000;
-  fsx.writeFileSync(pathx.join(dir, 'sess-a.json'), JSON.stringify({ sessionId: 'sess-a', message: 'waiting', ts: now - 1000 }));
-  fsx.writeFileSync(pathx.join(dir, 'sess-b.json'), JSON.stringify({ sessionId: 'sess-b', message: 'old', ts: now - ATTENTION_TTL_MS - 1 })); // stale
-  fsx.writeFileSync(pathx.join(dir, 'broken.json'), '{ not json');
-  try {
-    const map = readAttention(now, dir);
-    assert.equal(map.size, 1);
-    assert.equal(map.get('sess-a')?.message, 'waiting');
-    assert.equal(map.has('sess-b'), false);
-    assert.equal(fsx.existsSync(pathx.join(dir, 'sess-b.json')), false, 'stale marker should be swept');
-  } finally {
-    fsx.rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('readAttention: missing registry dir → empty map (the normal state)', () => {
-  assert.equal(readAttention(Date.now(), pathx.join(os.tmpdir(), 'glass-attn-does-not-exist-xyz')).size, 0);
-});

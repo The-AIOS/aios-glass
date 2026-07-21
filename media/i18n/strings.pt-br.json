@@ -61,8 +61,6 @@
   "running.terminals.add.title": "Abrir um novo terminal (não uma sessão do Claude)",
   "running.hint.line1": "Clique para revelar.",
   "running.hint.line2": "Passe o cursor para anotar, interromper, encerrar a sessão ou finalizar.",
-  "running.needsInput": "precisam de você",
-  "running.needsInput.title": "Esta sessão está esperando por você — clique para revelá-la",
   "running.note.title": "Nota — anote um lembrete nesta sessão (é colhida e depois se perde ao finalizar)",
   "running.toggle.title": "Mostrar / ocultar suas sessões ativas do Claude",
   "running.terms.toggle.title": "Mostrar / ocultar os terminais abertos",
@@ -135,12 +133,10 @@
   "sc.palette": "paleta",
   "sc.moveCard": "mover cartão selecionado",
 
-  "card.setup.title": "Configuração",
-  "card.setup.sub": "saúde",
+  "card.setup.title": "Saúde",
   "setup.allGood": "Está tudo conectado.",
   "setup.fix.setPath": "Definir caminho",
   "setup.fix.login": "Entrar",
-  "setup.fix.installFoam": "Instalar",
 
   "files.find": "Buscar…",
   "files.clear": "Limpar",

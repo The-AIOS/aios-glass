@@ -254,19 +254,12 @@
     else vscode.postMessage({ type: 'focusTerminal', pid });
   });
   document.getElementById('quotaWarn').addEventListener('click', () => { const to = document.getElementById('quotaWarn').getAttribute('data-to'); if (to) run('aios.swapTo', to); });
-  // AI-7: the amber bucket jumps to the first session waiting on you.
-  document.getElementById('needsInputBucket').addEventListener('click', () => {
-    const b = document.getElementById('needsInputBucket');
-    const n = b.getAttribute('data-name'); const p = Number(b.getAttribute('data-pid')) || undefined;
-    if (n) run('aios.revealAgent', n, p);
-  });
   // AI-18: health-card fix-its route to the commands Glass already ships.
   document.getElementById('healthList').addEventListener('click', (ev) => {
     const b = ev.target.closest('.hfix'); if (!b) return;
     const fix = b.getAttribute('data-fix');
     if (fix === 'setPath') run('aios.setFrameworkPath');
     else if (fix === 'login') run('aios.login');
-    else if (fix === 'installFoam') run('aios.installFoam');
   });
   document.getElementById('browseAgents').addEventListener('click', () => run('aios.spawnAgent'));
   document.getElementById('skillsPicker').addEventListener('click', () => run('aios.skillsPicker'));
@@ -367,10 +360,7 @@
       const list = document.getElementById('runningList');
       if (list){
         const html = r.map((a) => {
-          // AI-7: a needs-input session overrides idle with the amber-bucket 'input'
-          // state (never busy — busy means it's working, not waiting on you).
-          let s = statusInfo(a.status);
-          if (a.needsInput) s = { cls: 'input', label: NLS('running.needsInput', 'need your input'), title: a.needsMsg || NLS('running.needsInput', 'need your input') };
+          const s = statusInfo(a.status);
           const nm = (a.name || '(unnamed)').replace(/</g,'&lt;');
           // Interrupt (Esc) — only meaningful while the session is actively working.
           const interrupt = s.cls === 'busy'
@@ -386,9 +376,9 @@
           const dur = fmtAgo(a.updatedAt);
           const proj = String(a.proj || '').replace(/</g,'&lt;');
           const mem = fmtMem(a.mem);
-          const statusTxt = s.label + (a.needsInput ? '' : (dur ? ' ' + dur : ''));
+          const statusTxt = s.label + (dur ? ' ' + dur : '');
           const titleAttr = (s.title + ' — click to reveal its terminal').replace(/"/g, '&quot;');
-          return '<div class="runitem' + (a.needsInput ? ' attn' : '') + '" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + titleAttr + '">'
+          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + titleAttr + '">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + noteBadge
             + (mem ? '<span class="rmem">' + mem + '</span>' : '')
@@ -406,16 +396,6 @@
             + '</button>'
             + '</span></div>';
         }).join('');
-        // AI-7 amber bucket — count of sessions waiting on you + a jump target.
-        const nib = document.getElementById('needsInputBucket');
-        const ni = msg.needsInput || 0;
-        const firstAttn = r.find((a) => a.needsInput);
-        if (ni > 0 && firstAttn) {
-          nib.textContent = '● ' + ni + ' ' + NLS('running.needsInput', 'need your input');
-          nib.setAttribute('data-name', firstAttn.name || '');
-          nib.setAttribute('data-pid', firstAttn.pid || '');
-          nib.style.display = '';
-        } else { nib.style.display = 'none'; }
         // replace only on change — the 2s poll otherwise tears down hover/tooltip
         // state (and focus) on every tick even when nothing moved
         if (list.dataset.html !== html) { list.innerHTML = html; list.dataset.html = html; }
