@@ -183,6 +183,15 @@
     ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>'
     : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M4 17l3 3 3-3"/><path d="M13.5 6h6M13.5 11h4.5M13.5 16h3"/></svg>';
 
+  // Reflect a flipped sort on the workspace-root header in place (no repaint) — swap
+  // the glyph + the active tint so the control shows the mode that's now applied. (AI-58)
+  function updateSortGlyph(root, mode){
+    const row = findRow(root); if (!row) return;
+    const sb = row.querySelector('.xsort'); if (!sb) return;
+    sb.classList.toggle('active', mode === 'mtime');
+    sb.innerHTML = sortGlyph(mode);
+  }
+
   // Best-effort native drag — sets the path as text + a file URI so a drop target
   // (e.g. the terminal) inserts it. Webview→terminal DnD isn't guaranteed across the
   // iframe boundary, so "Send path to terminal" / "Copy path" (right-click) are the
@@ -268,11 +277,20 @@
     for (const r of rowsNow()) { // drop rows whose file is gone (+ its kids container)
       if (!want.has(r.dataset.path)) { const k = r.nextElementSibling; if (k && k.classList.contains('xkids')) k.remove(); r.remove(); }
     }
-    let prev = null; // insert any missing rows in listing order
+    // Re-place EVERY row in the host's sorted order (folders-first, then the folder's
+    // mode). Existing DOM nodes are MOVED, not recreated — so expansion, selection and
+    // git decorations survive; only genuinely-new files are built. Reordering (not just
+    // insert-missing) is what makes a live sort-flip — or an mtime bump from a save —
+    // visibly reorder folders AND files in place, with no full repaint and no manual
+    // collapse/expand. (AI-58)
+    const byPath = new Map(rowsNow().map((r) => [r.dataset.path, r]));
+    let prev = null; // the last node placed (a row, or its trailing .xkids container)
     for (const e of entries) {
-      let row = rowsNow().find((r) => r.dataset.path === e.path);
-      if (!row) { row = makeRow(e, depth, base); if (prev) prev.after(row); else container.prepend(row); }
-      prev = (row.nextElementSibling && row.nextElementSibling.classList.contains('xkids')) ? row.nextElementSibling : row;
+      const row = byPath.get(e.path) || makeRow(e, depth, base);
+      const kids = (row.nextElementSibling && row.nextElementSibling.classList.contains('xkids')) ? row.nextElementSibling : null;
+      if (prev) prev.after(row); else container.prepend(row); // moves an existing node into its new slot
+      if (kids) row.after(kids); // keep an expanded folder's children directly beneath it
+      prev = kids || row;
     }
     applyFilter();
   }
@@ -525,7 +543,17 @@
     else if (msg.type === 'revealPath') { void revealPath(msg.path); }
     else if (msg.type === 'collapseAll') { collapseAll(); }
     else if (msg.type === 'refresh') { void refreshTree(); }
-    else if (msg.type === 'sortChanged') { sorts[msg.root] = msg.mode; void refreshTree(); } // AI-58: re-list with the new order (host re-sorts)
+    else if (msg.type === 'sortChanged') {
+      // AI-58: the pref applies to the root's WHOLE subtree. Re-list every rendered
+      // directory under it IN PLACE (relistFolder now reorders) — folders reorder live,
+      // no repaint, no collapse/expand. Collapsed dirs no-op and re-fetch fresh on next
+      // expand. (Full refreshTree tore the tree down + re-expanded, which didn't reliably
+      // reorder already-open folders — this targets exactly what changed.)
+      sorts[msg.root] = msg.mode;
+      updateSortGlyph(msg.root, msg.mode);
+      const root = msg.root;
+      for (const d of [...dirContainers.keys()]) { if (d === root || d.startsWith(root + '/')) void relistFolder(d); }
+    }
     else if (msg.type === 'relist') { for (const d of (msg.dirs || [])) void relistFolder(d); } // targeted auto-update
   });
 
