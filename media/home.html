@@ -41,8 +41,10 @@
         <span class="tbadge" id="goAgentsBadge" hidden>0</span>
       </button>
       <!-- Close all — broadcast /close-session to every live Claude session (each self-closes, race-safe) -->
-      <button class="cog closeall" id="closeAllTop" data-i18n-title="topbar.closeall.title" title="Close all — send /close-session to every live session (each captures itself; then run /close-day)">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+      <!-- hidden until ≥1 session is running (toggled in home.js on the 'running' message); door/exit
+           icon MATCHES the per-session .runclose hover button — this is the same close-session, for all. -->
+      <button class="cog closeall" id="closeAllTop" hidden data-i18n-title="topbar.closeall.title" title="Close all — send /close-session to every live session (each captures itself; then run /close-day)">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
       </button>
     </div>
     <!-- Configure: create + settings -->

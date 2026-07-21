@@ -359,6 +359,8 @@
       const r = raw.filter((a) => !killed.has(a.pid));
       const v = document.getElementById('vRunning'); v.textContent = r.length ? r.length + '' : '';
       v.className = r.length ? 'val' : 'k';
+      // Close-all is only meaningful with a live session to close — reveal it only when ≥1 is running.
+      const cab = document.getElementById('closeAllTop'); if (cab) cab.hidden = r.length === 0;
       const list = document.getElementById('runningList');
       if (list){
         const html = r.map((a) => {
