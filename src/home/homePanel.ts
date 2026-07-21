@@ -8,6 +8,8 @@ import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from 
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
 import { listRunningAgents } from '../agents/running';
+import { sessionNoteCounts } from '../agents/sessionNotes';
+import { computeHealth } from './health';
 import { discoverSkills } from '../capabilities/capabilities';
 import { discoverCommands } from '../aios/commands';
 import { countAgentSuggestions } from '../tasks/goWithAgents';
@@ -15,7 +17,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory, showWeekNumbers } from './config';
 import { getFilesVisible } from '../files/filesState';
 import { effectiveLocale, webviewCatalog } from '../i18n';
 
@@ -312,14 +314,16 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // children), one `ps` scan for all of them. Best-effort — omitted if ps fails,
     // or when the operator turns the display off (cog → Session memory).
     const mem = showMemory() ? sessionMemoryMB(running.map((a) => a.pid)) : new Map<number, number>();
-    this.post({
-      type: 'running',
-      running: running.map((a) => ({
+    // AI-18 post-it counts, joined onto each session.
+    const notes = sessionNoteCounts();
+    const rows = running.map((a) => {
+      return {
         name: a.name, pid: a.pid, status: a.status,
         proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
-      })),
-      quota,
+        notes: notes[a.name] || 0,
+      };
     });
+    this.post({ type: 'running', running: rows, quota });
     void this.postTerminals(new Set(running.map((a) => a.name))); // reconcile Terminals vs the live registry each poll
   }
 
@@ -353,6 +357,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       commands: discoverCommands().length,
       frequent: frequentTaskCount(),
       showHints: showHints(),
+      showWeekNumbers: showWeekNumbers(),
       companies: readCompanies().map((c) => ({ name: c.name, lastSync: c.lastSync })),
       collab: readCollabSpaces().map((s) => ({ name: s.name })),
       framework: readFrameworkStatus() ?? null,
@@ -364,7 +369,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       learnings: recentLearnings(4).map((l) => ({ title: l.title, date: l.date, source: l.source, file: l.file, line: l.line })),
       nudge: showNudges() ? nudgeState(now.getHours(), now.getDay(), this.lastRunningCount) : null,
       outputs: recentOutputs(6).map((o) => ({ name: o.name, group: o.group, path: o.path })),
-      reports: recentReports(5).map((r) => ({ name: r.name, path: r.path }))
+      reports: recentReports(5).map((r) => ({ name: r.name, path: r.path })),
+      health: computeHealth() // AI-18 setup/health card
     });
   }
 

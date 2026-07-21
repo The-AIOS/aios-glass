@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
 import { listRoutines, runRoutine } from './tasks/routines';
@@ -37,6 +38,18 @@ const DOC_FILES: Record<string, string> = {
   tools: 'TOOLS.md',
   readme: 'README.md'
 };
+
+/** Compact "when jotted" for the post-it viewer — relative for the same day (notes
+ *  are short-lived: they die at kill), an absolute date once older. 0 → unknown. */
+function noteWhen(ts: number): string {
+  if (!ts) return '';
+  const mins = Math.round((Date.now() - ts) / 60000);
+  if (mins < 1) return t('just now');
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return new Date(ts).toLocaleDateString();
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   // Banner so the diagnostics channel is never blank — an empty Output pane
@@ -271,10 +284,75 @@ export function activate(context: vscode.ExtensionContext): void {
       if (typeof name === 'string') return revealAgentTerminal(name, typeof pid === 'number' ? pid : undefined);
     }),
 
-    // Close a running session's terminal (kill) directly from the Home list.
-    vscode.commands.registerCommand('aios.closeAgent', (name?: string, pid?: number) => {
-      if (typeof name === 'string') return disposeAgentTerminal(name, typeof pid === 'number' ? pid : undefined);
+    // Close a running session's terminal (kill) directly from the Home list —
+    // through the kill-guard (AI-18): an explicit close ALWAYS shows the 3-option
+    // QuickPick (kill is destructive → predictable confirm). Refresh so the row
+    // drops promptly once it's gone.
+    vscode.commands.registerCommand('aios.closeAgent', async (name?: string, pid?: number) => {
+      if (typeof name !== 'string') return;
+      await killGuardedDispose(name, typeof pid === 'number' ? pid : undefined);
+      HomeViewProvider.current?.refresh();
     }),
+
+    // Session post-it (AI-18 / AI-39) — jot a reminder on a live session. Notes are
+    // session-scoped and die at kill (harvested first by the kill-guard).
+    vscode.commands.registerCommand('aios.sessionNote', async (name?: string) => {
+      if (typeof name !== 'string' || !name) return;
+      const existing = getSessionNotes(name);
+      const note = await vscode.window.showInputBox({
+        title: `${t('Note on')} ${name}`,
+        prompt: existing.length
+          ? `${existing.length} ${existing.length > 1 ? t('notes') : t('note')} ${t('so far — add another (dies at kill, harvested first)')}`
+          : t('A reminder for this session — what did you want to do here next? (dies at kill, harvested first)'),
+        placeHolder: t('e.g. review the diff before merging'),
+        ignoreFocusOut: true,
+      });
+      if (note === undefined) return;
+      await addSessionNote(name, note);
+      HomeViewProvider.current?.refresh();
+    }),
+
+    // View a session's post-its (AI-18 / AI-39) — the readable side of the jot: a
+    // small list of each note (text + when) with a per-item trash button to delete,
+    // and an "add another" action. Opened from the 📝 count badge on a session row,
+    // so notes you jotted aren't write-only. Loops so a delete/add re-renders in place.
+    vscode.commands.registerCommand('aios.sessionNotesView', async (name?: string) => {
+      if (typeof name !== 'string' || !name) return;
+      for (;;) {
+        const notes = getSessionNotes(name);
+        if (!notes.length) return; // opened empty, or deleted the last one → nothing to show
+        type NoteItem = vscode.QuickPickItem & { idx?: number; add?: boolean };
+        const qp = vscode.window.createQuickPick<NoteItem>();
+        qp.title = `${t('Notes on')} ${name}`;
+        qp.placeholder = t('Session post-its — they die at kill (harvested first). Trash icon deletes one.');
+        const trash: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('trash'), tooltip: t('Delete this note') };
+        qp.items = [
+          ...notes.map((n, i): NoteItem => ({ label: n.text, description: noteWhen(n.ts), buttons: [trash], idx: i })),
+          { label: '$(add) ' + t('Add a note'), alwaysShow: true, add: true },
+        ];
+        // Resolve the outcome BEFORE hide() — VS Code can fire onDidHide synchronously
+        // during hide(), and the first resolve wins; resolving first keeps a delete/add
+        // from being overwritten by onDidHide's 'close'.
+        const next = await new Promise<'deleted' | 'add' | 'close'>((resolve) => {
+          qp.onDidTriggerItemButton(async (e) => {
+            const idx = e.item.idx;
+            if (typeof idx !== 'number') return;
+            await deleteSessionNote(name, idx);
+            HomeViewProvider.current?.refresh();
+            resolve('deleted'); qp.hide();
+          });
+          qp.onDidAccept(() => { const sel = qp.selectedItems[0]; resolve(sel?.add ? 'add' : 'close'); qp.hide(); });
+          qp.onDidHide(() => { resolve('close'); qp.dispose(); }); // no-op if already resolved
+          qp.show();
+        });
+        if (next === 'deleted') continue;                                             // re-render the shorter list
+        if (next === 'add') { await vscode.commands.executeCommand('aios.sessionNote', name); continue; } // add, then back to the list
+        return; // dismissed / picked a note → done
+      }
+    }),
+
+    // Health-card fix-its (AI-18): sign in to Claude.
+    vscode.commands.registerCommand('aios.login', () => launchClaude('auth login')),
 
     // Capture a running session (/aios:close-session) in its OWN terminal — the
     // ritual you'd want before killing it, so the session's work gets logged.
@@ -464,7 +542,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!action) return;
       if (action.id === 'reveal') await revealAgentTerminal(pick.agent.name, pick.agent.pid);
       else if (action.id === 'copy') { await vscode.env.clipboard.writeText(pick.agent.name); void vscode.window.showInformationMessage(t('Copied') + ` “${pick.agent.name}”.`); }
-      else if (action.id === 'kill') await disposeAgentTerminal(pick.agent.name, pick.agent.pid);
+      else if (action.id === 'kill') await killGuardedDispose(pick.agent.name, pick.agent.pid); // shared kill-guard
     }),
 
     vscode.commands.registerCommand('aios.runRitual', (cmd: AiosCommand) => runRitual(cmd)),
@@ -497,7 +575,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory')) HomeViewProvider.current?.refresh();
+      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory') || e.affectsConfiguration('aiosGlass.showWeekNumbers')) HomeViewProvider.current?.refresh();
       // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
       if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
     })

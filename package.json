@@ -394,15 +394,17 @@
         "aiosGlass.terminalMode": {
           "type": "string",
           "enum": [
+            "auto",
             "ask",
             "active"
           ],
           "enumDescriptions": [
+            "Smart-route (default): use the focused Claude if there is one, else the only live Claude session, else open a new one — no prompt",
             "Ask each time which terminal to use (existing ones, or a new one)",
             "Use the focused terminal (assumed to have a live Claude session), else open a new one"
           ],
-          "default": "ask",
-          "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+          "default": "auto",
+          "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) `auto` smart-routes to a live Claude session when it's unambiguous — the focused one, or the sole live session — and only opens a new terminal when there's nothing to route to (keep `ask` for power users). A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
         },
         "aiosGlass.showHidden": {
           "type": "boolean",
@@ -471,6 +473,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show the contextual ritual nudge banner at the top of Home — morning (the day's suggested ritual), daytime (wrap open sessions), evening (close the day). Each nudge can be dismissed for the day; turn this off to hide them entirely."
+        },
+        "aiosGlass.showWeekNumbers": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the ISO week-number column (e.g. `W30`) down the left edge of the Home calendar, in both month and week views. Turn off if you don't work in week numbers."
         }
       }
     },

@@ -231,6 +231,22 @@
   @media (prefers-reduced-motion: reduce){ .runitem .dot{animation:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dc) 22%, transparent)} }
   .runitem .dot.error{--dc:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
   .runitem .dot.unk{--dc:var(--subtle)}
+  /* AI-18 post-it badge on a session row */
+  .runitem .rnote{flex:0 0 auto; margin-left:6px; font-size:10px; color:var(--subtle); opacity:.75; white-space:nowrap; cursor:pointer; border-radius:4px}
+  .runitem .rnote:hover{opacity:1; color:var(--ink)}
+  /* AI-18 health card */
+  .hlist{display:flex; flex-direction:column; gap:2px}
+  .hcheck{display:flex; align-items:center; gap:7px; font-size:12.5px; padding:3px 2px}
+  .hcheck .hdot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}
+  .hcheck.ok .hdot{background:var(--ok)}
+  .hcheck.warn .hdot{background:#f5a623}
+  .hcheck .hlabel{flex:0 0 auto; color:var(--ink)}
+  .hcheck .hdetail{flex:1; min-width:0; font-size:11px; color:var(--subtle); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .hcheck.warn .hdetail{color:#d9962a}
+  .hcheck .hfix{flex:0 0 auto; background:transparent; border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:#d9962a;
+    border-radius:6px; padding:1px 8px; font-size:11px; font-family:var(--font); cursor:pointer}
+  .hcheck .hfix:hover{background:color-mix(in srgb, #f5a623 18%, transparent); color:var(--ink)}
+  .hallgood{margin:6px 0 0}
   .btn.accent{border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background:color-mix(in srgb, var(--accent) 12%, var(--surface-2))}
   .btn.accent:hover{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2))}
   .btn.accent .val{color:var(--accent)}
@@ -274,6 +290,10 @@
   table{width:100%; border-collapse:collapse}
   th{font-size:11px; font-weight:600; color:var(--subtle); padding:6px 0; text-transform:uppercase; letter-spacing:.06em}
   td{text-align:center; padding:1px}
+  /* week-number column (discreet, legible) — a header 'Wk' + a Wnn per row */
+  th.wkh{font-size:8.5px; color:var(--subtle); opacity:.55; padding-right:4px; text-transform:none; letter-spacing:0}
+  td.wknum{font-size:8.5px; font-weight:600; color:var(--subtle); opacity:.5; text-align:center; vertical-align:middle; padding:0 4px 0 0; white-space:nowrap; font-variant-numeric:tabular-nums}
+  body.no-weeknums th.wkh, body.no-weeknums td.wknum{display:none}
   .cell{position:relative; min-height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:13px; color:var(--ink); border:1px solid transparent}
   .cell.has{cursor:pointer}
   .cell.has:hover{background:var(--surface-2); border-color:var(--line)}

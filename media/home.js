@@ -208,9 +208,13 @@
     const reveal = (el) => { if (!el) return; const { n, p } = itemNP(el); if (n) run('aios.revealAgent', n, p); };
     runningList.addEventListener('click', (ev) => {
       const item = ev.target.closest('.runitem'); if (!item) return;
+      if (ev.target.closest('.rnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNotesView', n); return; } // AI-18: 📝 badge → view/delete notes
+      if (ev.target.closest('.runnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNote', n); return; } // AI-18: pencil → jot a new post-it
       if (ev.target.closest('.runint')) { const { n, p } = itemNP(item); if (n) run('aios.interruptAgent', n, p); return; }
       if (ev.target.closest('.runclose')) { const { n, p } = itemNP(item); if (n) run('aios.closeSessionAgent', n, p); return; }
-      if (ev.target.closest('.runkill')) { const { n, p } = itemNP(item); if (n) { if (p) killed.add(p); run('aios.closeAgent', n, p); item.remove(); applyRunOpen(); } return; }
+      // Kill routes through the kill-guard (AI-18) — no optimistic removal, since the
+      // guard may cancel; aios.closeAgent refreshes the list once the session is gone.
+      if (ev.target.closest('.runkill')) { const { n, p } = itemNP(item); if (n) run('aios.closeAgent', n, p); return; }
       reveal(item);
     });
     runningList.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); reveal(ev.target.closest('.runitem')); } });
@@ -250,6 +254,13 @@
     else vscode.postMessage({ type: 'focusTerminal', pid });
   });
   document.getElementById('quotaWarn').addEventListener('click', () => { const to = document.getElementById('quotaWarn').getAttribute('data-to'); if (to) run('aios.swapTo', to); });
+  // AI-18: health-card fix-its route to the commands Glass already ships.
+  document.getElementById('healthList').addEventListener('click', (ev) => {
+    const b = ev.target.closest('.hfix'); if (!b) return;
+    const fix = b.getAttribute('data-fix');
+    if (fix === 'setPath') run('aios.setFrameworkPath');
+    else if (fix === 'login') run('aios.login');
+  });
   document.getElementById('browseAgents').addEventListener('click', () => run('aios.spawnAgent'));
   document.getElementById('skillsPicker').addEventListener('click', () => run('aios.skillsPicker'));
   document.getElementById('companyAction').addEventListener('click', () => run('aios.companyAction'));
@@ -288,6 +299,7 @@
       if (msg.theme) applyTheme(msg.theme);
       document.getElementById('filesBtn').classList.toggle('active', !!msg.filesOpen);
       document.body.classList.toggle('no-hints', msg.showHints === false);
+      document.body.classList.toggle('no-weeknums', msg.showWeekNumbers === false);
       document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';
       document.getElementById('vSkills').textContent = (msg.skills || 0) + '';
@@ -324,6 +336,21 @@
         return '<div class="learnitem" data-path="' + (r.path||'') + '" title="report — click to read · ⌘-click for source"><span class="lsrc">report</span><span class="ltitle">' + nm + '</span></div>';
       }).join('');
       document.getElementById('reportHint').style.display = reps.length ? '' : 'none';
+      // AI-18 setup/health card — a dot + detail per check, with a fix-it when amber.
+      const health = msg.health || [];
+      const hl = document.getElementById('healthList');
+      if (hl){
+        const rows = health.map((h) => {
+          const label = (h.label || '').replace(/</g,'&lt;');
+          const detail = (h.detail || '').replace(/</g,'&lt;');
+          const fix = (!h.ok && h.fix)
+            ? '<button class="hfix" data-fix="' + h.fix + '">' + NLS('setup.fix.' + h.fix, h.fix).replace(/</g,'&lt;') + '</button>'
+            : '';
+          return '<div class="hcheck ' + (h.ok ? 'ok' : 'warn') + '"><span class="hdot"></span><span class="hlabel">' + label + '</span><span class="hdetail">' + detail + '</span>' + fix + '</div>';
+        }).join('');
+        const allGood = health.length && health.every((h) => h.ok);
+        hl.innerHTML = rows + (allGood ? '<p class="muted hallgood">' + NLS('setup.allGood', "Everything's wired.") + '</p>' : '');
+      }
     } else if (msg.type === 'running'){
       const raw = msg.running || [];
       // Self-clean: once the registry no longer lists a killed pid, stop filtering it.
@@ -342,16 +369,25 @@
               + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
               + '</button>'
             : '';
+          // AI-18 post-it: a 📝 count badge when the session carries notes — click to
+          // view them (text + when + delete). role=button so it reads as interactive.
+          const noteBadge = a.notes ? '<span class="rnote" role="button" tabindex="0" title="' + (NLS('running.note.view', 'View notes') + ' (' + a.notes + ')').replace(/"/g, '&quot;') + '">📝 ' + a.notes + '</span>' : '';
           // Richer status, inline only: "status + duration · project" (webview
           // tooltips render unreliably in Antigravity, so no hover detail).
           const dur = fmtAgo(a.updatedAt);
           const proj = String(a.proj || '').replace(/</g,'&lt;');
           const mem = fmtMem(a.mem);
           const statusTxt = s.label + (dur ? ' ' + dur : '');
-          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + s.title + ' — click to reveal its terminal">'
+          const titleAttr = (s.title + ' — click to reveal its terminal').replace(/"/g, '&quot;');
+          return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + titleAttr + '">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
+            + noteBadge
             + (mem ? '<span class="rmem">' + mem + '</span>' : '')
             + '<span class="runacts">'
+            // AI-18: the 4th (first-listed) hover button — attach a post-it to this session.
+            + '<button class="runnote" data-note="1" title="' + NLS('running.note.title', 'Note').replace(/"/g, '&quot;') + '" aria-label="Note">'
+            + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+            + '</button>'
             + interrupt
             + '<button class="runclose" data-close="1" title="Close session" aria-label="Close session (close-session)">'
             + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>'
@@ -473,6 +509,7 @@
 
   function render(data){
     let weeks = data.weeks;
+    let weekNums = data.weekNums || [];
     let label = data.label;
     if (calView === 'week'){
       // Resolve which week to show: edge after a cross-month nav, else today's week, else clamp.
@@ -482,12 +519,13 @@
       pendingWeek = null;
       weekIdx = Math.max(0, Math.min(weekIdx, weeks.length - 1));
       weeks = [weeks[weekIdx]];
+      weekNums = [weekNums[weekIdx]];
     }
     document.getElementById('calLabel').textContent = label;
-    document.getElementById('dow').innerHTML = data.weekdays.map((w) => '<th>' + w + '</th>').join('');
+    document.getElementById('dow').innerHTML = '<th class="wkh" title="' + NLS('calendar.week.col', 'Week number') + '"></th>' + data.weekdays.map((w) => '<th>' + w + '</th>').join('');
     const body = document.getElementById('cal');
-    body.innerHTML = weeks.map((week) =>
-      '<tr>' + week.map((c) => {
+    body.innerHTML = weeks.map((week, wi) =>
+      '<tr>' + '<td class="wknum">' + (weekNums[wi] ? 'W' + weekNums[wi] : '') + '</td>' + week.map((c) => {
         if (c.date === null) return '<td><div class="cell empty"></div></td>';
         const cls = ['cell','day']; if (c.hasNote) cls.push('has'); if (c.isToday) cls.push('today');
         return '<td><div class="' + cls.join(' ') + '" data-date="' + c.date + '"><span class="num">' + c.day + '</span></div></td>';

@@ -181,3 +181,87 @@ test('parseAgentSection: does not false-match distinct tasks', () => {
   ].join('\n');
   assert.equal(parseAgentSection(md).length, 1);
 });
+
+// ── AI-58 per-folder sort (pure comparator + pref map) ───────────────────────
+
+import { compareEntries, sortEntries, setFolderSort, resolveSort, owningRoot } from '../files/sort';
+
+const E = (name: string, dir: boolean, mtime: number) => ({ name, dir, mtime });
+
+test('sort: folders always precede files, in BOTH modes', () => {
+  assert.ok(compareEntries(E('z-dir', true, 1), E('a-file', false, 9), 'name') < 0);
+  assert.ok(compareEntries(E('z-dir', true, 1), E('a-file', false, 9), 'mtime') < 0);
+});
+
+test('sort: name mode is A→Z, numeric-prefix aware', () => {
+  const out = sortEntries([E('10 - x', false, 1), E('2 - a', false, 2), E('1 - b', false, 3)], 'name').map((e) => e.name);
+  assert.deepEqual(out, ['1 - b', '2 - a', '10 - x']);
+});
+
+test('sort: mtime mode is newest-first with a stable name tiebreak', () => {
+  const out = sortEntries([E('old', false, 100), E('new', false, 900), E('tieB', false, 500), E('tieA', false, 500)], 'mtime').map((e) => e.name);
+  assert.deepEqual(out, ['new', 'tieA', 'tieB', 'old']);
+});
+
+test('sort: setFolderSort stores explicit overrides (no prune — needed under a master)', () => {
+  const m1 = setFolderSort({}, '/code', 'mtime');
+  assert.equal(m1['/code'], 'mtime');
+  const m2 = setFolderSort(m1, '/code', 'name'); // a `name` override MUST persist (master may be mtime)
+  assert.equal('/code' in m2, true);
+  assert.equal(m2['/code'], 'name');
+});
+
+test('sort: resolveSort — closest-ancestor override beats parent, else master', () => {
+  const overrides = { '/code': 'mtime' as const, '/code/deep': 'name' as const };
+  assert.equal(resolveSort(overrides, '/code/a/b', 'name'), 'mtime');      // under /code
+  assert.equal(resolveSort(overrides, '/code/deep/x', 'name'), 'name');    // deeper override wins
+  assert.equal(resolveSort(overrides, '/other', 'mtime'), 'mtime');        // no override → master
+  assert.equal(resolveSort({}, '/anything', 'name'), 'name');              // empty → master
+});
+
+test('sort: owningRoot picks the longest-matching workspace root', () => {
+  const roots = ['/code', '/code/nested'];
+  assert.equal(owningRoot(roots, '/code/nested/src/x.ts'), '/code/nested');
+  assert.equal(owningRoot(roots, '/code/other/y.ts'), '/code');
+  assert.equal(owningRoot(roots, '/elsewhere/z.ts'), undefined);
+});
+
+// ── AI-18 session post-its — backward-compatible note parsing ────────────────
+
+import { parseStoredNotes } from '../agents/sessionNotesParse';
+
+test('parseStoredNotes: legacy bare strings coerce to notes with ts=0', () => {
+  const out = parseStoredNotes(['review the diff', '  merge PR #12  ']);
+  assert.deepEqual(out, [
+    { text: 'review the diff', ts: 0 },
+    { text: 'merge PR #12', ts: 0 },
+  ]);
+});
+
+test('parseStoredNotes: timestamped objects keep text + ts', () => {
+  const out = parseStoredNotes([{ t: 'ship it', ts: 1_700_000_000_000 }]);
+  assert.deepEqual(out, [{ text: 'ship it', ts: 1_700_000_000_000 }]);
+});
+
+test('parseStoredNotes: mixed shapes, empties + garbage dropped', () => {
+  const out = parseStoredNotes([
+    'keep me',
+    '   ',                       // empty string → dropped
+    { t: '  trimmed  ', ts: 5 }, // trimmed, ts kept
+    { t: '' },                   // empty object text → dropped
+    { ts: 9 },                   // no text → dropped
+    42,                          // non-note → dropped
+    null,                        // → dropped
+  ]);
+  assert.deepEqual(out, [
+    { text: 'keep me', ts: 0 },
+    { text: 'trimmed', ts: 5 },
+  ]);
+});
+
+test('parseStoredNotes: non-array (absent / corrupt) → empty list', () => {
+  assert.deepEqual(parseStoredNotes(undefined), []);
+  assert.deepEqual(parseStoredNotes('not an array'), []);
+  assert.deepEqual(parseStoredNotes({}), []);
+});
+

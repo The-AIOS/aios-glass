@@ -98,9 +98,18 @@
   .xrow.gU .gdot,.xrow.gA .gdot{background:#46a758}
   .xrow.gD .gdot{background:#d0453a}
   /* workspace root rows carry a remove control (× on hover) */
-  .xroot .xrm{margin-left:auto; flex:0 0 auto; color:var(--subtle); opacity:0; padding:0 4px; font-size:14px; line-height:1; border-radius:4px}
+  .xroot .xrm{flex:0 0 auto; color:var(--subtle); opacity:0; padding:0 4px; font-size:14px; line-height:1; border-radius:4px}
   .xroot:hover .xrm{opacity:.7}
   .xroot .xrm:hover{opacity:1; color:var(--accent)}
+  /* AI-58: per-folder sort control — hover-reveal like ×; sits left of ×, pushed
+     to the right edge by margin-left:auto. Stays faintly visible when the folder
+     is on the non-default 'mtime' mode, so the current sort is discoverable. */
+  .xsort{margin-left:auto; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+    color:var(--subtle); opacity:0; padding:0 3px; border-radius:4px; cursor:pointer}
+  .xroot:hover .xsort, .xsect:hover .xsort, .xrow:hover .xsort{opacity:.7}
+  .xsort:hover{opacity:1; color:var(--accent)}
+  /* the currently-selected sort option in the menu reads accent */
+  .ctxitem.on{color:var(--accent); font-weight:600}
 
   /* ── right-click context menu ── */
   .ctx{position:fixed; z-index:50; min-width:176px; background:var(--surface-1); border:1px solid var(--line);

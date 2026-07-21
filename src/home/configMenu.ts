@@ -14,6 +14,7 @@ import {
   showHiddenFiles, setShowHidden,
   autoReveal, setAutoReveal,
   showMemory, setShowMemory,
+  showWeekNumbers, setShowWeekNumbers,
   currentLanguage, setLanguage, GlassLang,
   openNotesIn, setOpenNotesIn, OpenNotesMode
 } from './config';
@@ -46,6 +47,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(eye) ' + t('Secondary hints'), description: onOff(showHints()), id: 'hints' },
     { label: '$(bell) ' + t('Ritual nudges'), description: onOff(showNudges()), id: 'nudges' },
     { label: '$(pulse) ' + t('Session memory'), description: shownHidden(showMemory()), id: 'memory' },
+    { label: '$(calendar) ' + t('Calendar week numbers'), description: onOff(showWeekNumbers()), id: 'weeknums' },
     // ── Explorer — the file tree ──
     sep(t('Explorer')),
     { label: '$(go-to-file) ' + t('Open notes in'), description: openNotesLabel(openNotesIn()), id: 'openin' },
@@ -215,6 +217,17 @@ export async function openConfigMenu(): Promise<void> {
         { title: `${t('Secondary hints')} — ${t('currently')} ${onOff(showHints())}` }
       );
       if (choice) await setShowHints(choice.value);
+      return;
+    }
+    case 'weeknums': {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(eye) ' + t('On'), description: t('show the ISO week-number column (e.g. W30)'), value: true },
+          { label: '$(eye-closed) ' + t('Off'), description: t("hide it — for when you don't work in week numbers"), value: false }
+        ],
+        { title: `${t('Calendar week numbers')} — ${t('currently')} ${onOff(showWeekNumbers())}` }
+      );
+      if (choice) await setShowWeekNumbers(choice.value);
       return;
     }
     case 'nudges': {

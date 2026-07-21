@@ -112,10 +112,10 @@ export const MODEL_OPTIONS: ModelOption[] = [
 
 export const MODE_OPTIONS = ['default', 'auto', 'acceptEdits', 'plan', 'bypassPermissions'];
 
-export const TERMINAL_OPTIONS = ['ask', 'active'];
+export const TERMINAL_OPTIONS = ['auto', 'ask', 'active'];
 
 export function currentTerminalMode(): string {
-  return vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'ask') || 'ask';
+  return vscode.workspace.getConfiguration('aiosGlass').get<string>('terminalMode', 'auto') || 'auto';
 }
 
 export async function setTerminalMode(value: string): Promise<void> {
@@ -140,6 +140,16 @@ export function showHints(): boolean {
 export async function setShowHints(on: boolean): Promise<void> {
   await vscode.workspace.getConfiguration('aiosGlass').update('showHints', on, vscode.ConfigurationTarget.Global);
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
+}
+
+/** Whether to show the ISO week-number column in the Home calendar. Default true. */
+export function showWeekNumbers(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showWeekNumbers', true);
+}
+
+export async function setShowWeekNumbers(on: boolean): Promise<void> {
+  await vscode.workspace.getConfiguration('aiosGlass').update('showWeekNumbers', on, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`AIOS Glass: calendar week numbers ${on ? 'shown' : 'hidden'}.`);
 }
 
 /** How Glass opens a Markdown note on plain click — Calendar days AND Explorer files.

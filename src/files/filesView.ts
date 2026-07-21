@@ -5,9 +5,14 @@ import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { frameworkRoot, vaultRoot } from '../home/vault';
 import { currentTheme, showHints, fileIconsEnhanced, showHiddenFiles, autoReveal, openNotesIn } from '../home/config';
+import { effectiveLocale, webviewCatalog } from '../i18n';
 import { stateGet, stateSet } from '../state';
 import { setFilesVisible } from './filesState';
 import { HomeViewProvider } from '../home/homePanel';
+import {
+  SortMode, FolderSortMap, FOLDER_SORT_KEY, MASTER_SORT_KEY,
+  normalizeSortMode, setFolderSort, sortEntries, resolveSort,
+} from './sort';
 
 /**
  * AIOS Files — a tidy collapsible file TREE in its own activity-bar container.
@@ -31,7 +36,7 @@ const WORKSPACE_KEY = 'filesWorkspaceFolders'; // string[] of absolute folder pa
 const ALWAYS_HIDE = new Set(['node_modules', 'out', 'dist', '.git', '.DS_Store']);
 
 interface Place { id: 'vault' | 'infra' | 'workspace'; label: string; sub: string; path: string; }
-interface Entry { name: string; dir: boolean; ext: string; path: string; git?: string }
+interface Entry { name: string; dir: boolean; ext: string; path: string; mtime: number; git?: string }
 interface GitInfo { at: number; files: Map<string, string>; dirty: Set<string> }
 
 export class FilesViewProvider implements vscode.WebviewViewProvider {
@@ -61,6 +66,9 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (e.affectsConfiguration('aiosGlass.showHints')) this.post({ type: 'hints', show: showHints() });
       if (e.affectsConfiguration('aiosGlass.fileIcons')) this.post({ type: 'icons', enhanced: fileIconsEnhanced() });
       if (e.affectsConfiguration('aiosGlass.showHidden')) this.post({ type: 'reload' });
+      // Language flip → rebuild the document so the injected `window.__nls` catalog
+      // is regenerated for the new locale (a data message can't re-inject it).
+      if (e.affectsConfiguration('aiosGlass.language')) this.rerender();
       if (e.affectsConfiguration('files.exclude')) { this.excludeRe = undefined; this.post({ type: 'reload' }); }
     }));
     // Mirror this view's visibility to Home so the files button shows active (and
@@ -210,6 +218,10 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
    *  is the heavier "rebuild everything" fallback for when you just want a clean re-read. */
   refresh(): void { this.post({ type: 'refresh' }); }
 
+  /** Rebuild the whole document — regenerates the injected `window.__nls` catalog
+   *  (AI-19). Needed on a language flip; costs the tree's expand state (rare event). */
+  rerender(): void { if (this.view) this.view.webview.html = this.html(this.view.webview); }
+
   /** Open the Files view if hidden; hide it if shown. VS Code can't say which bar a
    *  view sits in, so we probe. Files lives in the PRIMARY sidebar by default (its own
    *  activity icon), so hide that first — a clean one-step close that doesn't flash the
@@ -250,6 +262,23 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     return Array.isArray(raw) ? raw.filter((p) => typeof p === 'string' && dirExists(p)) : [];
   }
 
+  /** The persisted per-folder sort map (`.glass/state.json` → `filesFolderSort`). */
+  private folderSorts(): FolderSortMap {
+    const raw = stateGet<FolderSortMap>(FOLDER_SORT_KEY);
+    return raw && typeof raw === 'object' ? raw : {};
+  }
+
+  /** The global default sort — folders without a per-folder override follow it. */
+  private masterSort(): SortMode {
+    return normalizeSortMode(stateGet<SortMode>(MASTER_SORT_KEY));
+  }
+
+  /** The effective sort for a directory: its closest-ancestor per-folder override
+   *  (any depth), else the master default. */
+  private sortModeFor(dirPath: string): SortMode {
+    return resolveSort(this.folderSorts(), dirPath, this.masterSort());
+  }
+
   /** A requested absolute path is allowed only if it sits inside one of the place roots. */
   private isAllowed(target: string): boolean {
     let real = target;
@@ -271,10 +300,12 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (ALWAYS_HIDE.has(name)) continue;
       if (!showHidden && name.startsWith('.')) continue;
       if (excluded.some((re) => re.test(name))) continue; // honor the editor's files.exclude
-      let dir = false;
       const full = path.join(dirPath, name);
-      try { dir = fs.statSync(full).isDirectory(); } catch { continue; }
-      entries.push({ name, dir, ext: dir ? '' : (name.split('.').pop() || '').toLowerCase(), path: full });
+      // One stat gets BOTH is-dir and mtime — the mtime the `mtime` sort needs is
+      // therefore free (the readdir + stat already happen; AI-58 rides them).
+      let st: fs.Stats;
+      try { st = fs.statSync(full); } catch { continue; }
+      entries.push({ name, dir: st.isDirectory(), ext: st.isDirectory() ? '' : (name.split('.').pop() || '').toLowerCase(), path: full, mtime: st.mtimeMs });
     }
     // Git status (IDE-style): mark changed files + folders with changed descendants.
     const root = this.repoRoot(dirPath);
@@ -287,9 +318,9 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         try { if (fs.existsSync(path.join(e.path, '.git')) && this.gitStatus(e.path).files.size > 0) e.git = 'M'; } catch { /* ignore */ }
       }
     }
-    // Folders first, then files; each alphabetical (locale-aware, numeric-prefix friendly).
-    return entries.sort((a, b) =>
-      a.dir !== b.dir ? (a.dir ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    // Folders first, then files; within each group the folder's chosen mode
+    // (name A→Z default, or mtime newest-first). Shared comparator (src/files/sort.ts).
+    return sortEntries(entries, this.sortModeFor(dirPath));
   }
 
   private excludeRe: RegExp[] | undefined;
@@ -360,7 +391,25 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   private async onMessage(msg: any): Promise<void> {
     switch (msg?.type) {
       case 'ready': {
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), master: this.masterSort(), overrides: this.folderSorts() });
+        return;
+      }
+      case 'setSort': {
+        // Per-folder override at ANY depth: persist it, then re-list that folder's
+        // subtree with the new order (the webview relists dirs under msg.root).
+        if (typeof msg.root !== 'string' || !this.isAllowed(msg.root)) return;
+        const mode = normalizeSortMode(msg.mode);
+        await stateSet(FOLDER_SORT_KEY, setFolderSort(this.folderSorts(), msg.root, mode));
+        this.post({ type: 'sortChanged', root: msg.root, mode });
+        return;
+      }
+      case 'setMaster': {
+        // The master (global default): set it AND clear every per-folder override —
+        // "make them all sort this way" (Chuy). The webview then re-lists everything.
+        const mode = normalizeSortMode(msg.mode);
+        await stateSet(MASTER_SORT_KEY, mode);
+        await stateSet(FOLDER_SORT_KEY, {});
+        this.post({ type: 'sortChanged', all: true, master: mode });
         return;
       }
       case 'list': {
@@ -441,7 +490,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         const p = picked[0].fsPath;
         const folders = this.workspaceFolders();
         if (!folders.includes(p)) { folders.push(p); await stateSet(WORKSPACE_KEY, folders); }
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), focus: p });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), master: this.masterSort(), overrides: this.folderSorts(), focus: p });
         this.watchGit();        // wire live git for the new folder's repo
         this.scheduleGit(120);  // and push its status onto the freshly-rendered rows
         return;
@@ -450,7 +499,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         if (typeof msg.path !== 'string') return;
         const folders = this.workspaceFolders().filter((p) => p !== msg.path);
         await stateSet(WORKSPACE_KEY, folders);
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), master: this.masterSort(), overrides: this.folderSorts() });
         this.watchGit(); // drop the removed folder's watchers
         return;
       }
@@ -465,12 +514,19 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     const nonce = makeNonce();
     const media = vscode.Uri.joinPath(this.extensionUri, 'media');
     const csp = `default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'nonce-${nonce}';`;
+    // AI-19: localize the Explorer webview the same way the Home panel does —
+    // inject `window.__nls` (the catalog for the effective locale) before
+    // files.js runs. Baked-in English stays as the literal fallback.
+    const locale = effectiveLocale();
+    const catalog = webviewCatalog(this.extensionUri, locale);
+    const nlsScript = `<script nonce="${nonce}">window.__nls=${JSON.stringify(catalog)};window.__lang=${JSON.stringify(locale)};</script>`;
     try {
       const page = fs.readFileSync(vscode.Uri.joinPath(media, 'files.html').fsPath, 'utf8');
       return page
         .replace('<body>', currentTheme() === 'light' ? '<body class="light">' : '<body>')
         .replace(/{{CSP}}/g, csp)
         .replace(/{{NONCE}}/g, nonce)
+        .replace(/{{NLS}}/g, nlsScript)
         .replace(/{{CSS_URI}}/g, webview.asWebviewUri(vscode.Uri.joinPath(media, 'files.css')).toString())
         .replace(/{{JS_URI}}/g, webview.asWebviewUri(vscode.Uri.joinPath(media, 'files.js')).toString());
     } catch (e) {

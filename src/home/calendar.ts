@@ -21,6 +21,8 @@ export interface MonthData {
   weekdays: string[];
   /** rows of 7 cells, Monday-first */
   weeks: DayCell[][];
+  /** ISO 8601 week number for each week row (parallel to `weeks`) */
+  weekNums: number[];
 }
 
 const MONTH_NAMES = [
@@ -34,6 +36,18 @@ function pad2(n: number): string {
 
 function isoDate(year: number, month: number, day: number): string {
   return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+/** ISO 8601 week number for a YYYY-MM-DD (week 1 = the week holding the year's first Thursday). */
+function isoWeek(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dayNum = (date.getUTCDay() + 6) % 7;        // Mon=0..Sun=6
+  date.setUTCDate(date.getUTCDate() - dayNum + 3);  // shift to that week's Thursday
+  const firstThu = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const firstDayNum = (firstThu.getUTCDay() + 6) % 7;
+  firstThu.setUTCDate(firstThu.getUTCDate() - firstDayNum + 3);
+  return 1 + Math.round((date.getTime() - firstThu.getTime()) / 604800000); // /(7*24*3600*1000)
 }
 
 /** Directory holding a given month's notes: `<vault>/01 - calendar/YYYY-MM`. */
@@ -93,12 +107,15 @@ export function getMonthData(year: number, month: number): MonthData {
   const weeks: DayCell[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
+  const weekNums = weeks.map((w) => { const r = w.find((c) => c.date); return r && r.date ? isoWeek(r.date) : 0; });
+
   return {
     year,
     month,
     label: `${MONTH_NAMES[month - 1].slice(0, 3)} ${year}`, // MMM YYYY — compact, same in month + week views
     weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    weeks
+    weeks,
+    weekNums
   };
 }
 
