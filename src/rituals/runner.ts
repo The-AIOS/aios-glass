@@ -396,7 +396,7 @@ function getPpidMap(): Promise<Map<number, number>> {
  * the agent's claude PID. (Renaming a tab doesn't update VS Code's
  * `terminal.name`, so name-matching misses spawned workers.)
  */
-async function findAgentTerminal(name: string, pid?: number): Promise<vscode.Terminal | undefined> {
+export async function findAgentTerminal(name: string, pid?: number): Promise<vscode.Terminal | undefined> {
   if (pid) {
     const ppidOf = await getPpidMap();
     const ancestors = new Set<number>([pid]);
