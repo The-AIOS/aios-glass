@@ -40,6 +40,10 @@
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4.7"/><circle cx="12" cy="3.5" r="1.1"/><circle cx="9.2" cy="13" r="1.05"/><circle cx="14.8" cy="13" r="1.05"/><path d="M2.7 12.5v3M21.3 12.5v3"/></svg>
         <span class="tbadge" id="goAgentsBadge" hidden>0</span>
       </button>
+      <!-- Close all — broadcast /close-session to every live Claude session (each self-closes, race-safe) -->
+      <button class="cog closeall" id="closeAllTop" data-i18n-title="topbar.closeall.title" title="Close all — send /close-session to every live session (each captures itself; then run /close-day)">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+      </button>
     </div>
     <!-- Configure: create + settings -->
     <div class="tgroup">

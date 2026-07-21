@@ -8,6 +8,7 @@ import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/fr
 import { listRoutines, runRoutine } from './tasks/routines';
 import { runReports } from './tasks/reports';
 import { goWithAgents } from './tasks/goWithAgents';
+import { closeAll } from './tasks/closeAll';
 import { primaryName, contextDir, ContextKind } from './home/vault';
 import { AiosCommand, resolveCommandsDir, discoverCommands } from './aios/commands';
 import { HomeViewProvider } from './home/homePanel';
@@ -277,6 +278,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Spawn the agents the latest daily note suggests under "Agents can handle".
     vscode.commands.registerCommand('aios.goWithAgents', () => goWithAgents()),
+    vscode.commands.registerCommand('aios.closeAll', () => closeAll()),
 
     // Reveal a running session's terminal directly (used by clicking a name in
     // the Home running-agents list). name + pid match by process-tree ancestry.

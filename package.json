@@ -176,6 +176,10 @@
         "title": "%cmd.spawnWorker%"
       },
       {
+        "command": "aios.closeAll",
+        "title": "%cmd.closeAll%"
+      },
+      {
         "command": "aios.openCapability",
         "title": "%cmd.openCapability%"
       },

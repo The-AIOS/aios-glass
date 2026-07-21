@@ -199,6 +199,7 @@
   });
   document.getElementById('goWithAgents').addEventListener('click', () => run('aios.goWithAgents'));
   document.getElementById('goAgentsTop').addEventListener('click', () => run('aios.goWithAgents'));
+  document.getElementById('closeAllTop').addEventListener('click', () => run('aios.closeAll'));
 
   // Click (or Enter) a running-session row → reveal its terminal. Delegated so
   // it survives the list re-rendering on every refresh.

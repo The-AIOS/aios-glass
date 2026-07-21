@@ -19,6 +19,7 @@
   "cmd.runRitual": "AIOS: Run Ritual",
   "cmd.spawnAgent": "AIOS: Spawn Agent",
   "cmd.spawnWorker": "AIOS: Spawn Worker (adjective-animal)",
+  "cmd.closeAll": "AIOS: Close all sessions (broadcast /close-session)",
   "cmd.openCapability": "AIOS: Open Capability",
   "cmd.companyAction": "AIOS: Company Actions",
   "cmd.collaborateAction": "AIOS: Collaborate Actions",
