@@ -78,7 +78,7 @@ export async function closeAll(): Promise<void> {
   const chosen = (await vscode.window.showQuickPick(items, {
     canPickMany: true,
     title: t('Close which sessions? Each runs /close-session (auto).'),
-    placeHolder: t('All selected by default — uncheck any to keep open. Optional: /close-day (runs in your primary) · kill terminals (every selected except your primary).'),
+    placeHolder: t('All selected by default — uncheck any to keep open.'),
   })) as Pick[] | undefined;
   if (!chosen) return;
 
