@@ -43,7 +43,17 @@ function statusView(raw: string): { dot: string; word: string } {
  *     if it isn't live) and kill the terminals (disposes every SELECTED terminal EXCEPT your primary).
  *   • KILL = the trash-icon path: term.dispose() (SIGHUP → claude + respawn loop + shell). Only your
  *     primary is spared; and each is disposed only AFTER it finishes capturing (busy→idle watch).
- * Full contract: plugins/aios/commands/close-all.md.
+ *
+ * THIS button is the canonical "close all" surface. (There is no /close-all CLI command — it was retired
+ * because a CLI session can't inject prompts into sibling terminals; only the extension owns them, so the
+ * broadcast lives here.) The three pieces, sharply:
+ *   • aios-commit  — the commit PRIMITIVE (race-safe attribution; every commit goes through it).
+ *   • this button  — the BROADCAST: fires /aios:close-session --auto in each picked session.
+ *   • /close-day   — the CONSOLIDATOR (run once): harvests every session's own surface → one daily note.
+ * Why it's race-safe: each close-session writes to a DIFFERENT place — a vault session merge-appends its
+ * block under a per-file lock; a project session writes its own ~/aios/.claude/session-report-{date}-
+ * {project}-{session}.md — so no shared file is contended, and /close-day is the single writer of the
+ * observed-context files. Contract mirrored in plugins/aios/commands/{close-session,close-day}.md.
  */
 export async function closeAll(): Promise<void> {
   const primary = primaryName();
