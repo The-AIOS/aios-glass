@@ -396,7 +396,7 @@
       for (const w of workspace) {
         const fh = el('div', 'xrow dir xroot');
         fh.dataset.path = w.path; // wire the folder row for git status (the yellow-dot marker)
-        fh.style.paddingLeft = '10px';
+        fh.style.paddingLeft = '14px'; // match the Vault/Framework top-level folder indent (was 10 — read as a section, not a folder)
         const ic = el('span', 'xicon'); ic.innerHTML = icon('chevR', 11);
         const nm = el('span', 'xname', w.label);
         fh.append(ic, nm);
@@ -408,7 +408,7 @@
         attachCtx(fh, w.path); attachDrag(fh, w.path);
         let kids = null;
         const ensure = async () => {
-          if (!kids) { kids = el('div', 'xkids'); kids.style.setProperty('--g', '17px'); fh.after(kids); ic.innerHTML = icon('chevD', 11); await buildTree(w.path, kids, 0, null, 14); applyFilter(); }
+          if (!kids) { kids = el('div', 'xkids'); kids.style.setProperty('--g', '21px'); fh.after(kids); ic.innerHTML = icon('chevD', 11); await buildTree(w.path, kids, 0, null, 23); applyFilter(); }
           else if (kids.style.display === 'none') { kids.style.display = ''; ic.innerHTML = icon('chevD', 11); }
         };
         ensureExpand.set(w.path, ensure);
