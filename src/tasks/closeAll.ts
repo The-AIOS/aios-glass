@@ -72,7 +72,7 @@ export async function closeAll(): Promise<void> {
     : [];
 
   // 1. broadcast the non-interactive capture to each selected session
-  for (const term of sessions) { term.show(false); term.sendText('/close-session --auto', true); }
+  for (const term of sessions) { term.show(false); term.sendText('/aios:close-session --auto', true); }
   vscode.window.showInformationMessage(t('Closing {0} session(s)…').replace('{0}', String(sessions.length)));
 
   // 2. watch each finish (busy→idle / gone), kill the scoped ones after they're done, then optional close-day
@@ -80,7 +80,7 @@ export async function closeAll(): Promise<void> {
     await watchSessionsDone(sessions.map((s) => s.name), killNames);
     if (doCloseDay) {
       if (active && !sessions.includes(active)) {
-        active.show(); active.sendText('/close-day', true);
+        active.show(); active.sendText('/aios:close-day', true);
       } else {
         vscode.window.showInformationMessage(t('Sessions closed. Run /close-day in your main session to consolidate.'));
       }
