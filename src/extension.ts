@@ -575,7 +575,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory')) HomeViewProvider.current?.refresh();
+      if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory') || e.affectsConfiguration('aiosGlass.showWeekNumbers')) HomeViewProvider.current?.refresh();
       // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
       if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
     })
