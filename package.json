@@ -473,6 +473,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show the contextual ritual nudge banner at the top of Home — morning (the day's suggested ritual), daytime (wrap open sessions), evening (close the day). Each nudge can be dismissed for the day; turn this off to hide them entirely."
+        },
+        "aiosGlass.showWeekNumbers": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the ISO week-number column (e.g. `W30`) down the left edge of the Home calendar, in both month and week views. Turn off if you don't work in week numbers."
         }
       }
     },

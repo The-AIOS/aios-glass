@@ -17,7 +17,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory, showWeekNumbers } from './config';
 import { getFilesVisible } from '../files/filesState';
 import { effectiveLocale, webviewCatalog } from '../i18n';
 
@@ -357,6 +357,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       commands: discoverCommands().length,
       frequent: frequentTaskCount(),
       showHints: showHints(),
+      showWeekNumbers: showWeekNumbers(),
       companies: readCompanies().map((c) => ({ name: c.name, lastSync: c.lastSync })),
       collab: readCollabSpaces().map((s) => ({ name: s.name })),
       framework: readFrameworkStatus() ?? null,

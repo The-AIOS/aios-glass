@@ -299,6 +299,7 @@
       if (msg.theme) applyTheme(msg.theme);
       document.getElementById('filesBtn').classList.toggle('active', !!msg.filesOpen);
       document.body.classList.toggle('no-hints', msg.showHints === false);
+      document.body.classList.toggle('no-weeknums', msg.showWeekNumbers === false);
       document.getElementById('vFrequent').textContent = (msg.frequent || 0) + '';
       document.getElementById('vAgents').textContent = (msg.agents || 0) + '';
       document.getElementById('vSkills').textContent = (msg.skills || 0) + '';

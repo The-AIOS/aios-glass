@@ -293,6 +293,7 @@
   /* week-number column (discreet, legible) — a header 'Wk' + a Wnn per row */
   th.wkh{font-size:8.5px; color:var(--subtle); opacity:.55; padding-right:4px; text-transform:none; letter-spacing:0}
   td.wknum{font-size:8.5px; font-weight:600; color:var(--subtle); opacity:.5; text-align:center; vertical-align:middle; padding:0 4px 0 0; white-space:nowrap; font-variant-numeric:tabular-nums}
+  body.no-weeknums th.wkh, body.no-weeknums td.wknum{display:none}
   .cell{position:relative; min-height:32px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:13px; color:var(--ink); border:1px solid transparent}
   .cell.has{cursor:pointer}
   .cell.has:hover{background:var(--surface-2); border-color:var(--line)}

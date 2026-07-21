@@ -142,6 +142,11 @@ export async function setShowHints(on: boolean): Promise<void> {
   void vscode.window.showInformationMessage(`AIOS Glass: secondary hints ${on ? 'shown' : 'hidden'}.`);
 }
 
+/** Whether to show the ISO week-number column in the Home calendar. Default true. */
+export function showWeekNumbers(): boolean {
+  return vscode.workspace.getConfiguration('aiosGlass').get<boolean>('showWeekNumbers', true);
+}
+
 /** How Glass opens a Markdown note on plain click — Calendar days AND Explorer files.
  *  'previewToSide' (Foam-rendered, beside the source — default) or 'editor' (raw source, faster).
  *  Legacy 'preview' (full-tab) migrates to 'previewToSide'. */
