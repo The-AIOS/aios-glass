@@ -455,11 +455,16 @@ export async function disposeAgentTerminal(name: string, pid?: number): Promise<
 
 /**
  * AI-18 — kill-guard (the shared sentinel; every kill surface calls this one
- * primitive). Guards a session close against silent loss: when the session is
- * BUSY or carries un-harvested post-its, a 3-option QuickPick asks how to close
- * it — capture the work first, kill now (harvesting the notes so they aren't
- * lost), or cancel. Nothing to lose (idle + no notes) → a straight, frictionless
- * kill. Post-its die at kill either way (harvested first, never dropped).
+ * primitive). Kill is destructive and irreversible (it SIGHUPs Claude + its
+ * children), so an explicit close ALWAYS shows the 3-option QuickPick — capture
+ * the work first, kill now (harvesting any post-its so they aren't lost), or
+ * cancel. Predictability over cleverness: the earlier fast-path (idle + no notes
+ * → straight kill) made the affordance unpredictable — whether the sentinel
+ * appeared hinged on the registry's `status` string, which is noisy (a working
+ * session can read idle between polls, and vice-versa), so the SAME click behaved
+ * differently run to run. Now the confirm is unconditional; busy state + note
+ * count are still surfaced in the prompt, they just no longer GATE it. Post-its
+ * die at kill either way (harvested first, never dropped).
  */
 export async function killGuardedDispose(name: string, pid?: number): Promise<void> {
   const running = await listRunningAgents();
@@ -467,16 +472,17 @@ export async function killGuardedDispose(name: string, pid?: number): Promise<vo
   const busy = /busy|working|running/i.test(me?.status || '');
   const noteCount = getSessionNotes(name).length;
 
-  if (!busy && !noteCount) { await disposeAgentTerminal(name, pid); return; } // nothing to lose → straight kill
-
   const notesTag = noteCount ? ` · ${noteCount} ${noteCount > 1 ? t('notes') : t('note')}` : '';
+  const stakes = busy || noteCount
+    ? t('This session has work or notes to lose — how do you want to close it?')
+    : t('Closing stops Claude for this session — how do you want to close it?');
   const pick = await vscode.window.showQuickPick(
     [
       { label: '$(book) ' + t('Capture & close'), description: t('run /close-session first — keep the work'), id: 'capture' },
       { label: '$(trash) ' + t('Kill now'), description: noteCount ? t('harvest the notes, then kill') : t('close the terminal — stops Claude'), id: 'kill' },
       { label: '$(close) ' + t('Cancel'), description: t('leave it running'), id: 'cancel' },
     ],
-    { title: `${t('Close')} “${name}”?${busy ? ' · ' + t('busy') : ''}${notesTag}`, placeHolder: t('This session has work or notes to lose — how do you want to close it?') }
+    { title: `${t('Close')} “${name}”?${busy ? ' · ' + t('busy') : ''}${notesTag}`, placeHolder: stakes }
   );
   if (!pick || pick.id === 'cancel') return;
   if (noteCount) await harvestSessionNotes(name); // harvest before either close path — never drop a reminder

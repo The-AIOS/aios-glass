@@ -273,8 +273,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // Close a running session's terminal (kill) directly from the Home list —
-    // through the kill-guard (AI-18): busy / has-notes sessions get the 3-option
-    // QuickPick; idle-empty ones kill straight. Refresh so the row drops promptly.
+    // through the kill-guard (AI-18): an explicit close ALWAYS shows the 3-option
+    // QuickPick (kill is destructive → predictable confirm). Refresh so the row
+    // drops promptly once it's gone.
     vscode.commands.registerCommand('aios.closeAgent', async (name?: string, pid?: number) => {
       if (typeof name !== 'string') return;
       await killGuardedDispose(name, typeof pid === 'number' ? pid : undefined);
