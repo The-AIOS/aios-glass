@@ -521,7 +521,7 @@
       weekNums = [weekNums[weekIdx]];
     }
     document.getElementById('calLabel').textContent = label;
-    document.getElementById('dow').innerHTML = '<th class="wkh" title="' + NLS('calendar.week.col', 'Week number') + '">Wk</th>' + data.weekdays.map((w) => '<th>' + w + '</th>').join('');
+    document.getElementById('dow').innerHTML = '<th class="wkh" title="' + NLS('calendar.week.col', 'Week number') + '"></th>' + data.weekdays.map((w) => '<th>' + w + '</th>').join('');
     const body = document.getElementById('cal');
     body.innerHTML = weeks.map((week, wi) =>
       '<tr>' + '<td class="wknum">' + (weekNums[wi] ? 'W' + weekNums[wi] : '') + '</td>' + week.map((c) => {
