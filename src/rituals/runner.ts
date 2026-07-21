@@ -304,8 +304,13 @@ export async function launchCommandInNewSession(command: string, arg?: string, l
  */
 export async function launchPrimary(name: string): Promise<void> {
   const running = await listRunningAgents();
-  if (running.some((a) => a.name === name)) {
-    await revealAgentTerminal(name);
+  const match = running.find((a) => a.name === name);
+  if (match) {
+    // Already running → REVEAL it (same as clicking its running-card row), don't relaunch.
+    // Pass the pid so findAgentTerminal uses the robust process-ancestry match: the terminal's
+    // DISPLAY name often differs from the session name, so the old name-only reveal silently
+    // no-op'd — which read as "launch primary does nothing when it's already running".
+    await revealAgentTerminal(name, match.pid);
     return;
   }
   runNew(name, { name, icon: 'aios-mark', color: 'terminal.ansiMagenta' });
