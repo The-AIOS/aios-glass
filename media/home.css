@@ -232,7 +232,8 @@
   .runitem .dot.error{--dc:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
   .runitem .dot.unk{--dc:var(--subtle)}
   /* AI-18 post-it badge on a session row */
-  .runitem .rnote{flex:0 0 auto; margin-left:6px; font-size:10px; color:var(--subtle); opacity:.75; white-space:nowrap}
+  .runitem .rnote{flex:0 0 auto; margin-left:6px; font-size:10px; color:var(--subtle); opacity:.75; white-space:nowrap; cursor:pointer; border-radius:4px}
+  .runitem .rnote:hover{opacity:1; color:var(--ink)}
   /* AI-7 needs-input row emphasis (the amber-bucket 'input' state) */
   .runitem.attn .rname{color:#4aa3ff; font-weight:600}
   /* AI-7 needs-input bucket — blue-tinted variant of the amber quota pill */

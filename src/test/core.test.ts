@@ -218,6 +218,45 @@ test('sort: owningRoot picks the longest-matching workspace root', () => {
   assert.equal(owningRoot(roots, '/elsewhere/z.ts'), undefined);
 });
 
+// ── AI-18 session post-its — backward-compatible note parsing ────────────────
+
+import { parseStoredNotes } from '../agents/sessionNotesParse';
+
+test('parseStoredNotes: legacy bare strings coerce to notes with ts=0', () => {
+  const out = parseStoredNotes(['review the diff', '  merge PR #12  ']);
+  assert.deepEqual(out, [
+    { text: 'review the diff', ts: 0 },
+    { text: 'merge PR #12', ts: 0 },
+  ]);
+});
+
+test('parseStoredNotes: timestamped objects keep text + ts', () => {
+  const out = parseStoredNotes([{ t: 'ship it', ts: 1_700_000_000_000 }]);
+  assert.deepEqual(out, [{ text: 'ship it', ts: 1_700_000_000_000 }]);
+});
+
+test('parseStoredNotes: mixed shapes, empties + garbage dropped', () => {
+  const out = parseStoredNotes([
+    'keep me',
+    '   ',                       // empty string → dropped
+    { t: '  trimmed  ', ts: 5 }, // trimmed, ts kept
+    { t: '' },                   // empty object text → dropped
+    { ts: 9 },                   // no text → dropped
+    42,                          // non-note → dropped
+    null,                        // → dropped
+  ]);
+  assert.deepEqual(out, [
+    { text: 'keep me', ts: 0 },
+    { text: 'trimmed', ts: 5 },
+  ]);
+});
+
+test('parseStoredNotes: non-array (absent / corrupt) → empty list', () => {
+  assert.deepEqual(parseStoredNotes(undefined), []);
+  assert.deepEqual(parseStoredNotes('not an array'), []);
+  assert.deepEqual(parseStoredNotes({}), []);
+});
+
 // ── AI-7 needs-input registry reader (TTL + parse) ───────────────────────────
 
 import { readAttention, ATTENTION_TTL_MS } from '../agents/attention';

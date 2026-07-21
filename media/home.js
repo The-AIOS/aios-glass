@@ -208,7 +208,8 @@
     const reveal = (el) => { if (!el) return; const { n, p } = itemNP(el); if (n) run('aios.revealAgent', n, p); };
     runningList.addEventListener('click', (ev) => {
       const item = ev.target.closest('.runitem'); if (!item) return;
-      if (ev.target.closest('.runnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNote', n); return; } // AI-18 post-it
+      if (ev.target.closest('.rnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNotesView', n); return; } // AI-18: 📝 badge → view/delete notes
+      if (ev.target.closest('.runnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNote', n); return; } // AI-18: pencil → jot a new post-it
       if (ev.target.closest('.runint')) { const { n, p } = itemNP(item); if (n) run('aios.interruptAgent', n, p); return; }
       if (ev.target.closest('.runclose')) { const { n, p } = itemNP(item); if (n) run('aios.closeSessionAgent', n, p); return; }
       // Kill routes through the kill-guard (AI-18) — no optimistic removal, since the
@@ -377,8 +378,9 @@
               + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
               + '</button>'
             : '';
-          // AI-18 post-it: a 📝 count badge when the session carries notes.
-          const noteBadge = a.notes ? '<span class="rnote" title="' + a.notes + (a.notes > 1 ? ' notes' : ' note') + '">📝 ' + a.notes + '</span>' : '';
+          // AI-18 post-it: a 📝 count badge when the session carries notes — click to
+          // view them (text + when + delete). role=button so it reads as interactive.
+          const noteBadge = a.notes ? '<span class="rnote" role="button" tabindex="0" title="' + (NLS('running.note.view', 'View notes') + ' (' + a.notes + ')').replace(/"/g, '&quot;') + '">📝 ' + a.notes + '</span>' : '';
           // Richer status, inline only: "status + duration · project" (webview
           // tooltips render unreliably in Antigravity, so no hover detail).
           const dur = fmtAgo(a.updatedAt);
