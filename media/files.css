@@ -25,7 +25,11 @@
   ::selection{background:var(--accent); color:var(--canvas)}
 
   /* find box — type to narrow the visible tree */
-  .xfilter{position:relative; flex:0 0 auto; padding:6px 8px; border-bottom:1px solid var(--line)}
+  .xfilter{position:relative; flex:0 0 auto; padding:6px 8px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:6px}
+  .xfinput{position:relative; flex:1; min-width:0}
+  /* master sort button (top-right of the panel) — sets the global default sort */
+  .xmaster{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; background:none; border:none; color:var(--subtle); padding:2px 3px; cursor:pointer; opacity:.7; border-radius:5px}
+  .xmaster:hover{opacity:1; color:var(--accent)}
   .xfilter input{width:100%; box-sizing:border-box; background:var(--surface-1); border:1px solid var(--line);
     color:var(--ink); border-radius:7px; padding:5px 26px 5px 9px; font-size:12px; font-family:var(--font); outline:none}
   .xfilter input:focus{border-color:var(--accent-line)}
@@ -104,11 +108,11 @@
   /* AI-58: per-folder sort control — hover-reveal like ×; sits left of ×, pushed
      to the right edge by margin-left:auto. Stays faintly visible when the folder
      is on the non-default 'mtime' mode, so the current sort is discoverable. */
-  .xroot .xsort{margin-left:auto; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
+  .xsort{margin-left:auto; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
     color:var(--subtle); opacity:0; padding:0 3px; border-radius:4px; cursor:pointer}
-  .xroot .xsort.active{opacity:.55}
-  .xroot:hover .xsort{opacity:.7}
-  .xroot .xsort:hover, .xroot .xsort.active:hover{opacity:1; color:var(--accent)}
+  .xsort.active{opacity:.55}
+  .xroot:hover .xsort, .xsect:hover .xsort, .xrow:hover .xsort{opacity:.7}
+  .xsort:hover, .xsort.active:hover{opacity:1; color:var(--accent)}
   /* the currently-selected sort option in the menu reads accent */
   .ctxitem.on{color:var(--accent); font-weight:600}
 

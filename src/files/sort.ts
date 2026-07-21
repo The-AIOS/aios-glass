@@ -26,8 +26,13 @@ export const SORT_MODES: readonly SortMode[] = ['name', 'mtime'] as const;
 /** Default when a folder has no stored preference. */
 export const DEFAULT_SORT: SortMode = 'name';
 
-/** The glass-state key holding `{ [rootPath]: SortMode }` (roams via `.glass/`). */
+/** The glass-state key holding `{ [folderPath]: SortMode }` — per-folder overrides
+ *  at ANY depth (roams via `.glass/`). A dir uses its closest-ancestor override. */
 export const FOLDER_SORT_KEY = 'filesFolderSort';
+
+/** The glass-state key holding the single global default sort (`name` | `mtime`).
+ *  Folders without an override follow this; the master button resets all to it. */
+export const MASTER_SORT_KEY = 'filesMasterSort';
 
 /** Coerce any stored/received value to a valid mode (defensive against drift). */
 export function normalizeSortMode(v: unknown): SortMode {
@@ -70,22 +75,32 @@ export function getFolderSort(map: FolderSortMap | undefined, rootPath: string):
 }
 
 /**
- * Return a NEW map with `rootPath` set to `mode` (immutable update — the caller
- * persists the result). Setting a root back to the default `name` prunes the
- * key so the stored map stays minimal.
+ * Return a NEW map with `folderPath` set to `mode` (immutable update — the caller
+ * persists the result). Stores the override EXPLICITLY (no prune-on-`name`): with a
+ * master default, a `name` override must persist even when the master is `mtime`.
  */
-export function setFolderSort(map: FolderSortMap | undefined, rootPath: string, mode: SortMode): FolderSortMap {
+export function setFolderSort(map: FolderSortMap | undefined, folderPath: string, mode: SortMode): FolderSortMap {
   const next: FolderSortMap = { ...(map || {}) };
-  if (mode === DEFAULT_SORT) delete next[rootPath];
-  else next[rootPath] = mode;
+  next[folderPath] = mode;
   return next;
 }
 
 /**
- * Given the ordered list of workspace-root paths and a target directory, find
- * which root OWNS that directory (the pref applies to the root's whole subtree).
- * Longest-match wins so a nested workspace root beats an ancestor one. Returns
- * undefined when the dir is under no workspace root (vault / framework → `name`).
+ * Resolve the effective sort for `dir`: its closest-ancestor override (incl. itself)
+ * among the override keys, else the master default. `owningRoot` does longest-match,
+ * so a subfolder override beats its parent's — per-folder sorting works at any depth.
+ */
+export function resolveSort(overrides: FolderSortMap, dir: string, master: SortMode): SortMode {
+  const owner = owningRoot(Object.keys(overrides), dir);
+  const ov = owner ? overrides[owner] : undefined;
+  return ov === 'name' || ov === 'mtime' ? ov : master;
+}
+
+/**
+ * Given a list of override folder paths and a target directory, find which one
+ * OWNS that directory (an override applies to its whole subtree). Longest-match
+ * wins so a nested override beats an ancestor one. Returns undefined when the dir
+ * is under no override folder (→ the master default applies).
  */
 export function owningRoot(roots: readonly string[], dir: string): string | undefined {
   let best: string | undefined;

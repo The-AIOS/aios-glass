@@ -184,7 +184,7 @@ test('parseAgentSection: does not false-match distinct tasks', () => {
 
 // ── AI-58 per-folder sort (pure comparator + pref map) ───────────────────────
 
-import { compareEntries, sortEntries, setFolderSort, getFolderSort, owningRoot } from '../files/sort';
+import { compareEntries, sortEntries, setFolderSort, resolveSort, owningRoot } from '../files/sort';
 
 const E = (name: string, dir: boolean, mtime: number) => ({ name, dir, mtime });
 
@@ -203,12 +203,20 @@ test('sort: mtime mode is newest-first with a stable name tiebreak', () => {
   assert.deepEqual(out, ['new', 'tieA', 'tieB', 'old']);
 });
 
-test('sort: setFolderSort prunes the default, stores non-default', () => {
+test('sort: setFolderSort stores explicit overrides (no prune — needed under a master)', () => {
   const m1 = setFolderSort({}, '/code', 'mtime');
-  assert.equal(getFolderSort(m1, '/code'), 'mtime');
-  const m2 = setFolderSort(m1, '/code', 'name'); // back to default → pruned
-  assert.equal('/code' in m2, false);
-  assert.equal(getFolderSort(m2, '/code'), 'name'); // default read still works
+  assert.equal(m1['/code'], 'mtime');
+  const m2 = setFolderSort(m1, '/code', 'name'); // a `name` override MUST persist (master may be mtime)
+  assert.equal('/code' in m2, true);
+  assert.equal(m2['/code'], 'name');
+});
+
+test('sort: resolveSort — closest-ancestor override beats parent, else master', () => {
+  const overrides = { '/code': 'mtime' as const, '/code/deep': 'name' as const };
+  assert.equal(resolveSort(overrides, '/code/a/b', 'name'), 'mtime');      // under /code
+  assert.equal(resolveSort(overrides, '/code/deep/x', 'name'), 'name');    // deeper override wins
+  assert.equal(resolveSort(overrides, '/other', 'mtime'), 'mtime');        // no override → master
+  assert.equal(resolveSort({}, '/anything', 'name'), 'name');              // empty → master
 });
 
 test('sort: owningRoot picks the longest-matching workspace root', () => {

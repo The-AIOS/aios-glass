@@ -508,6 +508,7 @@
 
   function render(data){
     let weeks = data.weeks;
+    let weekNums = data.weekNums || [];
     let label = data.label;
     if (calView === 'week'){
       // Resolve which week to show: edge after a cross-month nav, else today's week, else clamp.
@@ -517,12 +518,13 @@
       pendingWeek = null;
       weekIdx = Math.max(0, Math.min(weekIdx, weeks.length - 1));
       weeks = [weeks[weekIdx]];
+      weekNums = [weekNums[weekIdx]];
     }
     document.getElementById('calLabel').textContent = label;
-    document.getElementById('dow').innerHTML = data.weekdays.map((w) => '<th>' + w + '</th>').join('');
+    document.getElementById('dow').innerHTML = '<th class="wkh" title="' + NLS('calendar.week.col', 'Week number') + '">Wk</th>' + data.weekdays.map((w) => '<th>' + w + '</th>').join('');
     const body = document.getElementById('cal');
-    body.innerHTML = weeks.map((week) =>
-      '<tr>' + week.map((c) => {
+    body.innerHTML = weeks.map((week, wi) =>
+      '<tr>' + '<td class="wknum">' + (weekNums[wi] ? 'W' + weekNums[wi] : '') + '</td>' + week.map((c) => {
         if (c.date === null) return '<td><div class="cell empty"></div></td>';
         const cls = ['cell','day']; if (c.hasNote) cls.push('has'); if (c.isToday) cls.push('today');
         return '<td><div class="' + cls.join(' ') + '" data-date="' + c.date + '"><span class="num">' + c.day + '</span></div></td>';

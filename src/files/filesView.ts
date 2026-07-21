@@ -10,8 +10,8 @@ import { stateGet, stateSet } from '../state';
 import { setFilesVisible } from './filesState';
 import { HomeViewProvider } from '../home/homePanel';
 import {
-  SortMode, FolderSortMap, FOLDER_SORT_KEY, DEFAULT_SORT,
-  normalizeSortMode, getFolderSort, setFolderSort, sortEntries, owningRoot,
+  SortMode, FolderSortMap, FOLDER_SORT_KEY, MASTER_SORT_KEY,
+  normalizeSortMode, setFolderSort, sortEntries, resolveSort,
 } from './sort';
 
 /**
@@ -268,19 +268,15 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     return raw && typeof raw === 'object' ? raw : {};
   }
 
-  /** The effective sort mode for a directory: its owning workspace root's stored
-   *  mode (applied to that root's whole subtree), else `name` (vault/framework). */
-  private sortModeFor(dirPath: string): SortMode {
-    const root = owningRoot(this.workspaceFolders(), dirPath);
-    return root ? getFolderSort(this.folderSorts(), root) : DEFAULT_SORT;
+  /** The global default sort — folders without a per-folder override follow it. */
+  private masterSort(): SortMode {
+    return normalizeSortMode(stateGet<SortMode>(MASTER_SORT_KEY));
   }
 
-  /** Effective mode per workspace root — sent to the webview so each header shows its state. */
-  private workspaceSorts(): Record<string, SortMode> {
-    const map = this.folderSorts();
-    const out: Record<string, SortMode> = {};
-    for (const p of this.workspaceFolders()) out[p] = getFolderSort(map, p);
-    return out;
+  /** The effective sort for a directory: its closest-ancestor per-folder override
+   *  (any depth), else the master default. */
+  private sortModeFor(dirPath: string): SortMode {
+    return resolveSort(this.folderSorts(), dirPath, this.masterSort());
   }
 
   /** A requested absolute path is allowed only if it sits inside one of the place roots. */
@@ -395,16 +391,25 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   private async onMessage(msg: any): Promise<void> {
     switch (msg?.type) {
       case 'ready': {
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), sorts: this.workspaceSorts() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), master: this.masterSort(), overrides: this.folderSorts() });
         return;
       }
       case 'setSort': {
-        // AI-58: persist the per-folder sort for a workspace root, then tell the
-        // webview to re-list that root's subtree with the new order.
+        // Per-folder override at ANY depth: persist it, then re-list that folder's
+        // subtree with the new order (the webview relists dirs under msg.root).
         if (typeof msg.root !== 'string' || !this.isAllowed(msg.root)) return;
         const mode = normalizeSortMode(msg.mode);
         await stateSet(FOLDER_SORT_KEY, setFolderSort(this.folderSorts(), msg.root, mode));
         this.post({ type: 'sortChanged', root: msg.root, mode });
+        return;
+      }
+      case 'setMaster': {
+        // The master (global default): set it AND clear every per-folder override —
+        // "make them all sort this way" (Chuy). The webview then re-lists everything.
+        const mode = normalizeSortMode(msg.mode);
+        await stateSet(MASTER_SORT_KEY, mode);
+        await stateSet(FOLDER_SORT_KEY, {});
+        this.post({ type: 'sortChanged', all: true, master: mode });
         return;
       }
       case 'list': {
@@ -485,7 +490,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         const p = picked[0].fsPath;
         const folders = this.workspaceFolders();
         if (!folders.includes(p)) { folders.push(p); await stateSet(WORKSPACE_KEY, folders); }
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), sorts: this.workspaceSorts(), focus: p });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), master: this.masterSort(), overrides: this.folderSorts(), focus: p });
         this.watchGit();        // wire live git for the new folder's repo
         this.scheduleGit(120);  // and push its status onto the freshly-rendered rows
         return;
@@ -494,7 +499,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
         if (typeof msg.path !== 'string') return;
         const folders = this.workspaceFolders().filter((p) => p !== msg.path);
         await stateSet(WORKSPACE_KEY, folders);
-        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), sorts: this.workspaceSorts() });
+        this.post({ type: 'roots', places: this.places(), theme: currentTheme(), hints: showHints(), iconsEnhanced: fileIconsEnhanced(), master: this.masterSort(), overrides: this.folderSorts() });
         this.watchGit(); // drop the removed folder's watchers
         return;
       }

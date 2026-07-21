@@ -12,8 +12,11 @@
 </head>
 <body>
   <div class="xfilter">
-    <input id="xfilterInput" type="text" placeholder="Find…" data-i18n-ph="files.find" spellcheck="false" autocomplete="off" />
-    <button class="xfclear" id="xfClear" type="button" title="Clear" data-i18n-title="files.clear" hidden>×</button>
+    <div class="xfinput">
+      <input id="xfilterInput" type="text" placeholder="Find…" data-i18n-ph="files.find" spellcheck="false" autocomplete="off" />
+      <button class="xfclear" id="xfClear" type="button" title="Clear" data-i18n-title="files.clear" hidden>×</button>
+    </div>
+    <button class="xmaster" id="masterSort" type="button" data-i18n-title="files.sort.master" title="Sort all folders — the global default"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M4 17l3 3 3-3"/><path d="M13.5 6h6M13.5 11h4.5M13.5 16h3"/></svg></button>
   </div>
   <nav class="explorer" id="explorer" aria-label="AIOS Explorer" tabindex="0">
     <!-- sections injected by files.js -->

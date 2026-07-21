@@ -1,7 +1,10 @@
   const vscode = acquireVsCodeApi();
   const explorerEl = document.getElementById('explorer');
   let places = [];
-  let sorts = {}; // AI-58: { workspaceRootPath: 'name' | 'mtime' } — from the host
+  let master = 'name'; // the global default sort — from the host
+  let overrides = {};  // { folderPath: 'name' | 'mtime' } — per-folder overrides, any depth
+  // effective sort for a dir: its closest-ancestor override, else the master default (mirrors host resolveSort).
+  function effectiveSort(dir){ let best = null; for (const k in overrides){ if (dir === k || dir.startsWith(k + '/')){ if (!best || k.length > best.length) best = k; } } return best ? overrides[best] : master; }
 
   // ── i18n (AI-19) ── mirror of the Home panel's localizer. The host injects
   // `window.__nls` before this runs; NLS(key, fallback) returns the translation or
@@ -160,36 +163,49 @@
   // ── per-folder sort (AI-58) — a hover-reveal control on each Workspace-folder
   //    header opens this 2-option menu; the choice persists per folder in .glass/. ──
   const sortMenu = document.getElementById('sortMenu');
-  let sortRoot = ''; // the workspace root the menu is acting on
+  let sortTarget = null; // a folder PATH (per-folder override), or 'MASTER' (the global default)
   const hideSort = () => { sortMenu.hidden = true; };
-  function openSortMenu(ev, root){
-    sortRoot = root;
+  function openSortMenu(ev, target){
+    sortTarget = target;
     sortMenu.hidden = false;
     sortMenu.style.left = Math.min(ev.clientX, window.innerWidth - 190) + 'px';
     sortMenu.style.top = Math.min(ev.clientY, window.innerHeight - 90) + 'px';
-    const mode = sorts[root] || 'name';
+    const mode = target === 'MASTER' ? master : effectiveSort(target); // current sort → shown in accent
     document.getElementById('sortName').classList.toggle('on', mode === 'name');
     document.getElementById('sortMtime').classList.toggle('on', mode === 'mtime');
   }
-  const setSort = (mode) => { if (sortRoot) vscode.postMessage({ type: 'setSort', root: sortRoot, mode }); hideSort(); };
+  const setSort = (mode) => {
+    if (sortTarget === 'MASTER') vscode.postMessage({ type: 'setMaster', mode });        // set master + clear all overrides
+    else if (sortTarget) vscode.postMessage({ type: 'setSort', root: sortTarget, mode }); // per-folder override, any depth
+    hideSort();
+  };
   document.getElementById('sortName').addEventListener('click', (e) => { e.stopPropagation(); setSort('name'); });
   document.getElementById('sortMtime').addEventListener('click', (e) => { e.stopPropagation(); setSort('mtime'); });
+  const masterBtn = document.getElementById('masterSort');
+  if (masterBtn) masterBtn.addEventListener('click', (ev) => { ev.stopPropagation(); openSortMenu(ev, 'MASTER'); });
   window.addEventListener('click', hideSort);
   window.addEventListener('blur', hideSort);
   window.addEventListener('scroll', hideSort, true);
 
-  // The sort glyph shown on a Workspace-folder header — arrows for name, a clock for mtime.
-  const sortGlyph = (mode) => mode === 'mtime'
-    ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>'
-    : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M4 17l3 3 3-3"/><path d="M13.5 6h6M13.5 11h4.5M13.5 16h3"/></svg>';
+  // The neutral sort glyph (⇅ arrows) — mode-independent (a clock read as "loading").
+  // The menu's accent + the .active tint (= this folder has its OWN override) carry the mode.
+  const sortGlyph = () => '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M4 17l3 3 3-3"/><path d="M13.5 6h6M13.5 11h4.5M13.5 16h3"/></svg>';
 
-  // Reflect a flipped sort on the workspace-root header in place (no repaint) — swap
-  // the glyph + the active tint so the control shows the mode that's now applied. (AI-58)
-  function updateSortGlyph(root, mode){
-    const row = findRow(root); if (!row) return;
-    const sb = row.querySelector('.xsort'); if (!sb) return;
-    sb.classList.toggle('active', mode === 'mtime');
-    sb.innerHTML = sortGlyph(mode);
+  // Attach a hover-reveal per-folder sort control to any header/row — workspace root,
+  // Vault/Framework section, OR a nested subfolder. Keyed by its folder path (any depth).
+  function attachSortControl(headerEl, path){
+    const sb = el('span', 'xsort' + (overrides[path] ? ' active' : ''));
+    sb.dataset.sortroot = path;
+    sb.title = NLS('files.sort.title', 'Sort this folder');
+    sb.innerHTML = sortGlyph();
+    sb.addEventListener('click', (ev) => { ev.stopPropagation(); openSortMenu(ev, path); });
+    headerEl.appendChild(sb);
+  }
+
+  // Reflect a per-folder override's active tint in place (the glyph itself is neutral now).
+  function updateSortActive(root){
+    const sb = explorerEl.querySelector('.xsort[data-sortroot="' + ((window.CSS && CSS.escape) ? CSS.escape(root) : root) + '"]');
+    if (sb) sb.classList.toggle('active', !!overrides[root]);
   }
 
   // Best-effort native drag — sets the path as text + a file URI so a drop target
@@ -226,6 +242,7 @@
     attachCtx(row, e.path);
     attachDrag(row, e.path);
     if (e.dir) {
+      attachSortControl(row, e.path); // per-folder sort on any subfolder, any depth (v2)
       let kids = null;
       const guideX = ((base || 14) + depth * 9 + 7) + 'px'; // child guide line under this chevron
       const ensure = async () => { // expand-only (used by click + auto-reveal)
@@ -314,6 +331,7 @@
     if (opts.dot) head.appendChild(el('span', 'xdot' + (opts.dot === 'ring' ? ' ring' : '')));
     head.appendChild(el('span', 'xsectlab', label));
     if (opts.sub) head.appendChild(el('span', 'xsectsub', opts.sub));
+    if (opts.sortRoot) attachSortControl(head, opts.sortRoot); // per-folder sort on Vault/Framework (v2)
     const box = el('div', 'xsectbody');
     let collapsed = collapsedSet.has(key);
     const apply = () => { car.innerHTML = icon(collapsed ? 'chevR' : 'chevD', 11); box.style.display = collapsed ? 'none' : ''; };
@@ -366,10 +384,10 @@
     // AIOS — the framework itself: Framework + Vault, nested under one collapsible mark.
     await addGroup('AIOS', { mark: true, label: 'AIOS' }, async (g) => {
       if (framework && (!vault || framework.path !== vault.path)) {
-        await addSection('FRAMEWORK', NLS('files.section.framework', 'FRAMEWORK'), { dot: 'ring', sub: NLS('files.sub.frameworkInfra', 'AIOS infra') }, (box) => buildTree(framework.path, box, 0, "vault", 14), g);
+        await addSection('FRAMEWORK', NLS('files.section.framework', 'FRAMEWORK'), { dot: 'ring', sub: NLS('files.sub.frameworkInfra', 'AIOS infra'), sortRoot: framework.path }, (box) => buildTree(framework.path, box, 0, "vault", 14), g);
       }
       if (vault) {
-        await addSection('VAULT', NLS('files.section.vault', 'VAULT'), { dot: 'solid', sub: NLS('files.sub.yourNotes', 'your notes'), primary: true }, (box) => buildTree(vault.path, box, 0, null, 14), g);
+        await addSection('VAULT', NLS('files.section.vault', 'VAULT'), { dot: 'solid', sub: NLS('files.sub.yourNotes', 'your notes'), primary: true, sortRoot: vault.path }, (box) => buildTree(vault.path, box, 0, null, 14), g);
       }
     });
 
@@ -381,15 +399,11 @@
         fh.style.paddingLeft = '10px';
         const ic = el('span', 'xicon'); ic.innerHTML = icon('chevR', 11);
         const nm = el('span', 'xname', w.label);
-        // AI-58: per-folder sort control — hover-reveal, shows current mode, opens the menu.
-        const smode = sorts[w.path] || 'name';
-        const sb = el('span', 'xsort' + (smode === 'mtime' ? ' active' : ''));
-        sb.title = NLS('files.sort.title', 'Sort this folder — name or last-modified');
-        sb.innerHTML = sortGlyph(smode);
-        sb.addEventListener('click', (ev) => { ev.stopPropagation(); openSortMenu(ev, w.path); });
+        fh.append(ic, nm);
+        attachSortControl(fh, w.path); // hover-reveal per-folder sort (v2)
         const rm = el('span', 'xrm'); rm.title = NLS('files.removeFolder', 'Remove from workspace'); rm.textContent = '×';
         rm.addEventListener('click', (ev) => { ev.stopPropagation(); vscode.postMessage({ type: 'removeFolder', path: w.path }); });
-        fh.append(ic, nm, sb, rm);
+        fh.append(rm);
         g.appendChild(fh);
         attachCtx(fh, w.path); attachDrag(fh, w.path);
         let kids = null;
@@ -530,7 +544,8 @@
       if (msg.theme) applyTheme(msg.theme); applyHints(msg.hints);
       if (msg.iconsEnhanced != null) iconsEnhanced = msg.iconsEnhanced;
       places = msg.places || [];
-      if (msg.sorts) sorts = msg.sorts; // AI-58: per-folder sort modes
+      if (msg.master) master = msg.master;           // the global default sort
+      if (msg.overrides) overrides = msg.overrides;   // per-folder overrides (any depth)
       // Await the repaint, then reveal a just-added folder (msg.focus) — expands the
       // WORKSPACE group to it + selects it, so adding a folder gives instant feedback.
       paintExplorer().then(() => { if (msg.focus) void revealPath(msg.focus); });
@@ -544,15 +559,20 @@
     else if (msg.type === 'collapseAll') { collapseAll(); }
     else if (msg.type === 'refresh') { void refreshTree(); }
     else if (msg.type === 'sortChanged') {
-      // AI-58: the pref applies to the root's WHOLE subtree. Re-list every rendered
-      // directory under it IN PLACE (relistFolder now reorders) — folders reorder live,
-      // no repaint, no collapse/expand. Collapsed dirs no-op and re-fetch fresh on next
-      // expand. (Full refreshTree tore the tree down + re-expanded, which didn't reliably
-      // reorder already-open folders — this targets exactly what changed.)
-      sorts[msg.root] = msg.mode;
-      updateSortGlyph(msg.root, msg.mode);
-      const root = msg.root;
-      for (const d of [...dirContainers.keys()]) { if (d === root || d.startsWith(root + '/')) void relistFolder(d); }
+      // Re-list the affected dirs IN PLACE (relistFolder reorders) — folders reorder live,
+      // no repaint, no collapse/expand. Collapsed dirs no-op and re-fetch fresh on next expand.
+      if (msg.all) {
+        // MASTER change — the host cleared every override; the whole tree re-sorts.
+        master = msg.master || master; overrides = {};
+        explorerEl.querySelectorAll('.xsort.active').forEach((sb) => sb.classList.remove('active'));
+        for (const d of [...dirContainers.keys()]) void relistFolder(d);
+      } else {
+        // per-folder override on msg.root — only its subtree re-sorts.
+        overrides[msg.root] = msg.mode;
+        updateSortActive(msg.root);
+        const root = msg.root;
+        for (const d of [...dirContainers.keys()]) { if (d === root || d.startsWith(root + '/')) void relistFolder(d); }
+      }
     }
     else if (msg.type === 'relist') { for (const d of (msg.dirs || [])) void relistFolder(d); } // targeted auto-update
   });
