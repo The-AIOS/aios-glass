@@ -6,6 +6,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-07-21
+
+> **Close all your sessions in one move.** A new **"Close all"** button broadcasts `/close-session` to every live Claude session, so each wraps *itself* up — race-safe (each writes its own surface, every commit through `aios-commit`) — then returns to idle. Pick which sessions to close, see each one's live status, and optionally consolidate with `/close-day` and kill the terminals — your primary session is always protected.
+
+### Added
+- **"Close all" broadcast button** (title-bar door glyph — matches the per-session close icon; shown only when ≥1 session is running). Opens a **multi-select picker** of every live session — **all selected by default**, each row showing its true running-card **status dot** (🟢 idle · 🟡 working · 🔵 needs-input · 🔴 error), resolved from the session registry by pid-ancestry (not the terminal's display name, which often differs). Fires `/aios:close-session --auto` in each picked session (non-interactive self-close), so N sessions wrap up in parallel without clobbering: a vault session merge-appends its block under a per-file lock, a project session writes its own report, and every commit goes through `aios-commit`. Two **optional** post-actions: **run `/close-day`** (consolidates once, in your primary session — opens it if it isn't live) and **kill the terminals** (disposes every selected terminal *except* your primary, and only after each finishes capturing). **Requires the matching framework update** (`/aios:update`) for the `--auto` close-session + single-writer `/close-day`.
+
+### Fixed
+- **"Launch primary" now reveals a running primary instead of doing nothing.** It resolves the session by pid-ancestry (a terminal's display name often differs from the session name), so clicking it focuses your live primary the way clicking its running-card row does — the old name-only match silently no-op'd when the names differed.
+
+## [0.4.0] — 2026-07-20
+
+> The **organize-and-observe** release: sort any folder the way you want, a Health card that tells you what's wired, ISO week numbers on the calendar, and a session-management pass (post-its, a kill-guard, a localized Explorer). _(Backfilled — 0.4.0 shipped to Open VSX without a changelog entry.)_
+
+### Added
+- **Per-folder sort at any depth** (sort-model v2) — a master default plus per-folder overrides across every Explorer section, with a neutral sort glyph (hover-only). Folders reorder live on a sort flip — no collapse/expand.
+- **Health card** — a Home-panel check that surfaces what's wired (Foam → skills/commands) and flags what isn't.
+- **Calendar ISO week numbers** — `aiosGlass.showWeekNumbers` (default on), toggled from cog → Appearance, in both calendar views.
+- **Session post-its (AI-18)** — jot a reminder on a live session from its row; view and delete the notes you created.
+
+### Changed
+- **Workspace folders now indent to match Vault/Framework** — they no longer read as a sub-level.
+- **Dropped the AI-7 needs-input bucket** — redundant with native status `input` detection.
+
+### Fixed
+- **Kill-guard (AI-18)** — an explicit close always confirms first (kill is destructive + irreversible), harvesting any post-its so they aren't lost.
+- **Explorer localized (AI-39)** — the file tree honors the language switcher (en · es · pt-br).
+
 ## [0.3.0] — 2026-06-25
 
 > **AIOS Glass now speaks three languages.** Full **English / Español (neutral-LATAM) / Português (Brasil)** localization across the Home panel and every host popup, switchable from the cog menu **without an IDE reload**. Plus a one-click **Operating Manual** in the title bar, a unified **"open notes in"** setting that finally governs both Calendar and Explorer, and a more solid **"Go with agents"** task detector.
