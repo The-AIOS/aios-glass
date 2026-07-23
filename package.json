@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -409,6 +409,21 @@
           ],
           "default": "auto",
           "markdownDescription": "Where commands & skills run. (Agents, workers, and resume always open a new terminal.) `auto` smart-routes to a live Claude session when it's unambiguous — the focused one, or the sole live session — and only opens a new terminal when there's nothing to route to (keep `ask` for power users). A new terminal runs `claude \"/slash\"`; an existing/active one gets the bare `/slash` typed into the Claude session there."
+        },
+        "aiosGlass.killBehavior": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "kill",
+            "capture"
+          ],
+          "enumDescriptions": [
+            "Ask each time (default): the kill action shows a Capture-&-close · Kill-now · Cancel prompt",
+            "Always kill now: close the terminal immediately (stops Claude), no prompt",
+            "Always capture & close: run /close-session first to keep the work, then close — no prompt"
+          ],
+          "default": "ask",
+          "markdownDescription": "What the trash / kill affordance does. `ask` (default) always confirms with a **Capture & close · Kill now · Cancel** prompt — safe, since kill is irreversible. Set `kill` to always close immediately, or `capture` to always run `/close-session` first (keep the work) before closing. Applies to every kill surface — the Running-card trash button and `spawn-kill`."
         },
         "aiosGlass.showHidden": {
           "type": "boolean",

@@ -50,6 +50,24 @@ function newTerminal(style?: TermStyle): vscode.Terminal {
     cwd: frameworkRoot(),
     iconPath: style?.icon ? new vscode.ThemeIcon(style.icon) : undefined,
     color: style?.color ? new vscode.ThemeColor(style.color) : undefined,
+    // Env for every Glass-created terminal (covers ALL launch paths — rituals, skills,
+    // primary, resume, commands, spawn — since they all route through here):
+    //  • AIOS_GLASS_TERM — marks it so the shell `spawn` wrapper boots the worker IN-PLACE
+    //    (in-shell) rather than osascript-driving the palette (a redundant terminal + leaked
+    //    keystrokes). Needed because a Glass terminal INHERITS $CLAUDECODE when the IDE was
+    //    launched from a Claude session, so the wrapper's $CLAUDECODE check alone can't tell
+    //    "Glass-made" from "a real Claude session" — this marker does.
+    //  • CLAUDE_CODE_CHILD_SESSION: null — CLEAR the inherited child-session marker (the IDE,
+    //    or Glass, may inherit it). Left set, it turns OFF transcript saving AND the session
+    //    registry for EVERY session Glass launches — which makes them invisible to the Running
+    //    card and non-resumable. null removes the var from the child terminal's env.
+    //  • CLAUDE_CODE_FORCE_SESSION_PERSIST — force a persisted, resumable, Glass-visible session.
+    // (2026-07-23)
+    env: {
+      AIOS_GLASS_TERM: '1',
+      CLAUDE_CODE_CHILD_SESSION: null,
+      CLAUDE_CODE_FORCE_SESSION_PERSIST: '1',
+    },
   });
 }
 
@@ -269,14 +287,21 @@ export async function runRitualPicker(): Promise<void> {
 // ── Always-new actions ────────────────────────────────────────────────────
 
 /** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
-export async function launchSpawn(name: string, task?: string): Promise<void> {
+export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string }): Promise<void> {
   // Icon comes from the agent's own context (declared frontmatter `icon:`, else
   // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
   // a graph, etc. Builder keeps a distinct amber tab.
   const agent = discoverAgents().find((a) => a.name === name);
   const icon = iconForAgent(agent ?? { name });
   const color = name === 'aios-builder' ? 'terminal.ansiYellow' : 'terminal.ansiCyan';
-  runNew(`spawn ${name}${task && task.trim() ? ` ${shellQuote(task.trim())}` : ''}`, { name, icon, color });
+  // Optional model/tier for the spawned worker (Calibrate-Don't-Choose: mechanical
+  // work → cheaper/faster model, judgment → frontier). Whitelisted to safe tokens so
+  // an inbox request can never inject arbitrary flags into the spawn command line. A
+  // concrete --model wins over --tier (matches the shell wrapper's own precedence).
+  let flag = '';
+  if (opts?.model && /^[A-Za-z0-9.\-]+$/.test(opts.model)) { flag = `--model ${opts.model} `; }
+  else if (opts?.tier === 'mechanical' || opts?.tier === 'judgment') { flag = `--tier ${opts.tier} `; }
+  runNew(`spawn ${flag}${name}${task && task.trim() ? ` ${shellQuote(task.trim())}` : ''}`, { name, icon, color });
 }
 
 /**
@@ -436,6 +461,20 @@ export async function closeSessionInTerminal(name: string, pid?: number): Promis
 }
 
 /**
+ * Send arbitrary text (a prompt, a slash command) INTO a named running session's
+ * terminal — the "send" verb of the spawn-inbox command bus. Lets one session
+ * message another (e.g. hand off a task, or nudge a stuck worker) through Glass,
+ * which the human's IDE delivers natively — no synthetic keystrokes, no gate.
+ * Reveals the target first (Claude reads submitted input), then sends + submits.
+ * No-op-with-notice if the named session isn't a terminal in this window.
+ */
+export async function sendToSession(name: string, text: string, pid?: number): Promise<void> {
+  const term = await findAgentTerminal(name, pid);
+  if (term) { term.show(); term.sendText(text); return; } // sendText appends a newline → submits
+  void vscode.window.showInformationMessage(`AIOS Glass: "${name}" ${t("isn't a terminal in this window — can't deliver the message.")}`);
+}
+
+/**
  * Interrupt a running session — send Esc to its terminal, exactly like pressing
  * Escape, stopping Claude mid-task. Doesn't steal focus (the row's status dot
  * flips busy→idle on the next poll). No-op-with-notice if it's not in this window.
@@ -478,20 +517,35 @@ export async function killGuardedDispose(name: string, pid?: number): Promise<vo
   const noteCount = getSessionNotes(name).length;
 
   const notesTag = noteCount ? ` · ${noteCount} ${noteCount > 1 ? t('notes') : t('note')}` : '';
-  const stakes = busy || noteCount
-    ? t('This session has work or notes to lose — how do you want to close it?')
-    : t('Closing stops Claude for this session — how do you want to close it?');
-  const pick = await vscode.window.showQuickPick(
-    [
-      { label: '$(book) ' + t('Capture & close'), description: t('run /close-session first — keep the work'), id: 'capture' },
-      { label: '$(trash) ' + t('Kill now'), description: noteCount ? t('harvest the notes, then kill') : t('close the terminal — stops Claude'), id: 'kill' },
-      { label: '$(close) ' + t('Cancel'), description: t('leave it running'), id: 'cancel' },
-    ],
-    { title: `${t('Close')} “${name}”?${busy ? ' · ' + t('busy') : ''}${notesTag}`, placeHolder: stakes }
-  );
-  if (!pick || pick.id === 'cancel') return;
+
+  // aiosGlass.killBehavior lets the operator skip the prompt: 'ask' (default) shows the
+  // 3-option QuickPick; 'kill' always kills now; 'capture' always runs /close-session first.
+  // The confirm stays UNCONDITIONAL in 'ask' mode (predictable — see the doc-comment above);
+  // this setting is the operator's explicit opt-out, not a heuristic fast-path.
+  const behavior = vscode.workspace.getConfiguration('aiosGlass').get<string>('killBehavior', 'ask');
+  let choice: 'capture' | 'kill';
+  if (behavior === 'kill') {
+    choice = 'kill';
+  } else if (behavior === 'capture') {
+    choice = 'capture';
+  } else {
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: '$(book) ' + t('Capture & close'), description: t('run /close-session first — keep the work'), id: 'capture' },
+        { label: '$(trash) ' + t('Kill now'), description: noteCount ? t('harvest the notes, then kill') : t('close the terminal — stops Claude'), id: 'kill' },
+        { label: '$(close) ' + t('Cancel'), description: t('leave it running'), id: 'cancel' },
+      ],
+      {
+        title: `${t('Close')} “${name}”?${busy ? ' · ' + t('busy') : ''}${notesTag}`,
+        placeHolder: t('Tip: set “Kill Behavior” in settings to skip this prompt'),
+      }
+    );
+    if (!pick || pick.id === 'cancel') return;
+    choice = pick.id as 'capture' | 'kill';
+  }
+
   if (noteCount) await harvestSessionNotes(name); // harvest before either close path — never drop a reminder
-  if (pick.id === 'capture') { await closeSessionInTerminal(name, pid); return; }
+  if (choice === 'capture') { await closeSessionInTerminal(name, pid); return; }
   await disposeAgentTerminal(name, pid);
 }
 

@@ -20,6 +20,38 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const media = join(root, 'media');
 
+// ── settings-parity guard ──────────────────────────────────────────────────
+// The recurring mistake: a setting added to package.json shows up in VS Code's
+// NATIVE settings UI but is invisible in Glass's OWN cog menu — where operators
+// actually look. This fails the smoke run when an everyday `aiosGlass.*` setting
+// isn't reachable from the cog (a `config.ts` getter/setter the cog uses, or a
+// direct reference in `configMenu.ts`). Low-level settings that are set another
+// way live in COG_EXEMPT — adding one there is a DELIBERATE choice, not a silent
+// skip. (Runs regardless of Chrome, so it gates even where the panel boot can't.)
+function checkSettingsParity() {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  const conf = pkg.contributes && pkg.contributes.configuration;
+  const props = Array.isArray(conf)
+    ? Object.assign({}, ...conf.map((c) => c.properties || {}))
+    : (conf && conf.properties) || {};
+  const keys = Object.keys(props).filter((k) => k.startsWith('aiosGlass.')).map((k) => k.slice('aiosGlass.'.length));
+  const COG_EXEMPT = new Set(['frameworkPath', 'claudeCommand']); // set via a dedicated command / low-level override — not everyday cog toggles
+  const cfg = readFileSync(join(root, 'src/home/config.ts'), 'utf8');
+  const cog = readFileSync(join(root, 'src/home/configMenu.ts'), 'utf8');
+  const surfaced = (k) => [`'${k}'`, `"${k}"`].some((q) => cfg.includes(q) || cog.includes(q));
+  const missing = keys.filter((k) => !surfaced(k) && !COG_EXEMPT.has(k));
+  if (missing.length) {
+    console.error('smoke: SETTINGS PARITY FAILED — these aiosGlass.* settings are in package.json but NOT reachable from the Glass cog:');
+    for (const m of missing) { console.error('  · aiosGlass.' + m); }
+    console.error("  (They appear in VS Code's native settings UI but not in Glass's cog, where operators look.)");
+    console.error('  Fix: surface each in src/home/configMenu.ts (a cog item + a handler case), or add it to COG_EXEMPT here with a reason.');
+    return false;
+  }
+  console.log(`smoke: settings parity ✓ — ${keys.length} aiosGlass.* settings all reachable from the cog (or explicitly exempt)`);
+  return true;
+}
+if (!checkSettingsParity()) { process.exit(1); }
+
 // ── locate Chrome: env override → CI linux → macOS app bundles ──
 const candidates = [
   process.env.CHROME_PATH,

@@ -50,7 +50,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(calendar) ' + t('Calendar week numbers'), description: onOff(showWeekNumbers()), id: 'weeknums' },
     // ── Explorer — the file tree ──
     sep(t('Explorer')),
-    { label: '$(go-to-file) ' + t('Open notes in'), description: openNotesLabel(openNotesIn()), id: 'openin' },
+    { label: '$(go-to-file) ' + t('Open files in'), description: openNotesLabel(openNotesIn()), id: 'openin' },
     { label: '$(symbol-file) ' + t('File icons'), description: fileIconsEnhanced() ? t('enhanced') : t('plain'), id: 'fileicons' },
     { label: '$(eye) ' + t('Hidden files'), description: shownHidden(showHiddenFiles()), id: 'hidden' },
     { label: '$(target) ' + t('Auto-reveal active file'), description: onOff(autoReveal()), id: 'autoreveal' },
@@ -59,6 +59,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(server) ' + t('Model'), description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) ' + t('Permission mode'), description: currentMode(), id: 'mode' },
     { label: '$(terminal) ' + t('Terminal mode'), description: currentTerminalMode(), id: 'terminal' },
+    { label: '$(trash) ' + t('Kill behavior'), description: vscode.workspace.getConfiguration('aiosGlass').get<string>('killBehavior', 'ask'), id: 'killbehavior' },
     { label: '$(list-flat) ' + t('Native terminal tabs'), description: shownHidden(nativeTabsEnabled()), id: 'nativetabs' },
     { label: '$(broadcast) ' + t('Remote control'), description: onOff(remoteControlOn()), id: 'remote' },
     { label: '$(sync) ' + t('Automatic updates'), description: onOff(automaticUpdates()), id: 'autoupdate' },
@@ -163,7 +164,7 @@ export async function openConfigMenu(): Promise<void> {
           { label: '$(split-horizontal) ' + t('Preview to the side'), description: t('Foam-rendered wikilinks beside the source — Obsidian-style'), value: 'previewToSide' as const },
           { label: '$(code) ' + t('Editor'), description: t('raw source — faster, skips the preview webview'), value: 'editor' as const }
         ],
-        { title: `${t('Open notes in')} — ${t('currently')} ${openNotesLabel(openNotesIn())}`, placeHolder: t('Calendar days + Explorer files · ⌘/Ctrl-click always opens the source') }
+        { title: `${t('Open files in')} — ${t('currently')} ${openNotesLabel(openNotesIn())}`, placeHolder: t('Calendar days + Explorer files · ⌘/Ctrl-click always opens the source') }
       );
       if (choice) await setOpenNotesIn(choice.value);
       return;
@@ -199,6 +200,19 @@ export async function openConfigMenu(): Promise<void> {
         title: t('Terminal mode — where rituals/actions run')
       });
       if (m) await setTerminalMode(m);
+      return;
+    }
+    case 'killbehavior': {
+      const cfg = vscode.workspace.getConfiguration('aiosGlass');
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(question) ' + t('Ask'), description: t('confirm each time — Capture · Kill · Cancel'), value: 'ask' },
+          { label: '$(trash) ' + t('Kill now'), description: t('always close immediately, no prompt'), value: 'kill' },
+          { label: '$(book) ' + t('Capture & close'), description: t('always /close-session first, then close'), value: 'capture' },
+        ],
+        { title: `${t('Kill behavior')} — ${t('currently')} ${cfg.get<string>('killBehavior', 'ask')}` }
+      );
+      if (choice) { await cfg.update('killBehavior', choice.value, vscode.ConfigurationTarget.Global); }
       return;
     }
     case 'remote': {
