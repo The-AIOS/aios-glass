@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-07-23
+
+> **Command-bus hardening — the round-trip now closes to a resumed coordinator, and a realistic multi-line task can't crash the host.** A full end-to-end test of the 0.4.2 bus (spawn → send → receive-back → kill) surfaced two defects: messaging a session *back* silently dropped when its terminal was resumed rather than Glass-created, and a multi-line spawn task crashed the integrated terminal. Both are fixed and locked with a smoke-test invariant. `spawn`, `send`, and `kill` were each verified live; this release closes the fourth leg — a worker replying to a long-lived coordinator (`buddai`/`fleet-heron` are always resumed) — which is the whole point of inter-agent orchestration.
+
+### Fixed
+- **`send`/`kill` now reach RESUMED sessions, not just Glass-created ones.** `findAgentTerminal` resolves the target's pid from the session registry (`listRunningAgents` — authoritative even for a resumed / bare `claude --resume` / externally-started session) whenever the caller passes none, and matches the terminal by **process ancestry**. Previously these verbs fell through to a terminal **tab-name** match, which only matches terminals Glass itself created (name === session name); a resumed session's tab keeps a different API name (a UI rename never propagates to `Terminal.name`), so an inbox `send`/`kill` aimed at it was consumed and then **silently dropped**. This centralizes the robust match for every delivery verb (`send`, `kill`, `interrupt`, `reveal`).
+- **A multi-line or large spawn task no longer crashes the terminal.** `launchSpawn` TYPES the `spawn …` command into a terminal (`sendText`); a task with embedded newlines was typed as a burst of Enter-presses and a large body flooded the integrated terminal — enough to crash the host (observed on Antigravity). Multi-line / long tasks (`>240` chars) are now written to a temp file (`os.tmpdir()/aios-spawn-task-<name>.md`) and the worker is told to read it — mirroring the shell wrapper's own long-task indirection; only short single-line tasks are inlined into the typed command.
+
+### Added
+- **Smoke-test delivery-robustness guard** — `scripts/smoke.mjs` now statically asserts both invariants against `runner.ts` (pid-from-registry resolution in `findAgentTerminal`; temp-file handoff in `launchSpawn`), so a future refactor can't silently regress either fix. Runs alongside the settings-parity guard, gating even where the headless-Chrome panel boot can't.
+
+### Known limitations
+- **Multi-window**: if more than one IDE window runs Glass, all watch the same `~/.aios/spawn-inbox/` and race to consume a request; whichever wins acts, and a `send`/`kill` can miss if the winning window doesn't hold the target terminal. Single-window (the normal setup) is unaffected. Window-scoped ownership is a future change.
+
 ## [0.4.2] — 2026-07-23
 
 > **The spawn-inbox command bus — agents can spawn, kill, and message sessions again, even in auto mode.** A recent Claude Code update gates agent-invoked `spawn`/`spawn-kill` (its auto-mode classifier reads them as "launch/kill an autonomous agent" and denies them — no prompt, just a silent red dot; and the osascript palette-drive they relied on leaked and dropped synthetic keystrokes). Glass now exposes a **command bus**: an orchestrating agent drops a small request file and Glass — a user-trusted extension — fulfils it **natively** (`vscode.createTerminal` / `sendText`), no synthetic keystrokes, no classifier gate. *Request, don't spawn.*

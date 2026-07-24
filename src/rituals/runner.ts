@@ -301,7 +301,25 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   let flag = '';
   if (opts?.model && /^[A-Za-z0-9.\-]+$/.test(opts.model)) { flag = `--model ${opts.model} `; }
   else if (opts?.tier === 'mechanical' || opts?.tier === 'judgment') { flag = `--tier ${opts.tier} `; }
-  runNew(`spawn ${flag}${name}${task && task.trim() ? ` ${shellQuote(task.trim())}` : ''}`, { name, icon, color });
+  // Task transport hardening: launchSpawn TYPES the spawn command into a terminal
+  // (runNew → sendText). A task with embedded newlines is typed as many Enter
+  // presses, and a large body floods the integrated terminal — either can crash the
+  // host (observed crashing Antigravity). So a multi-line or long task is handed off
+  // via a temp file and the worker is told to read it (the shell wrapper does the
+  // same indirection for its own long tasks); only short single-line tasks are
+  // inlined into the typed command.
+  const taskText = task?.trim() ?? '';
+  let inlineTask = taskText;
+  if (taskText && (/[\r\n]/.test(taskText) || taskText.length > 240)) {
+    try {
+      const taskFile = path.join(os.tmpdir(), `aios-spawn-task-${name}.md`);
+      fs.writeFileSync(taskFile, taskText, 'utf8');
+      inlineTask = `Read ${taskFile} and follow the instructions inside.`;
+    } catch {
+      inlineTask = taskText.replace(/[\r\n]+/g, ' ').slice(0, 2000); // fallback: collapse to one line
+    }
+  }
+  runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color });
 }
 
 /**
@@ -422,6 +440,17 @@ function getPpidMap(): Promise<Map<number, number>> {
  * `terminal.name`, so name-matching misses spawned workers.)
  */
 export async function findAgentTerminal(name: string, pid?: number): Promise<vscode.Terminal | undefined> {
+  // When the caller didn't supply a pid, resolve it from the session registry
+  // (~/.claude/sessions/<pid>.json — authoritative even for resumed / bare
+  // `claude --resume` / externally-started sessions). This lets delivery use the
+  // robust process-ancestry match below even for a terminal Glass didn't create,
+  // whose TAB name won't equal the session name (a UI rename doesn't propagate to
+  // the API `Terminal.name`). The bare name-match at the end is a last resort that
+  // only works for Glass-created terminals, where name === session name.
+  if (!pid) {
+    try { pid = (await listRunningAgents()).find((a) => a.name === name)?.pid; }
+    catch { /* registry unreadable → fall through to the name-match below */ }
+  }
   if (pid) {
     const ppidOf = await getPpidMap();
     const ancestors = new Set<number>([pid]);

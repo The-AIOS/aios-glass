@@ -52,6 +52,45 @@ function checkSettingsParity() {
 }
 if (!checkSettingsParity()) { process.exit(1); }
 
+// ── delivery-robustness guard ────────────────────────────────────────────────
+// Two hardening invariants for the spawn-inbox command bus, each a shipped-0.4.2
+// bug fixed in 0.4.3, locked here against a silent refactor regression:
+//  A) findAgentTerminal must resolve the target pid from the session registry
+//     (listRunningAgents) when the caller passes none — otherwise `send`/`kill`
+//     to a RESUMED session fall through to a terminal-TAB name match, which never
+//     matches a terminal Glass didn't create (a UI rename doesn't reach the API
+//     name), and the message/kill is silently dropped.
+//  B) launchSpawn must hand a multi-line / large task off via a temp file instead
+//     of TYPING it into the terminal (runNew → sendText) — a multi-line task typed
+//     as a burst of Enter-presses floods and crashes the integrated terminal.
+function checkDeliveryRobustness() {
+  const src = readFileSync(join(root, 'src/rituals/runner.ts'), 'utf8');
+  const body = (name) => {
+    const m = src.match(new RegExp(`(?:export )?(?:async )?function ${name}\\b`));
+    if (!m) return '';
+    const rest = src.slice(m.index + m[0].length);
+    const next = rest.search(/\n(?:export )?(?:async )?function \w/);
+    return next === -1 ? rest : rest.slice(0, next);
+  };
+  const fails = [];
+  const find = body('findAgentTerminal');
+  if (!find || !/!pid/.test(find) || !/listRunningAgents\s*\(/.test(find)) {
+    fails.push('findAgentTerminal must resolve pid from listRunningAgents() when none is passed — else send/kill to a RESUMED session silently drops (tab-name match only finds Glass-created terminals).');
+  }
+  const spawn = body('launchSpawn');
+  if (!spawn || !/tmpdir\s*\(/.test(spawn) || !/writeFileSync/.test(spawn) || !spawn.includes('[\\r\\n]')) {
+    fails.push('launchSpawn must hand a multi-line/large task off via a temp file (os.tmpdir + writeFileSync, gated on a [\\r\\n] test) instead of typing it — a multi-line task typed via sendText crashes the integrated terminal.');
+  }
+  if (fails.length) {
+    console.error('smoke: DELIVERY ROBUSTNESS FAILED — the spawn-inbox command bus lost a hardening invariant:');
+    for (const f of fails) { console.error('  · ' + f); }
+    return false;
+  }
+  console.log('smoke: delivery robustness ✓ — pid-from-registry resolution + temp-file task handoff present');
+  return true;
+}
+if (!checkDeliveryRobustness()) { process.exit(1); }
+
 // ── locate Chrome: env override → CI linux → macOS app bundles ──
 const candidates = [
   process.env.CHROME_PATH,
