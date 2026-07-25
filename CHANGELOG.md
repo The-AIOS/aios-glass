@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.7] — 2026-07-25
+
+> **The request file *is* the queue.** 0.4.6 stopped firing messages into busy sessions, but it kept the message in the extension's memory and, when its 5-minute budget ran out, "delivered anyway" — performing the exact silent loss the gate existed to prevent, and losing anything still held if the IDE reloaded. Both flaws had the same root: treating the inbox as a doorbell (consume on pickup) instead of a queue (keep until done). Requests are now **claimed, not consumed** — and a busy target is never force-delivered to.
+
+### Fixed
+- **A pending message survives an IDE reload.** A request is claimed by an atomic rename to `<name>.json.holding` (deliberately outside the watcher's `*.json` glob, so it can't be re-picked-up as new) and deleted only once delivery is verified. Anything still holding when a session ends is **recovered on the next activation** instead of evaporating with the extension's memory.
+- **Never force-deliver into a busy session.** The hold budget is now generous (30 min — waiting is just a timer, and the file is durable), and when it does run out Glass reports `NOT DELIVERED` and leaves the request as `<name>.json.undelivered`. Delivering into a busy target is a *guaranteed* drop, so it is no longer offered as a fallback.
+- **Nothing is silently lost, ever.** Malformed JSON, a missing `name`/`prompt`, an unknown session, a failed verb, an unverified delivery — each leaves a `.undelivered` artifact on disk with the reason in the *AIOS Glass* output channel, instead of a deleted file and a shrug.
+- **Atomic claim replaces delete-on-pickup**, so a create+change event pair — or a second IDE window — can't double-handle one request (the previous de-dup relied on deleting first, which is what made durability impossible).
+
+### Added
+- **`src/core/sendQueue.ts`** — the decisions as pure functions (`decideSend`, `isBusy`, `safeNeedle`, claim/abandon path helpers), with **8 unit tests** (35 total, up from 27). The regression that shipped in 0.4.6 now has a test asserting a busy target is *still* not delivered to when the budget expires, and another asserting neither the `.holding` nor `.undelivered` suffix can match the watcher glob.
+
+### Notes
+- `INBOX_CONTRACT` stays **1** — verbs and fields are unchanged; this is delivery mechanics only.
+- Credit where due: the reframe ("why not leave it queued and let the receiving session pick it up?") came from the operator mid-debug, not from me.
+
 ## [0.4.6] — 2026-07-25
 
 > **`send` no longer drops messages into busy sessions — and never claims a delivery it hasn't observed.** Found the hard way an hour after shipping 0.4.5: a `send` to a session that was mid-turn vanished *completely* — the text never reached the input and was never queued — while everything upstream looked successful, because the request file had been consumed. Consuming the file only ever proved Glass picked it up. Delivery is now status-aware and **verified**.

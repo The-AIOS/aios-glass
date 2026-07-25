@@ -22,6 +22,7 @@ import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
+import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX } from './core/sendQueue';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
@@ -647,7 +648,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '- Keep `prompt` on **one line** — multi-line text is typed into a terminal as multiple Enters.',
       '- The file disappearing means the surface **picked it up**, not that the work succeeded. To verify what a session actually did, read its transcript: `~/.claude/projects/*/<sessionId>.jsonl` (`sessionId` comes from its registry file).',
-      "- **`send` to a BUSY session is not instant, by necessity.** Typing into a session that is mid-turn *drops the text* — it never reaches the input and is never queued. So Glass reads the target's `status` first, **holds the message until it goes idle** (up to 5 min), delivers, then **verifies** the text became a turn in that session's transcript. Watch the *AIOS Glass* output channel: it says `delivered + VERIFIED ✓`, or `NOT VERIFIED` — which means re-drop the request. If you implement a fulfiller, do the same: an unverified `sendText` is a silent drop.",
+      "- **`send` to a BUSY session is not instant, by necessity — and your request file IS the queue.** Delivering into a session that is mid-turn *drops the text* (it never reaches the input and is never queued), so Glass reads the target's `status` first and **waits**. While it waits, your request is not deleted — it's renamed to `<name>.json.holding`, so a message survives an IDE reload instead of evaporating, and it is removed only once delivery is **verified** as a real turn in the target's transcript. Watch the *AIOS Glass* output channel: `delivered + VERIFIED ✓`, or `NOT DELIVERED`/`NOT VERIFIED` — in which case the request is left as `<name>.json.undelivered` for you to inspect or re-drop. Glass will **never** deliver into a busy session as a last resort: that is a guaranteed silent loss, not a best effort. Building another fulfiller? Copy this shape — status-gate, keep the file until verified, never force-deliver.",
       '- **Glass-specific:** `send` / `kill` reach terminals in the Glass window that consumed the request; with several IDE windows open, whichever wins the race acts. (Co-installed with the App, whichever surface picks the file up is the one that acts — the App defers this doc to Glass, but not the requests.)',
       '- For `send` / `kill`, `name` must match a **live** registry name. Malformed or name-less requests are ignored (logged to the *AIOS Glass* output channel).',
       '',
@@ -705,58 +706,92 @@ export function activate(context: vscode.ExtensionContext): void {
     const m = text.match(/[A-Za-z0-9 ,.\-—:;()!?']{24,}/);
     return (m ? m[0] : text.slice(0, 24)).slice(0, 48);
   };
-  const deliverSend = async (name: string, prompt: string): Promise<void> => {
+  /** Deliver a bus `send`. Returns true ONLY when the text was seen to become a turn in
+   *  the target's own transcript — the caller keeps the request file unless that holds. */
+  const deliverSend = async (name: string, prompt: string): Promise<boolean> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
-    let target = await find();
-    if (!target) {
-      log(`spawn-inbox: send → '${name}' — no live session by that name in the registry; message DROPPED`);
-      void vscode.window.showWarningMessage(`AIOS Glass: no live session named “${name}” — message not delivered.`);
-      return;
-    }
-    const busy = (a: { status?: string }) => (a.status || '').toLowerCase() === 'busy';
-    if (busy(target)) {
-      log(`spawn-inbox: '${name}' is busy — holding the message until it goes idle (a busy target drops it)`);
-      const until = Date.now() + 5 * 60 * 1000;
-      while (Date.now() < until) {
-        await sleep(2000);
-        const t = await find();
-        if (!t) { log(`spawn-inbox: '${name}' ended while its message was held — DROPPED`); return; }
-        target = t;
-        if (!busy(t)) { break; }
+    const started = Date.now();
+    const MAX_HOLD_MS = 30 * 60 * 1000;   // generous: the file is the queue, waiting is cheap
+    let announced = false;
+    for (;;) {
+      const decision = decideSend(await find(), Date.now() - started, MAX_HOLD_MS);
+      if (decision.do === 'undeliverable') {
+        log(`spawn-inbox: send → '${name}' NOT DELIVERED — ${decision.reason}`);
+        void vscode.window.showWarningMessage(`AIOS Glass: message to “${name}” not delivered — ${decision.reason}. The request is kept on disk as .undelivered.`);
+        return false;
       }
-      if (busy(target)) { log(`spawn-inbox: '${name}' still busy after 5 min — delivering anyway; may not land`); }
-    }
-    await sendToSession(name, prompt, target.pid);
-    const tx = target.sessionId ? transcriptFor(target.sessionId) : undefined;
-    if (!tx) { log(`spawn-inbox: send → '${name}' — sent, but no transcript found: delivery UNVERIFIED`); return; }
-    const needle = safeNeedle(prompt);
-    const deadline = Date.now() + 20000;
-    while (Date.now() < deadline) {
-      await sleep(1500);
-      try {
-        if (fs.readFileSync(tx, 'utf8').includes(needle)) {
-          log(`spawn-inbox: send → '${name}' delivered + VERIFIED in its transcript ✓`);
-          return;
+      if (decision.do === 'hold') {
+        if (!announced) {
+          announced = true;
+          log(`spawn-inbox: ${decision.reason} — holding the message on disk until it goes idle (delivering into a busy session would drop it)`);
         }
-      } catch { /* transcript momentarily unreadable — keep polling */ }
+        await sleep(2000);
+        continue;
+      }
+      // deliver
+      await sendToSession(name, prompt, decision.pid);
+      const target = await find();
+      const tx = target?.sessionId ? transcriptFor(target.sessionId) : undefined;
+      if (!tx) {
+        log(`spawn-inbox: send → '${name}' — sent, but no transcript to verify against: treating as UNVERIFIED`);
+        return false;
+      }
+      const needle = safeNeedle(prompt);
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        await sleep(1500);
+        try {
+          if (fs.readFileSync(tx, 'utf8').includes(needle)) {
+            log(`spawn-inbox: send → '${name}' delivered + VERIFIED in its transcript ✓`);
+            return true;
+          }
+        } catch { /* transcript momentarily unreadable — keep polling */ }
+      }
+      // Delivered into an idle session and it still didn't land: don't spin forever.
+      log(`spawn-inbox: send → '${name}' NOT VERIFIED 20s after delivery — the text did not become a turn`);
+      void vscode.window.showWarningMessage(`AIOS Glass: could not verify the message to “${name}”. The request is kept on disk as .undelivered — see the AIOS Glass output channel.`);
+      return false;
     }
-    log(`spawn-inbox: send → '${name}' NOT VERIFIED after 20s — the text did not become a turn. Re-drop the request, or paste it manually.`);
-    void vscode.window.showWarningMessage(`AIOS Glass: could not verify the message to “${name}” — it may not have landed. See the AIOS Glass output channel.`);
+  };
+
+  // Claim a request by RENAMING it out of the watcher's `*.json` glob, rather than
+  // deleting it on pickup. The rename is atomic, so a create+change event pair (or a
+  // second IDE window) cannot double-handle the same request — and because the file
+  // still exists, a message that has to wait for a busy target survives an IDE reload
+  // instead of evaporating with the extension's memory. Deleted only once the work is
+  // done (for `send`: once delivery is VERIFIED); abandoned as `.undelivered` otherwise.
+  const claimRequest = (fsPath: string): string | undefined => {
+    if (isHoldPath(fsPath)) { return fsPath; }        // recovering an orphan — already claimed
+    const held = holdPathFor(fsPath);
+    try { fs.renameSync(fsPath, held); return held; } catch { return undefined; }
+  };
+  const releaseRequest = (held: string, undelivered: boolean, why?: string): void => {
+    try {
+      if (undelivered) {
+        const dead = undeliveredPathFor(held);
+        fs.renameSync(held, dead);
+        log(`spawn-inbox: left ${path.basename(dead)} on disk — ${why ?? 'not delivered'}`);
+      } else {
+        fs.unlinkSync(held);
+      }
+    } catch { /* already gone */ }
   };
 
   const consumeSpawnRequest = async (fsPath: string): Promise<void> => {
+    const held = claimRequest(fsPath);
+    if (!held) { return; }                            // another handler/window claimed it
     let raw: string;
-    try { raw = fs.readFileSync(fsPath, 'utf8'); } catch { return; }
-    // Consume immediately so a create+change pair (or a re-activate scan) can't double-spawn.
-    try { fs.unlinkSync(fsPath); } catch { /* already gone */ }
-    if (!raw.trim()) { return; }
+    try { raw = fs.readFileSync(held, 'utf8'); } catch { return; }
+    if (!raw.trim()) { releaseRequest(held, false); return; }
     let req: { action?: unknown; name?: unknown; task?: unknown; model?: unknown; tier?: unknown; prompt?: unknown };
-    try { req = JSON.parse(raw); } catch { log(`spawn-inbox: bad JSON in ${path.basename(fsPath)} — ignored`); return; }
+    try { req = JSON.parse(raw); } catch {
+      releaseRequest(held, true, 'malformed JSON'); return;
+    }
     const name = String(req.name ?? '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     // Command bus: `action` defaults to "spawn" (back-compat with plain {name,task}).
     //   spawn → launch a worker · kill → tear one down · send → deliver a prompt to a live session.
     const action = (typeof req.action === 'string' ? req.action : 'spawn').toLowerCase();
-    if (!name) { log('spawn-inbox: request missing \'name\' — ignored'); return; }
+    if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
     try {
       if (action === 'kill') {
         // disposeAgentTerminal = the NON-interactive "kill now": dispose the worker's terminal
@@ -765,10 +800,15 @@ export function activate(context: vscode.ExtensionContext): void {
         // the capture/kill/cancel QuickPick for a human, which would hang a bus request.
         log(`spawn-inbox: kill '${name}' (dispose terminal)`);
         await disposeAgentTerminal(name);
+        releaseRequest(held, false);
       } else if (action === 'send') {
         const prompt = typeof req.prompt === 'string' ? req.prompt : (typeof req.task === 'string' ? req.task : '');
-        if (!prompt) { log(`spawn-inbox: send '${name}' missing 'prompt' — ignored`); return; }
-        await deliverSend(name, prompt);
+        if (!prompt) { releaseRequest(held, true, "missing 'prompt'"); return; }
+        // The request file stays on disk for the whole wait, and is removed ONLY when the
+        // text is verified as a turn in the target's transcript. Anything else leaves a
+        // `.undelivered` file — a message is never silently gone.
+        const verified = await deliverSend(name, prompt);
+        releaseRequest(held, !verified, verified ? undefined : 'delivery not verified — re-drop it or paste it manually');
       } else {
         // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose);
         // launchSpawn whitelists them before they touch the command line.
@@ -777,12 +817,19 @@ export function activate(context: vscode.ExtensionContext): void {
         const tier = typeof req.tier === 'string' ? req.tier : undefined;
         // Collision guard: reveal a live same-name session rather than duplicate it.
         const live = (await listRunningAgents()).find((a) => a.name === name);
-        if (live) { await revealAgentTerminal(name, live.pid); log(`spawn-inbox: '${name}' already running — revealed`); return; }
+        if (live) {
+          await revealAgentTerminal(name, live.pid);
+          log(`spawn-inbox: '${name}' already running — revealed`);
+          releaseRequest(held, false); return;
+        }
         log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${model ? ` [model ${model}]` : tier ? ` [tier ${tier}]` : ''}`);
         await launchSpawn(name, task, { model, tier });
+        releaseRequest(held, false);
       }
     } catch (e) {
-      log(`spawn-inbox: '${action}' for '${name}' failed (${e instanceof Error ? e.message : String(e)})`);
+      const why = e instanceof Error ? e.message : String(e);
+      log(`spawn-inbox: '${action}' for '${name}' failed (${why})`);
+      releaseRequest(held, true, `${action} failed: ${why}`);
     }
   };
   const spawnInboxWatcher = vscode.workspace.createFileSystemWatcher(
@@ -794,7 +841,16 @@ export function activate(context: vscode.ExtensionContext): void {
   // Drain any requests dropped while Glass was closed.
   try {
     for (const f of fs.readdirSync(spawnInboxDir)) {
+      // New requests dropped while Glass was closed…
       if (f.endsWith('.json')) { void consumeSpawnRequest(path.join(spawnInboxDir, f)); }
+      // …and messages that were still WAITING for a busy target when the last session
+      // ended. Because a claim renames rather than deletes, the work is recoverable:
+      // this is the durability the in-memory hold never had. (`.undelivered` files are
+      // deliberately NOT retried — they're an artifact for the human to look at.)
+      else if (f.endsWith(HOLD_SUFFIX)) {
+        log(`spawn-inbox: recovering held request ${f} from a previous session`);
+        void consumeSpawnRequest(path.join(spawnInboxDir, f));
+      }
     }
   } catch { /* empty/absent inbox */ }
 
