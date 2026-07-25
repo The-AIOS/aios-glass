@@ -61,15 +61,20 @@ export function decideSend(
   if (!target) {
     return { do: 'undeliverable', reason: 'no live session by that name in the session registry' };
   }
-  if (!isBusy(target.status)) {
+  if (isDeliverable(target.status)) {
     return { do: 'deliver', pid: target.pid };
   }
   if (heldForMs < maxHoldMs) {
-    return { do: 'hold', reason: `'${target.name}' is busy` };
+    // Name the status in the reason: an UNCHARACTERISED status is exactly what we want
+    // surfaced in the log, so it can be measured and promoted into DELIVERABLE_STATUSES
+    // instead of being guessed at forever.
+    const status = (target.status || '(none)').trim();
+    const known = isBusy(status) ? '' : ' — status not yet characterised, holding to be safe';
+    return { do: 'hold', reason: `'${target.name}' is ${status}${known}` };
   }
   return {
     do: 'undeliverable',
-    reason: `'${target.name}' stayed busy for ${Math.round(maxHoldMs / 60000)} min — not delivering into a busy session (it would be dropped silently)`,
+    reason: `'${target.name}' never became deliverable within ${Math.round(maxHoldMs / 60000)} min (last status: ${(target.status || '(none)').trim()}) — not delivering into a non-idle session, which would be dropped silently`,
   };
 }
 
@@ -81,6 +86,60 @@ export function decideSend(
 export function safeNeedle(text: string): string {
   const m = text.match(/[A-Za-z0-9 ,.\-—:;()!?']{24,}/);
   return (m ? m[0] : text.slice(0, 24)).slice(0, 48);
+}
+
+/** Pull the plain text out of a transcript record's `content` (string, or block array). */
+function recordText(rec: unknown): string {
+  const msg = (rec as { message?: unknown })?.message as { content?: unknown } | undefined;
+  const c = msg?.content;
+  if (typeof c === 'string') { return c; }
+  if (Array.isArray(c)) {
+    return c.map((b) => (b && typeof b === 'object' && typeof (b as { text?: unknown }).text === 'string'
+      ? (b as { text: string }).text : '')).join(' ');
+  }
+  return '';
+}
+
+const isUserRecord = (rec: unknown): boolean => {
+  const r = rec as { type?: unknown; message?: { role?: unknown } };
+  return r?.type === 'user' || r?.message?.role === 'user';
+};
+
+/**
+ * How many times does `needle` appear as an actual USER TURN in a `.jsonl` transcript?
+ *
+ * Why counting, and why user-turn-scoped (both measured by the AIOS App, 2026-07-25):
+ *
+ *  · A raw `includes()` over the whole file cannot detect a DOUBLE delivery, which is
+ *    contract 2's worst failure — it produces wrong output rather than missing output.
+ *    One delivery was measured producing FIVE substring hits (1 user turn + assistant
+ *    messages quoting the marker back), so presence is not even evidence of one turn.
+ *  · On contract 2's own new paths — a sibling handoff, or adopting a hold — the needle
+ *    is ALREADY in the transcript from the earlier attempt. Presence is therefore true
+ *    on the first poll, and a presence check "verifies" a delivery it never observed.
+ *
+ * So delivery is verified by a BASELINE COUNT taken before sending and an increase
+ * after: proof that *this* attempt landed, not that the text exists somewhere.
+ */
+export function countUserTurnsContaining(jsonl: string, needle: string): number {
+  if (!needle) { return 0; }
+  let n = 0;
+  for (const line of jsonl.split('\n')) {
+    if (!line.includes(needle)) { continue; }      // cheap prefilter before JSON.parse
+    let rec: unknown;
+    try { rec = JSON.parse(line); } catch { continue; }
+    if (!isUserRecord(rec)) { continue; }          // assistant echoes must not count
+    if (recordText(rec).includes(needle)) { n++; }
+  }
+  return n;
+}
+
+/** Verdict for a verification poll, given the baseline taken before delivering. */
+export type VerifyVerdict = 'pending' | 'verified' | 'duplicate';
+
+export function verifyVerdict(before: number, now: number): VerifyVerdict {
+  if (now <= before) { return 'pending'; }
+  return now - before > 1 ? 'duplicate' : 'verified';
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -99,6 +158,41 @@ export function safeNeedle(text: string): string {
    ══════════════════════════════════════════════════════════════════════════════ */
 
 export const INBOX_CONTRACT = 2;
+
+/* ── Protocol TIMINGS — these are CONTRACT, not local tuning ──────────────────
+   Every fulfiller must use the same four numbers, because they decide *cross-process
+   ownership*. Measured by the AIOS App on 2026-07-25: with Glass holding at 45 min and
+   the App at 15, there is a 30-minute window where Glass believes it owns a hold the App
+   considers stale and adopts — and BOTH deliver. That is the double delivery contract 2
+   exists to prevent, reachable with neither implementation wrong on its own terms.
+   Change these only in lockstep across every fulfiller, and update the inbox README so
+   the next one inherits them. */
+export const TIMINGS = {
+  /** A `.holding` older than this may be adopted even if its claimer still lives. */
+  HOLD_STALE_MS: 45 * 60 * 1000,
+  /** How long a fulfiller waits for a target to become deliverable before giving up. */
+  MAX_HOLD_MS: 30 * 60 * 1000,
+  /** A request addressed to a surface that never took it is retired after this. */
+  RETIRE_TTL_MS: 10 * 60 * 1000,
+  /** Sibling-window handoffs before a request is declared undeliverable. */
+  MAX_RELEASES: 2,
+} as const;
+
+/* ── Deliverability ───────────────────────────────────────────────────────────
+   The registry emits more than the two statuses we first assumed: the App measured
+   `shell` on a session running a Bash command, and measured that delivering during
+   `shell` SUCCEEDS (the target queued the prompt and answered after its command).
+
+   So the canonical rule is an explicit ALLOWLIST of statuses measured to accept a
+   delivery, and HOLD on anything else — including statuses neither fulfiller has
+   characterised yet. Rationale: the failure is asymmetric (a wrong "deliverable" guess
+   costs a real message; a wrong "hold" guess costs latency), but we don't pay that
+   latency on statuses we have actually measured. Unknown statuses are logged so they
+   can be characterised and promoted here rather than guessed at forever. */
+export const DELIVERABLE_STATUSES: readonly string[] = ['idle', 'shell'];
+
+export const isDeliverable = (status: string | undefined): boolean =>
+  DELIVERABLE_STATUSES.includes((status || '').trim().toLowerCase());
 
 /** Which fulfiller a request is addressed to. Absent → any (contract-1 behaviour). */
 export type Surface = 'glass' | 'app';

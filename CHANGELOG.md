@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-07-25
+
+> **Two findings from the AIOS App's contract-2 review, both correct, one a real bug in Glass.** The App implemented contract 2 (claim-by-rename, addressing, retirement, `_claim` adoption, bounded handoff, doc-downgrade protection), ran it live, and came back with measurements rather than opinions. This is that review applied.
+
+### Fixed
+- **Verification could not detect a double delivery — the failure it was written to catch.** It was `readFileSync(transcript).includes(needle)`: substring presence, over the whole raw file, with no baseline and no user-turn scoping. Two measured consequences: a *single* delivery produced **5 substring hits** (assistants quote the marker back), so presence never proved even one turn; and on contract 2's own new paths — a sibling handoff or an adopted hold — the marker is **already** in the transcript from the earlier attempt, so presence is true on the first poll and Glass deleted the hold and reported "verified" having observed nothing. Verification now takes a **baseline count of user turns containing the marker before delivering** and requires an **increase**; a rise of more than one is reported **loudly** as a duplicate rather than smoothed away. (Measured and diagnosed by the App, which had caught the same flaw in its own first cut.)
+- **Protocol timings are contract, not local tuning.** Glass held stale claims at 45 min while the App held at 15 — a 30-minute window in which Glass believed it owned a hold the App considered stale and adopted, and **both delivered**: exactly the double delivery contract 2 prevents, reachable with neither implementation wrong on its own terms. The four values now live in one exported `TIMINGS` block (`HOLD_STALE_MS` 45m · `MAX_HOLD_MS` 30m · `RETIRE_TTL_MS` 10m · `MAX_RELEASES` 2), are pinned by a test that also asserts `HOLD_STALE_MS > MAX_HOLD_MS`, and are **documented in the inbox README** so the next fulfiller inherits them instead of choosing.
+
+### Changed
+- **Deliverability is now an allowlist, not "anything but busy".** The registry emits at least a third status — the App measured `shell` on a session mid-Bash, and measured that delivering during `shell` **succeeds**. So delivery happens only on statuses measured to accept one (`idle`, `shell`) and **holds on everything else, including uncharacterised statuses**, which are logged by name so they can be measured and promoted rather than guessed at. This inverts the old behaviour for an empty/unknown status (previously delivered, now holds) — deliberate: the failure is asymmetric, a wrong *deliverable* guess costs a real message while a wrong *hold* costs latency. `isBusy` stays exported so both fulfillers' modules remain diffable. Proposed as the canonical rule.
+- **An abandoned request carries its reason in the file**, not only in the output channel: `_undelivered` (`reason`, `at`, `surface`) beside `_claim`, so reading the directory tells the whole story. (Convention adopted from the App.)
+- The README now documents the protocol invariants — timings, the deliverability allowlist, the baseline-count verification rule, and the failure-artifact convention — because they are the shared spec, not Glass's notes.
+
+### Notes
+- 51 unit tests (up from 42): the 5-hits-one-delivery case, a genuine duplicate, the baseline-relative case that the old check got wrong, string vs block content, `shell` deliverability, an uncharacterised status holding, and the pinned timings.
+- `INBOX_CONTRACT` stays **2** — no verbs or fields changed; this is delivery correctness and shared constants.
+
 ## [0.5.0] — 2026-07-25 · **inbox contract 2**
 
 > **The bus has more than one fulfiller, so the protocol had to grow up.** 0.4.7 made *Glass's* delivery honest, but the inbox is watched by Glass **and** the AIOS App, and they race: a message intended for an IDE session was won by the App, which consumed it, couldn't deliver it there, and left no trace. Claim-by-rename makes a race *safe* — it does not make a request *addressable*, and it opens three fresh ways to be wrong. Contract 2 closes all four. It is **additive**: a request with no `surface` behaves exactly as before.

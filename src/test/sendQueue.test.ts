@@ -4,6 +4,7 @@ import {
   decideSend, safeNeedle, isBusy, holdPathFor, undeliveredPathFor, isHoldPath,
   HOLD_SUFFIX, UNDELIVERED_SUFFIX, type SendTarget,
   claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
+  countUserTurnsContaining, verifyVerdict, isDeliverable, TIMINGS,
 } from '../core/sendQueue';
 
 const target = (status: string): SendTarget => ({ name: 'designer', pid: 42, status, sessionId: 'abc' });
@@ -33,12 +34,25 @@ test('an unknown name is undeliverable immediately, not held forever', () => {
   assert.match(d.reason, /registry/);
 });
 
-test('status matching is case- and whitespace-insensitive, and empty is not busy', () => {
+test('status matching is case- and whitespace-insensitive', () => {
+  // isBusy stays exported so the two fulfillers' modules remain diffable, but it is no
+  // longer the gate — see the deliverability allowlist below.
   assert.equal(isBusy('BUSY'), true);
   assert.equal(isBusy(' busy '), true);
-  assert.equal(isBusy(''), false);       // unknown status → deliverable, not stuck
+  assert.equal(isBusy(''), false);
   assert.equal(isBusy(undefined), false);
-  assert.equal(decideSend(target(''), 0, MAX).do, 'deliver');
+  assert.equal(isDeliverable(' IDLE '), true);
+  assert.equal(isDeliverable('BUSY'), false);
+});
+
+test('an EMPTY/unknown status now HOLDS rather than delivering (deliberate change)', () => {
+  // This inverts the original behaviour, and the inversion is the point: "not busy" is
+  // not the same as "deliverable". The registry emits statuses we haven't characterised
+  // (the App measured `shell`), and the failure is asymmetric — a wrong "deliverable"
+  // guess costs a real message, a wrong "hold" guess costs latency.
+  assert.equal(decideSend(target(''), 0, MAX).do, 'hold');
+  assert.equal(decideSend(target('idle'), 0, MAX).do, 'deliver');
+  assert.equal(decideSend(target('shell'), 0, MAX).do, 'deliver');
 });
 
 test('claim + abandon paths never match the watcher glob (no re-pickup loop)', () => {
@@ -113,6 +127,79 @@ test('a claim is released for a sibling window, but not forever', () => {
   assert.equal(shouldReleaseForSibling(0, 2), true);
   assert.equal(shouldReleaseForSibling(1, 2), true);
   assert.equal(shouldReleaseForSibling(2, 2), false);   // stop; declare it undeliverable
+});
+
+/* ── verification: counting user turns, not substring presence ───────────────── */
+
+const userTurn = (text: string) => JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
+const assistantEcho = (text: string) => JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text }] } });
+const userBlocks = (text: string) => JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } });
+
+test('one delivery counts as ONE even when assistants quote the marker back', () => {
+  // Measured by the App: a single delivery produced 5 substring hits (1 user turn +
+  // assistant messages echoing it). A presence check cannot tell 1 delivery from 2.
+  const tx = [
+    userTurn('hello TEST-MARK-8412 please act'),
+    assistantEcho('acknowledging TEST-MARK-8412'),
+    assistantEcho('summary mentions TEST-MARK-8412 again'),
+  ].join('\n');
+  assert.equal(tx.split('TEST-MARK-8412').length - 1, 3, 'raw substring hits');
+  assert.equal(countUserTurnsContaining(tx, 'TEST-MARK-8412'), 1, 'but exactly one USER turn');
+});
+
+test('a genuine double delivery counts as TWO and is flagged, not smoothed', () => {
+  const tx = [userTurn('x TEST-DUP-1 y'), assistantEcho('TEST-DUP-1'), userTurn('x TEST-DUP-1 y')].join('\n');
+  assert.equal(countUserTurnsContaining(tx, 'TEST-DUP-1'), 2);
+  assert.equal(verifyVerdict(0, 2), 'duplicate');
+});
+
+test('verification is BASELINE-relative — the killer case on contract 2 paths', () => {
+  // After a sibling handoff or an adopted hold, the needle is ALREADY present from the
+  // first attempt. Presence would "verify" instantly; a baseline cannot be fooled.
+  const before = countUserTurnsContaining(userTurn('TEST-RETRY-9'), 'TEST-RETRY-9');
+  assert.equal(before, 1);
+  assert.equal(verifyVerdict(before, before), 'pending', 'no new turn yet → still pending');
+  assert.equal(verifyVerdict(before, before + 1), 'verified');
+});
+
+test('user turns are counted whether content is a string or a block array', () => {
+  assert.equal(countUserTurnsContaining(userBlocks('block TEST-B-1 form'), 'TEST-B-1'), 1);
+  assert.equal(countUserTurnsContaining(userTurn('string TEST-B-1 form'), 'TEST-B-1'), 1);
+});
+
+test('malformed lines and an empty needle never throw or false-positive', () => {
+  assert.equal(countUserTurnsContaining('not json\n{"broken":\n', 'x'), 0);
+  assert.equal(countUserTurnsContaining(userTurn('anything'), ''), 0);
+});
+
+/* ── deliverability: an allowlist, because unknown statuses must HOLD ─────────── */
+
+test("'shell' is deliverable (measured), and unknown statuses are NOT", () => {
+  assert.equal(isDeliverable('idle'), true);
+  assert.equal(isDeliverable('shell'), true);       // App measured a successful delivery here
+  assert.equal(isDeliverable('busy'), false);
+  assert.equal(isDeliverable('compacting'), false); // uncharacterised → hold, don't guess
+  assert.equal(isDeliverable(''), false);           // unknown → hold (was previously DELIVERED)
+  assert.equal(isDeliverable(undefined), false);
+});
+
+test('decideSend holds on an uncharacterised status and names it in the reason', () => {
+  const d = decideSend({ name: 'w', pid: 1, status: 'compacting', sessionId: 's' }, 0, MAX);
+  assert.equal(d.do, 'hold');
+  assert.match(d.reason, /compacting/);
+  assert.match(d.reason, /not yet characterised/);
+});
+
+test('the four protocol timings are pinned — they are contract, not tuning', () => {
+  // The App measured the failure: Glass at 45 min vs App at 15 gave a 30-minute window
+  // where each side's ownership belief was correct and BOTH delivered. Changing any of
+  // these requires changing every fulfiller in lockstep + the inbox README.
+  assert.equal(TIMINGS.HOLD_STALE_MS, 45 * 60 * 1000);
+  assert.equal(TIMINGS.MAX_HOLD_MS, 30 * 60 * 1000);
+  assert.equal(TIMINGS.RETIRE_TTL_MS, 10 * 60 * 1000);
+  assert.equal(TIMINGS.MAX_RELEASES, 2);
+  assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.MAX_HOLD_MS,
+    'a hold must not be adoptable before its own holder would have given up');
 });
 
 test('the doc is never DOWNGRADED by an older fulfiller', () => {

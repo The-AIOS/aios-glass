@@ -23,7 +23,8 @@ import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
-  INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc } from './core/sendQueue';
+  INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
+  TIMINGS, countUserTurnsContaining, verifyVerdict } from './core/sendQueue';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
@@ -645,6 +646,22 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '**How a request is owned.** On pickup a surface *claims* the file by renaming it to `<name>.json.holding` and stamping `_claim` (`surface`, `pid`, `at`) inside it. The rename is atomic, so exactly one claimant wins and the loser backs off — no locks, no shared state. A claim is only adopted by another process when its holder is **dead** or the hold has gone **stale**, so a live wait is never stolen and a message is never delivered twice. If the claimant finds the session live but its terminal in another window, it **hands the request back** (bounded, `_releases`) instead of condemning a message a sibling window could deliver.',
       '',
+      '## Protocol invariants — every fulfiller must agree (contract 2)',
+      '',
+      "These are **contract, not tuning.** They decide *cross-process* behaviour, so a fulfiller that picks its own values reintroduces the bugs the contract removes — measured: one surface holding at 45 min against another at 15 opened a 30-minute window where each side's ownership belief was correct and **both delivered the same message**.",
+      '',
+      '**Timings** — change only in lockstep across every fulfiller, and update this file:',
+      '',
+      '    HOLD_STALE_MS  45 min   a .holding older than this may be adopted even if its claimer lives',
+      '    MAX_HOLD_MS    30 min   how long to wait for a target before giving up (< HOLD_STALE_MS)',
+      '    RETIRE_TTL_MS  10 min   when any surface may retire a request addressed to an absent one',
+      '    MAX_RELEASES   2        sibling-window handoffs before declaring it undeliverable',
+      '',
+      "**Deliverability is an allowlist.** Deliver only on a status measured to accept one — currently `idle` and `shell` (a session running a Bash command *does* accept a prompt and answers after) — and **hold on anything else, including statuses nobody has characterised yet**. \"Not busy\" is not the same as \"deliverable\": the failure is asymmetric, since a wrong *deliverable* guess costs a real message while a wrong *hold* guess costs only latency. Unknown statuses are logged by name so they can be measured and promoted here rather than guessed at forever.",
+      '',
+      "**Verification is a BASELINE COUNT, never a substring check.** Count the target's transcript records that are *user turns* containing your marker, **before** delivering; delivery is verified only when that count **increases**. Two measured reasons: one delivery can produce several substring hits (assistants quote the marker back — 5 hits for 1 delivery), and on a sibling handoff or an adopted hold the marker is *already* present from the earlier attempt, so a presence check \"verifies\" a delivery it never observed. If the count rises by **more than one**, say so loudly — a double delivery is the worst outcome here, because it produces wrong output rather than missing output.",
+      '',
+      '**Failure writes its reason into the file**, not only to a log: an abandoned request carries `_undelivered` (`reason`, `at`, `surface`) alongside its `_claim`, so reading the directory tells the whole story.',      '',
       '## Addressing — who is live, and what is their real name',
       '',
       'The session registry is the **only** truth. One file per pid:',
@@ -728,7 +745,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const deliverSend = async (name: string, prompt: string): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
-    const MAX_HOLD_MS = 30 * 60 * 1000;   // generous: the file is the queue, waiting is cheap
+    const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — see TIMINGS
     let announced = false;
     for (;;) {
       const decision = decideSend(await find(), Date.now() - started, MAX_HOLD_MS);
@@ -752,20 +769,36 @@ export function activate(context: vscode.ExtensionContext): void {
         log(`spawn-inbox: '${name}' is live but its terminal isn't in this window`);
         return 'no-terminal';
       }
-      await sendToSession(name, prompt, decision.pid);
-      const target = await find();
-      const tx = target?.sessionId ? transcriptFor(target.sessionId) : undefined;
+      // Resolve the transcript and take a BASELINE count BEFORE delivering. Presence is
+      // not evidence: on a sibling handoff or an adopted hold the marker is already in the
+      // transcript from the earlier attempt, and one delivery can produce several
+      // substring hits (assistants quote it back). Only a NEW user turn proves this
+      // attempt landed. (Both measured by the AIOS App, 2026-07-25.)
+      const pre = await find();
+      const tx = pre?.sessionId ? transcriptFor(pre.sessionId) : undefined;
       if (!tx) {
-        log(`spawn-inbox: send → '${name}' — sent, but no transcript to verify against: treating as UNVERIFIED`);
+        log(`spawn-inbox: send → '${name}' — no transcript to verify against, refusing to claim delivery: UNVERIFIED`);
         return 'undeliverable';
       }
+      const needleFor = safeNeedle(prompt);
+      let baseline = 0;
+      try { baseline = countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needleFor); } catch { baseline = 0; }
+      await sendToSession(name, prompt, decision.pid);
       const needle = safeNeedle(prompt);
       const deadline = Date.now() + 20000;
       while (Date.now() < deadline) {
         await sleep(1500);
         try {
-          if (fs.readFileSync(tx, 'utf8').includes(needle)) {
-            log(`spawn-inbox: send → '${name}' delivered + VERIFIED in its transcript ✓`);
+          const verdict = verifyVerdict(baseline, countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needle));
+          if (verdict === 'duplicate') {
+            // Never smooth this over: a double delivery is contract 2's worst outcome
+            // because it produces WRONG output, not missing output.
+            log(`spawn-inbox: send → '${name}' DUPLICATE DETECTED — the marker gained more than one user turn. Another fulfiller likely delivered the same request.`);
+            void vscode.window.showWarningMessage(`AIOS Glass: “${name}” appears to have received this message MORE THAN ONCE — check for a second fulfiller holding the same request.`);
+            return 'verified';   // it did land; the duplication is the thing to shout about
+          }
+          if (verdict === 'verified') {
+            log(`spawn-inbox: send → '${name}' delivered + VERIFIED (a new user turn, baseline ${baseline}) ✓`);
             return 'verified';
           }
         } catch { /* transcript momentarily unreadable — keep polling */ }
@@ -785,9 +818,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // done (for `send`: once delivery is VERIFIED); abandoned as `.undelivered` otherwise.
   // ── contract 2: addressing, claim ownership, and sibling handoff ──────────────
   const MY_SURFACE = 'glass' as const;
-  const TARGET_TTL_MS = 10 * 60 * 1000;   // a request addressed to another surface that never took it
-  const HOLD_STALE_MS = 45 * 60 * 1000;   // a hold this old is adoptable even if its claimer still lives
-  const MAX_RELEASES = 2;                 // sibling-window handoffs before giving up
+  // These four are PROTOCOL, shared with every other fulfiller — see TIMINGS in
+  // core/sendQueue.ts. Diverging on any of them reintroduces double delivery (the App
+  // measured it: their 15-min staleness vs our 45 opened a 30-min window where both
+  // sides' ownership beliefs were correct and both delivered).
+  const TARGET_TTL_MS = TIMINGS.RETIRE_TTL_MS;
+  const HOLD_STALE_MS = TIMINGS.HOLD_STALE_MS;
+  const MAX_RELEASES = TIMINGS.MAX_RELEASES;
 
   const readJson = (p: string): Record<string, unknown> | undefined => {
     try { const v = JSON.parse(fs.readFileSync(p, 'utf8')); return v && typeof v === 'object' ? v as Record<string, unknown> : undefined; }
@@ -836,6 +873,12 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       if (undelivered) {
         const dead = undeliveredPathFor(held);
+        // Put the reason IN the file too: Chuy reads disk more often than an output
+        // channel, and a bare artifact with no explanation is only half-honest.
+        // (Convention adopted from the AIOS App.)
+        const body = readJson(held) ?? {};
+        body._undelivered = { reason: why ?? 'not delivered', at: Date.now(), surface: MY_SURFACE };
+        try { fs.writeFileSync(held, JSON.stringify(body, null, 2), 'utf8'); } catch { /* keep going */ }
         fs.renameSync(held, dead);
         log(`spawn-inbox: left ${path.basename(dead)} on disk — ${why ?? 'not delivered'}`);
       } else {
