@@ -123,7 +123,7 @@ function checkInboxSelfDoc() {
   const doc = arr.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
   const interop = [
     ['identity phrase "written by AIOS Glass"', /written by aios glass/i.test(doc)],
-    ['contract substring "aios-spawn-inbox: contract N"', /aios-spawn-inbox: contract \d+/i.test(doc)],
+    ['contract substring "aios-spawn-inbox: contract N"', /aios-spawn-inbox: contract (?:\d+|\$\{INBOX_CONTRACT\})/i.test(doc)],
   ].filter(([, present]) => !present);
   if (interop.length) {
     console.error('smoke: INBOX INTEROP FAILED — the README lost a substring the AIOS App matches on:');

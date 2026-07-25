@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
@@ -22,7 +22,8 @@ import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
-import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX } from './core/sendQueue';
+import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
+  INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc } from './core/sendQueue';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
@@ -632,6 +633,18 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       'The filename is arbitrary (must end in `.json`) — use a distinct one so concurrent requests never collide.',
       '',
+      '## Addressing a specific surface (contract 2)',
+      '',
+      'More than one surface can fulfil these requests (Glass in the IDE, the AIOS App standalone) and they **race** — whichever watcher fires first wins. Add `"surface"` when it matters which one acts:',
+      '',
+      '    { "action": "send", "name": "designer", "prompt": "ship it", "surface": "glass" }',
+      '',
+      '- `"surface": "glass" | "app"` — only that surface may fulfil it. **Omit it** and any surface may (the contract-1 behaviour, still the default).',
+      "- A surface that isn't the addressee leaves the file completely alone — the addressee may just be starting up.",
+      '- Nothing rots: if the addressee never takes it, **any** surface retires it to `.undelivered` after ~10 min. Fulfilment is targeted; retirement is shared.',
+      '',
+      '**How a request is owned.** On pickup a surface *claims* the file by renaming it to `<name>.json.holding` and stamping `_claim` (`surface`, `pid`, `at`) inside it. The rename is atomic, so exactly one claimant wins and the loser backs off — no locks, no shared state. A claim is only adopted by another process when its holder is **dead** or the hold has gone **stale**, so a live wait is never stolen and a message is never delivered twice. If the claimant finds the session live but its terminal in another window, it **hands the request back** (bounded, `_releases`) instead of condemning a message a sibling window could deliver.',
+      '',
       '## Addressing — who is live, and what is their real name',
       '',
       'The session registry is the **only** truth. One file per pid:',
@@ -673,13 +686,16 @@ export function activate(context: vscode.ExtensionContext): void {
       // Contract 1 is in lockstep with the App's INBOX_CONTRACT; a verb/field change bumps both in
       // the same push. (The App deliberately still defers to a pre-0.4.5 *unstamped* Glass doc:
       // treating unstamped as stale would flicker launch-for-launch against our rewrite-on-diff.)
-      `<!-- aios-spawn-inbox: contract 1 · written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} -->`,
+      `<!-- aios-spawn-inbox: contract ${INBOX_CONTRACT} · written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} -->`,
       '',
     ].join('\n');
     const readmePath = path.join(spawnInboxDir, 'README.md');
-    let existing = '';
+    let existing: string | undefined;
     try { existing = fs.readFileSync(readmePath, 'utf8'); } catch { /* first run */ }
-    if (existing !== readme) { fs.writeFileSync(readmePath, readme, 'utf8'); }
+    // Glass owns this doc when both surfaces are installed (the App defers to it), but it
+    // must never DOWNGRADE a doc declaring a HIGHER contract — a newer fulfiller's
+    // instructions are the accurate ones.
+    if (shouldWriteDoc(existing, INBOX_CONTRACT, readme)) { fs.writeFileSync(readmePath, readme, 'utf8'); }
   } catch { /* non-fatal — the bus works without its docs */ }
   // ── `send` delivery, made honest (2026-07-25) ──────────────────────────────
   // Observed in the wild: a `send` into a session that was BUSY vanished completely —
@@ -708,7 +724,8 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   /** Deliver a bus `send`. Returns true ONLY when the text was seen to become a turn in
    *  the target's own transcript — the caller keeps the request file unless that holds. */
-  const deliverSend = async (name: string, prompt: string): Promise<boolean> => {
+  type SendOutcome = 'verified' | 'no-terminal' | 'undeliverable';
+  const deliverSend = async (name: string, prompt: string): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
     const MAX_HOLD_MS = 30 * 60 * 1000;   // generous: the file is the queue, waiting is cheap
@@ -718,7 +735,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (decision.do === 'undeliverable') {
         log(`spawn-inbox: send → '${name}' NOT DELIVERED — ${decision.reason}`);
         void vscode.window.showWarningMessage(`AIOS Glass: message to “${name}” not delivered — ${decision.reason}. The request is kept on disk as .undelivered.`);
-        return false;
+        return 'undeliverable';
       }
       if (decision.do === 'hold') {
         if (!announced) {
@@ -728,13 +745,19 @@ export function activate(context: vscode.ExtensionContext): void {
         await sleep(2000);
         continue;
       }
-      // deliver
+      // deliver — but if the target's terminal isn't in THIS window, a sibling window may
+      // hold it: report that distinctly so the caller can hand the request back instead of
+      // condemning a message another window could have delivered.
+      if (!(await findAgentTerminal(name, decision.pid))) {
+        log(`spawn-inbox: '${name}' is live but its terminal isn't in this window`);
+        return 'no-terminal';
+      }
       await sendToSession(name, prompt, decision.pid);
       const target = await find();
       const tx = target?.sessionId ? transcriptFor(target.sessionId) : undefined;
       if (!tx) {
         log(`spawn-inbox: send → '${name}' — sent, but no transcript to verify against: treating as UNVERIFIED`);
-        return false;
+        return 'undeliverable';
       }
       const needle = safeNeedle(prompt);
       const deadline = Date.now() + 20000;
@@ -743,14 +766,14 @@ export function activate(context: vscode.ExtensionContext): void {
         try {
           if (fs.readFileSync(tx, 'utf8').includes(needle)) {
             log(`spawn-inbox: send → '${name}' delivered + VERIFIED in its transcript ✓`);
-            return true;
+            return 'verified';
           }
         } catch { /* transcript momentarily unreadable — keep polling */ }
       }
       // Delivered into an idle session and it still didn't land: don't spin forever.
       log(`spawn-inbox: send → '${name}' NOT VERIFIED 20s after delivery — the text did not become a turn`);
       void vscode.window.showWarningMessage(`AIOS Glass: could not verify the message to “${name}”. The request is kept on disk as .undelivered — see the AIOS Glass output channel.`);
-      return false;
+      return 'undeliverable';
     }
   };
 
@@ -760,10 +783,54 @@ export function activate(context: vscode.ExtensionContext): void {
   // still exists, a message that has to wait for a busy target survives an IDE reload
   // instead of evaporating with the extension's memory. Deleted only once the work is
   // done (for `send`: once delivery is VERIFIED); abandoned as `.undelivered` otherwise.
+  // ── contract 2: addressing, claim ownership, and sibling handoff ──────────────
+  const MY_SURFACE = 'glass' as const;
+  const TARGET_TTL_MS = 10 * 60 * 1000;   // a request addressed to another surface that never took it
+  const HOLD_STALE_MS = 45 * 60 * 1000;   // a hold this old is adoptable even if its claimer still lives
+  const MAX_RELEASES = 2;                 // sibling-window handoffs before giving up
+
+  const readJson = (p: string): Record<string, unknown> | undefined => {
+    try { const v = JSON.parse(fs.readFileSync(p, 'utf8')); return v && typeof v === 'object' ? v as Record<string, unknown> : undefined; }
+    catch { return undefined; }
+  };
+  const ageOf = (p: string): number => {
+    try { return Math.max(0, Date.now() - fs.statSync(p).mtimeMs); } catch { return 0; }
+  };
+  const pidAlive = (pid: number): boolean => {
+    try { process.kill(pid, 0); return true; } catch { return false; }
+  };
+  /** Write the claim INTO the held file, so the claim is self-describing: a recovering
+   *  process (ours or the App's) can tell a live hold from an orphan, and any
+   *  `.undelivered` artifact carries who held it and when. */
+  const stampClaim = (held: string): void => {
+    const body = readJson(held) ?? {};
+    body._claim = { surface: MY_SURFACE, pid: process.pid, at: Date.now() };
+    try { fs.writeFileSync(held, JSON.stringify(body, null, 2), 'utf8'); } catch { /* keep the claim anyway */ }
+  };
+
   const claimRequest = (fsPath: string): string | undefined => {
     if (isHoldPath(fsPath)) { return fsPath; }        // recovering an orphan — already claimed
     const held = holdPathFor(fsPath);
-    try { fs.renameSync(fsPath, held); return held; } catch { return undefined; }
+    try { fs.renameSync(fsPath, held); } catch { return undefined; }
+    stampClaim(held);
+    return held;
+  };
+  /** Hand a request back so a SIBLING window can try it — very different from declaring
+   *  it undeliverable. The claimer that can't see the target's terminal may simply be the
+   *  wrong window. Bounded by `_releases` so two windows can't ping-pong forever. */
+  const releaseToSibling = (held: string): boolean => {
+    const body = readJson(held) ?? {};
+    const releases = typeof body._releases === 'number' ? body._releases : 0;
+    if (!shouldReleaseForSibling(releases, MAX_RELEASES)) { return false; }
+    body._releases = releases + 1;
+    delete body._claim;
+    const back = held.slice(0, -HOLD_SUFFIX.length);
+    try {
+      fs.writeFileSync(held, JSON.stringify(body, null, 2), 'utf8');
+      fs.renameSync(held, back);
+      log(`spawn-inbox: released ${path.basename(back)} for another window to try (handoff ${releases + 1}/${MAX_RELEASES})`);
+      return true;
+    } catch { return false; }
   };
   const releaseRequest = (held: string, undelivered: boolean, why?: string): void => {
     try {
@@ -778,6 +845,29 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const consumeSpawnRequest = async (fsPath: string): Promise<void> => {
+    const base = path.basename(fsPath);
+    if (isHoldPath(fsPath)) {
+      // Recovery: only adopt a hold whose claimer is gone, or that is stale. Adopting a
+      // FRESH hold belonging to a live process (the App, or a sibling window) would
+      // deliver the same message twice.
+      const claim = parseClaim(readJson(fsPath)?._claim);
+      if (!canAdoptHold(claim, Date.now(), HOLD_STALE_MS, claim ? pidAlive(claim.pid) : false)) {
+        log(`spawn-inbox: ${base} is actively held by ${claim?.surface} (pid ${claim?.pid}) — leaving it alone`);
+        return;
+      }
+      if (claim) { log(`spawn-inbox: adopting ${base} — ${pidAlive(claim.pid) ? 'hold went stale' : `holder (pid ${claim.pid}) is gone`}`); }
+    } else {
+      // Addressing: a request may name the surface that should fulfil it. Fulfilment is
+      // targeted; RETIREMENT is shared, so a request addressed to a surface that never
+      // runs can't rot silently.
+      const verdict = claimVerdict(readJson(fsPath)?.surface, MY_SURFACE, ageOf(fsPath), TARGET_TTL_MS);
+      if (verdict === 'skip') { return; }             // addressed elsewhere and still fresh — not ours to touch
+      if (verdict === 'retire') {
+        const h = claimRequest(fsPath);
+        if (h) { releaseRequest(h, true, `addressed to another surface, unclaimed for over ${Math.round(TARGET_TTL_MS / 60000)} min`); }
+        return;
+      }
+    }
     const held = claimRequest(fsPath);
     if (!held) { return; }                            // another handler/window claimed it
     let raw: string;
@@ -807,8 +897,14 @@ export function activate(context: vscode.ExtensionContext): void {
         // The request file stays on disk for the whole wait, and is removed ONLY when the
         // text is verified as a turn in the target's transcript. Anything else leaves a
         // `.undelivered` file — a message is never silently gone.
-        const verified = await deliverSend(name, prompt);
-        releaseRequest(held, !verified, verified ? undefined : 'delivery not verified — re-drop it or paste it manually');
+        const outcome = await deliverSend(name, prompt);
+        if (outcome === 'verified') { releaseRequest(held, false); }
+        else if (outcome === 'no-terminal' && releaseToSibling(held)) { /* handed back; another window may take it */ }
+        else {
+          releaseRequest(held, true, outcome === 'no-terminal'
+            ? "the target's terminal isn't in any window that tried — paste it manually"
+            : 'delivery not verified — re-drop it or paste it manually');
+        }
       } else {
         // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose);
         // launchSpawn whitelists them before they touch the command line.

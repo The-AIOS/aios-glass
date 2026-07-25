@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-25 · **inbox contract 2**
+
+> **The bus has more than one fulfiller, so the protocol had to grow up.** 0.4.7 made *Glass's* delivery honest, but the inbox is watched by Glass **and** the AIOS App, and they race: a message intended for an IDE session was won by the App, which consumed it, couldn't deliver it there, and left no trace. Claim-by-rename makes a race *safe* — it does not make a request *addressable*, and it opens three fresh ways to be wrong. Contract 2 closes all four. It is **additive**: a request with no `surface` behaves exactly as before.
+
+### Added
+- **Addressing — `"surface": "glass" | "app"`.** Only the named surface may fulfil the request; omit it and any surface may (the contract-1 default). A surface that isn't the addressee leaves the file *completely* alone — the addressee may simply be starting up.
+- **Shared retirement, targeted fulfilment.** A request addressed to a surface that never takes it is retired to `.undelivered` by **any** surface after ~10 min. Fulfilment is targeted so it reaches the right place; retirement is shared so nothing can rot silently waiting for a surface that will never run.
+- **Self-describing claims.** A claimed request carries `_claim` (`surface`, `pid`, `at`) inside the file. A recovering process adopts a hold **only** when its holder is dead or the hold has gone stale — so Glass can no longer steal a hold the App is actively waiting on (double delivery), and any `.undelivered` artifact carries the forensics of who held it and when.
+- **Sibling-window handoff.** If the claimant finds the session live but its terminal in *another* window, it hands the request **back** (`<name>.json`, bounded by `_releases`) instead of condemning a message a sibling window could have delivered. A wrong-window claim is no longer a false failure.
+- **6 more unit tests** (42 total): addressing verdicts, retirement, live-hold protection, claim-stamp parsing/rejection, bounded handoff, and doc-downgrade protection.
+
+### Fixed
+- **The README can no longer be downgraded.** Glass owns the doc when both surfaces are installed (the App defers to it) and so overwrites it — but it now refuses to overwrite a doc declaring a *higher* contract than it implements. A newer fulfiller's instructions are the accurate ones; stomping them would replace correct guidance with stale.
+- The contract number in the trailer is emitted from the `INBOX_CONTRACT` constant rather than a hardcoded digit, so the doc and the code can't disagree.
+
+### Notes
+- **`INBOX_CONTRACT` is now 2, and this one is announced rather than co-timed.** It's additive and safe against a contract-1 App: their `shouldWrite` sees `2 > 1`, takes the defer branch, and nothing breaks. When the App adopts, it sets `INBOX_CONTRACT = 2` and gains addressing. (This is a deliberate, flagged deviation from "bump both in the same push" — that rule exists to prevent silent staleness, and a higher contract is neither silent nor unsafe here.)
+- The inbox README documents contract 2 in full — it is the shared spec, not Glass's notes.
+
 ## [0.4.7] — 2026-07-25
 
 > **The request file *is* the queue.** 0.4.6 stopped firing messages into busy sessions, but it kept the message in the extension's memory and, when its 5-minute budget ran out, "delivered anyway" — performing the exact silent loss the gate existed to prevent, and losing anything still held if the IDE reloaded. Both flaws had the same root: treating the inbox as a doorbell (consume on pickup) instead of a queue (keep until done). Requests are now **claimed, not consumed** — and a busy target is never force-delivered to.
