@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-07-25
+
+> **`send` no longer drops messages into busy sessions — and never claims a delivery it hasn't observed.** Found the hard way an hour after shipping 0.4.5: a `send` to a session that was mid-turn vanished *completely* — the text never reached the input and was never queued — while everything upstream looked successful, because the request file had been consumed. Consuming the file only ever proved Glass picked it up. Delivery is now status-aware and **verified**.
+
+### Fixed
+- **A `send` to a BUSY target is held until it goes idle, then delivered.** Typing into a mid-turn session drops the text on the floor (not queued — gone). Glass now reads the target's `status` from the session registry first and holds the message until the session is idle (polling, up to 5 min) before delivering. A target that ends while its message is held is reported as dropped, not silently forgotten.
+- **Delivery is verified against the target's own transcript.** After sending, Glass polls `~/.claude/projects/*/<sessionId>.jsonl` (up to 20s) for the text becoming an actual turn, and logs `delivered + VERIFIED ✓` or `NOT VERIFIED` — the latter also raises a notification telling you to re-drop the request. The verification needle is chosen to survive JSON escaping (the longest run of characters that aren't escaped inside a `.jsonl`), so a match isn't lost to quoting.
+- **A `send` to a name with no live session is now loud** — logged as DROPPED plus a warning, instead of a quiet no-op.
+
+### Changed
+- The inbox README documents the behaviour: `send` to a busy session isn't instant *by necessity*, what the output channel says, and — for anyone implementing another fulfiller — that **an unverified `sendText` is a silent drop**.
+
+### Notes
+- `INBOX_CONTRACT` stays **1**: the verbs and fields did not change, only delivery mechanics. (Lockstep with the AIOS App holds — a verb/field change bumps both sides in one push.)
+- Same delivery: Open VSX auto-update, then restart the IDE.
+
 ## [0.4.5] — 2026-07-25
 
 > **Glass is no longer the only fulfiller — the doc now says so.** The AIOS App ships its own spawn-inbox handler with the identical three verbs, and it politely *defers* this README to Glass when both are installed (so there's no write war). The consequence: on a co-installed machine the doc an agent reads was Glass's, and Glass's copy claimed Glass was the mechanism — an agent could conclude the bus needs the IDE. Nothing broke (the verbs match), but it's the same class of partial-truth the 0.4.4 self-doc existed to kill, so it gets fixed the same way.

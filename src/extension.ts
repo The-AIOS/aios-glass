@@ -646,7 +646,8 @@ export function activate(context: vscode.ExtensionContext): void {
       '## Gotchas (each one cost a real bug)',
       '',
       '- Keep `prompt` on **one line** — multi-line text is typed into a terminal as multiple Enters.',
-      '- The file disappearing means Glass **picked it up**, not that the work succeeded. To verify what a session actually did, read its transcript: `~/.claude/projects/*/<sessionId>.jsonl` (`sessionId` comes from its registry file).',
+      '- The file disappearing means the surface **picked it up**, not that the work succeeded. To verify what a session actually did, read its transcript: `~/.claude/projects/*/<sessionId>.jsonl` (`sessionId` comes from its registry file).',
+      "- **`send` to a BUSY session is not instant, by necessity.** Typing into a session that is mid-turn *drops the text* — it never reaches the input and is never queued. So Glass reads the target's `status` first, **holds the message until it goes idle** (up to 5 min), delivers, then **verifies** the text became a turn in that session's transcript. Watch the *AIOS Glass* output channel: it says `delivered + VERIFIED ✓`, or `NOT VERIFIED` — which means re-drop the request. If you implement a fulfiller, do the same: an unverified `sendText` is a silent drop.",
       '- **Glass-specific:** `send` / `kill` reach terminals in the Glass window that consumed the request; with several IDE windows open, whichever wins the race acts. (Co-installed with the App, whichever surface picks the file up is the one that acts — the App defers this doc to Glass, but not the requests.)',
       '- For `send` / `kill`, `name` must match a **live** registry name. Malformed or name-less requests are ignored (logged to the *AIOS Glass* output channel).',
       '',
@@ -679,6 +680,70 @@ export function activate(context: vscode.ExtensionContext): void {
     try { existing = fs.readFileSync(readmePath, 'utf8'); } catch { /* first run */ }
     if (existing !== readme) { fs.writeFileSync(readmePath, readme, 'utf8'); }
   } catch { /* non-fatal — the bus works without its docs */ }
+  // ── `send` delivery, made honest (2026-07-25) ──────────────────────────────
+  // Observed in the wild: a `send` into a session that was BUSY vanished completely —
+  // the text never reached the TUI's input and was never queued, so the request looked
+  // delivered (the request file is consumed on pickup) while the target never saw it.
+  // Consuming the file proves only that Glass picked it up. So delivery now: waits for
+  // the target to be idle, delivers, then VERIFIES the text became a turn in that
+  // session's own transcript — and says so loudly when it can't. Never report a success
+  // we haven't observed.
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  const transcriptFor = (sessionId: string): string | undefined => {
+    const projects = path.join(os.homedir(), '.claude', 'projects');
+    try {
+      for (const d of fs.readdirSync(projects)) {
+        const p = path.join(projects, d, `${sessionId}.jsonl`);
+        if (fs.existsSync(p)) { return p; }
+      }
+    } catch { /* no projects dir — unverifiable, not fatal */ }
+    return undefined;
+  };
+  // A needle that survives JSON encoding: the first long run of characters that are not
+  // escaped inside a .jsonl (no quotes/backslashes), so a match isn't lost to escaping.
+  const safeNeedle = (text: string): string => {
+    const m = text.match(/[A-Za-z0-9 ,.\-—:;()!?']{24,}/);
+    return (m ? m[0] : text.slice(0, 24)).slice(0, 48);
+  };
+  const deliverSend = async (name: string, prompt: string): Promise<void> => {
+    const find = async () => (await listRunningAgents()).find((a) => a.name === name);
+    let target = await find();
+    if (!target) {
+      log(`spawn-inbox: send → '${name}' — no live session by that name in the registry; message DROPPED`);
+      void vscode.window.showWarningMessage(`AIOS Glass: no live session named “${name}” — message not delivered.`);
+      return;
+    }
+    const busy = (a: { status?: string }) => (a.status || '').toLowerCase() === 'busy';
+    if (busy(target)) {
+      log(`spawn-inbox: '${name}' is busy — holding the message until it goes idle (a busy target drops it)`);
+      const until = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < until) {
+        await sleep(2000);
+        const t = await find();
+        if (!t) { log(`spawn-inbox: '${name}' ended while its message was held — DROPPED`); return; }
+        target = t;
+        if (!busy(t)) { break; }
+      }
+      if (busy(target)) { log(`spawn-inbox: '${name}' still busy after 5 min — delivering anyway; may not land`); }
+    }
+    await sendToSession(name, prompt, target.pid);
+    const tx = target.sessionId ? transcriptFor(target.sessionId) : undefined;
+    if (!tx) { log(`spawn-inbox: send → '${name}' — sent, but no transcript found: delivery UNVERIFIED`); return; }
+    const needle = safeNeedle(prompt);
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await sleep(1500);
+      try {
+        if (fs.readFileSync(tx, 'utf8').includes(needle)) {
+          log(`spawn-inbox: send → '${name}' delivered + VERIFIED in its transcript ✓`);
+          return;
+        }
+      } catch { /* transcript momentarily unreadable — keep polling */ }
+    }
+    log(`spawn-inbox: send → '${name}' NOT VERIFIED after 20s — the text did not become a turn. Re-drop the request, or paste it manually.`);
+    void vscode.window.showWarningMessage(`AIOS Glass: could not verify the message to “${name}” — it may not have landed. See the AIOS Glass output channel.`);
+  };
+
   const consumeSpawnRequest = async (fsPath: string): Promise<void> => {
     let raw: string;
     try { raw = fs.readFileSync(fsPath, 'utf8'); } catch { return; }
@@ -703,8 +768,7 @@ export function activate(context: vscode.ExtensionContext): void {
       } else if (action === 'send') {
         const prompt = typeof req.prompt === 'string' ? req.prompt : (typeof req.task === 'string' ? req.task : '');
         if (!prompt) { log(`spawn-inbox: send '${name}' missing 'prompt' — ignored`); return; }
-        log(`spawn-inbox: send → '${name}'`);
-        await sendToSession(name, prompt);
+        await deliverSend(name, prompt);
       } else {
         // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose);
         // launchSpawn whitelists them before they touch the command line.
