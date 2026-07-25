@@ -655,11 +655,22 @@ export function activate(context: vscode.ExtensionContext): void {
       '- The contract every session loads: `CLAUDE.md` → **Spawning Sessions**.',
       '- Subagent vs workflow vs spawn, and which model to route: the **`orchestration-ladder`** skill.',
       '',
-      // Machine-readable trailer, symmetric with the App's (`contract N · written by AIOS <surface>`).
-      // Two surfaces write this file, so each must be able to recognise the other's doc AND tell a
-      // CURRENT contract from a stale one: the App defers to any Glass-stamped doc today, and this
-      // number is what lets a future contract bump (changed verbs/fields) be detected instead of
-      // silently kept. Bump INBOX_CONTRACT on both sides together when the verbs change.
+      // Machine-readable trailer, symmetric with the App's. Two surfaces write this file, so each
+      // must recognise the other's doc AND tell a current contract from a stale one.
+      //
+      // CROSS-REPO CONTRACT (aios-app/src/core/inboxReadme.ts → shouldWrite). The App matches
+      // IDENTITY and CONTRACT *independently*, not as one trailer pattern, so the separator and
+      // layout below are free to change — but these two substrings are NOT:
+      //   · `written by AIOS Glass`        (case-insensitive) → identity: the App defers to our doc
+      //   · `aios-spawn-inbox: contract N`                    → staleness: an older N is replaced
+      //                                                          whoever wrote it
+      // Remove the identity phrase and the App stops recognising this doc and clobbers it every
+      // launch; remove the contract substring and a future verb change leaves a stale doc treated
+      // as current. Both failures are invisible at runtime → smoke.mjs guards them at build time.
+      // A change to what EITHER side matches on must be announced to the other before shipping.
+      // Contract 1 is in lockstep with the App's INBOX_CONTRACT; a verb/field change bumps both in
+      // the same push. (The App deliberately still defers to a pre-0.4.5 *unstamped* Glass doc:
+      // treating unstamped as stale would flicker launch-for-launch against our rewrite-on-diff.)
       `<!-- aios-spawn-inbox: contract 1 · written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} -->`,
       '',
     ].join('\n');

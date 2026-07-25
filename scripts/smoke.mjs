@@ -106,7 +106,34 @@ function checkInboxSelfDoc() {
     console.error('  Fix: restore the README composition + writeFileSync(readmePath, …) beside the inbox mkdirSync.');
     return false;
   }
-  console.log('smoke: inbox self-doc ✓ — Glass writes the spawn-inbox README on activation');
+  // ── Interop with the AIOS App (the other spawn-inbox fulfiller) ──
+  // The App's shouldWrite() decides whether to defer to our doc or replace it, and it
+  // matches IDENTITY and CONTRACT independently (so trailer punctuation/layout is free
+  // to change, but these two substrings are a cross-repo contract):
+  //   · /written by aios glass/i      → identity: "this doc is Glass's, defer to it"
+  //   · `aios-spawn-inbox: contract N` → staleness: an older N is replaced whoever wrote it
+  // Drop the identity phrase and the App stops recognising our doc → it clobbers ours on
+  // every launch. Drop the contract substring and a future verb change leaves a stale doc
+  // treated as current. Neither failure is visible at runtime, hence a build-time guard.
+  // Check the README's OWN string literals — not the whole file. The prose comment above the
+  // trailer necessarily quotes both substrings, so a file-wide regex passes even when the real
+  // doc has lost them: a guard that cannot fail. So slice the `readme = [ … ].join()` array and
+  // strip `//` comment lines before matching. (Caught by negative-testing this very guard.)
+  const arr = src.slice(src.indexOf('const readme = ['), src.indexOf("].join('\\n')"));
+  const doc = arr.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  const interop = [
+    ['identity phrase "written by AIOS Glass"', /written by aios glass/i.test(doc)],
+    ['contract substring "aios-spawn-inbox: contract N"', /aios-spawn-inbox: contract \d+/i.test(doc)],
+  ].filter(([, present]) => !present);
+  if (interop.length) {
+    console.error('smoke: INBOX INTEROP FAILED — the README lost a substring the AIOS App matches on:');
+    for (const [what] of interop) { console.error('  · missing ' + what); }
+    console.error('  These are a cross-repo contract with aios-app/src/core/inboxReadme.ts (shouldWrite).');
+    console.error('  Layout/punctuation may change freely; these substrings may NOT — and a change on');
+    console.error('  either side must be announced to the other before shipping.');
+    return false;
+  }
+  console.log('smoke: inbox self-doc ✓ — Glass writes the README + keeps the App-interop substrings');
   return true;
 }
 if (!checkDeliveryRobustness()) { process.exit(1); }
