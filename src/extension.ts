@@ -606,11 +606,11 @@ export function activate(context: vscode.ExtensionContext): void {
     const readme = [
       '# The AIOS spawn-inbox — the command bus',
       '',
-      `_Written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} on activation. **Do not edit** — Glass rewrites this file every time it starts, so it always matches the handler actually running._`,
+      `_Written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} on activation. **Do not edit** — it is rewritten to match the handler actually running._`,
       '',
-      'Drop a `*.json` file in this directory and Glass fulfils it **natively** (`vscode.createTerminal` / `sendText`) — no synthetic keystrokes, no permission gate. Glass **consumes (deletes)** the file on pickup.',
+      'Drop a `*.json` file in this directory and **a trusted AIOS surface** fulfils it **natively** — Glass, inside the IDE, uses `vscode.createTerminal` / `sendText`; the **AIOS App**, when that is what is running, opens a real session pane. **The verbs below are identical either way** — never learn a surface-specific dialect. No synthetic keystrokes, no permission gate. The file is **consumed (deleted)** on pickup.',
       '',
-      "Why this exists: Claude's auto-mode classifier gates agent-invoked `spawn`/`spawn-kill` (they read as \"launch/kill an autonomous agent\"), and an agent cannot author its own autonomy grant. So an agent *requests*, and Glass — the extension the human already trusts — acts. **Request, don't spawn.**",
+      "Why this exists: Claude's auto-mode classifier gates agent-invoked `spawn`/`spawn-kill` (they read as \"launch/kill an autonomous agent\"), and an agent cannot author its own autonomy grant. So an agent *requests*, and a surface the human already trusts acts. **Request, don't spawn.**",
       '',
       '## Three verbs',
       '',
@@ -647,13 +647,20 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '- Keep `prompt` on **one line** — multi-line text is typed into a terminal as multiple Enters.',
       '- The file disappearing means Glass **picked it up**, not that the work succeeded. To verify what a session actually did, read its transcript: `~/.claude/projects/*/<sessionId>.jsonl` (`sessionId` comes from its registry file).',
-      '- `send` / `kill` reach terminals in the Glass window that consumed the request; with several IDE windows open, whichever wins the race acts.',
+      '- **Glass-specific:** `send` / `kill` reach terminals in the Glass window that consumed the request; with several IDE windows open, whichever wins the race acts. (Co-installed with the App, whichever surface picks the file up is the one that acts — the App defers this doc to Glass, but not the requests.)',
       '- For `send` / `kill`, `name` must match a **live** registry name. Malformed or name-less requests are ignored (logged to the *AIOS Glass* output channel).',
       '',
       '## More',
       '',
       '- The contract every session loads: `CLAUDE.md` → **Spawning Sessions**.',
       '- Subagent vs workflow vs spawn, and which model to route: the **`orchestration-ladder`** skill.',
+      '',
+      // Machine-readable trailer, symmetric with the App's (`contract N · written by AIOS <surface>`).
+      // Two surfaces write this file, so each must be able to recognise the other's doc AND tell a
+      // CURRENT contract from a stale one: the App defers to any Glass-stamped doc today, and this
+      // number is what lets a future contract bump (changed verbs/fields) be detected instead of
+      // silently kept. Bump INBOX_CONTRACT on both sides together when the verbs change.
+      `<!-- aios-spawn-inbox: contract 1 · written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} -->`,
       '',
     ].join('\n');
     const readmePath = path.join(spawnInboxDir, 'README.md');

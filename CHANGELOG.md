@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.5] — 2026-07-25
+
+> **Glass is no longer the only fulfiller — the doc now says so.** The AIOS App ships its own spawn-inbox handler with the identical three verbs, and it politely *defers* this README to Glass when both are installed (so there's no write war). The consequence: on a co-installed machine the doc an agent reads was Glass's, and Glass's copy claimed Glass was the mechanism — an agent could conclude the bus needs the IDE. Nothing broke (the verbs match), but it's the same class of partial-truth the 0.4.4 self-doc existed to kill, so it gets fixed the same way.
+
+### Changed
+- **The README is now fulfiller-neutral.** The contract sections never name a surface — *"a trusted AIOS surface fulfils it natively"*, with the mechanism stated only where the two genuinely differ (Glass: `vscode.createTerminal`/`sendText` in the IDE · the App: a real session pane), plus an explicit *"the verbs are identical either way — never learn a surface-specific dialect."* The one honestly Glass-specific gotcha (same-window reach for `send`/`kill`) is now labelled as such, and notes that co-installed, whichever surface picks the file up is the one that acts — the App defers the *doc*, not the *requests*.
+- **Machine-readable contract trailer**, symmetric with the App's: `<!-- aios-spawn-inbox: contract 1 · written by AIOS Glass vX.Y.Z -->`. This is the load-bearing bit rather than copy — today the App can only detect *"Glass wrote this"* and defers unconditionally; a contract number lets a future verb/field change be recognised as **stale** instead of silently kept. Bump on both sides together when the verbs change.
+- Deliberately preserved: the literal phrase **"written by AIOS Glass"** in the body. The App's `shouldWrite()` matches `/written by aios glass/i` to decide deference — neutralising that phrase away would make the App stop recognising Glass's doc and start clobbering it on every launch. Interop constraint, not styling.
+
+### Notes
+- Same delivery as always: Open VSX auto-update, then **restart the IDE** — the refreshed README is written on activation.
+- The App covers the case Glass structurally cannot: an operator with no IDE and no extension still finds the contract in the directory, because the App writes it when the file is absent.
+
 ## [0.4.4] — 2026-07-25
 
 > **The inbox documents itself.** Sessions could *use* the command bus but had to rediscover it every time — one session spent six tool calls grepping `extension.ts` to derive the `send` schema before it could say hello to another session, and another declared a live peer dead because it looked for it with `pgrep` (which lies for a resumed session). The directory now ships its own README, written by Glass on activation: the component that implements the dispatch is the only thing that documents it, so the doc can never drift from the handler.
