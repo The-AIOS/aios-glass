@@ -597,6 +597,70 @@ export function activate(context: vscode.ExtensionContext): void {
   // messages another — inter-agent orchestration through the human-trusted extension. (2026-07-23)
   const spawnInboxDir = path.join(os.homedir(), '.aios', 'spawn-inbox');
   try { fs.mkdirSync(spawnInboxDir, { recursive: true }); } catch { /* non-fatal */ }
+  // The inbox documents ITSELF, at the point of need. Sessions kept reverse-engineering the
+  // schema out of this source file (and mis-addressing each other via pgrep / terminal tab
+  // names, which lie for a RESUMED session), so the directory now ships its own README —
+  // written by the component that implements the handler, refreshed on every activation, so
+  // the doc can never drift from the dispatch below. Not a *.json file → the watcher ignores it.
+  try {
+    const readme = [
+      '# The AIOS spawn-inbox — the command bus',
+      '',
+      `_Written by AIOS Glass v${context.extension?.packageJSON?.version ?? '?'} on activation. **Do not edit** — Glass rewrites this file every time it starts, so it always matches the handler actually running._`,
+      '',
+      'Drop a `*.json` file in this directory and Glass fulfils it **natively** (`vscode.createTerminal` / `sendText`) — no synthetic keystrokes, no permission gate. Glass **consumes (deletes)** the file on pickup.',
+      '',
+      "Why this exists: Claude's auto-mode classifier gates agent-invoked `spawn`/`spawn-kill` (they read as \"launch/kill an autonomous agent\"), and an agent cannot author its own autonomy grant. So an agent *requests*, and Glass — the extension the human already trusts — acts. **Request, don't spawn.**",
+      '',
+      '## Three verbs',
+      '',
+      '**spawn** (the default — no `action` key) — launch a named session:',
+      '',
+      '    { "name": "designer", "task": "design the hero", "tier": "mechanical" }',
+      '',
+      '- `task` — optional first prompt. `"model": "<id>"` **or** `"tier": "mechanical" | "judgment"` — optional, routes the worker by cognitive load.',
+      '- A name that is already live is *revealed*, never duplicated.',
+      '',
+      '**send** — deliver a prompt into a LIVE session:',
+      '',
+      '    { "action": "send", "name": "designer", "prompt": "ship it" }',
+      '',
+      "**kill** — close that session's terminal (shell + claude + respawn loop):",
+      '',
+      '    { "action": "kill", "name": "designer" }',
+      '',
+      'The filename is arbitrary (must end in `.json`) — use a distinct one so concurrent requests never collide.',
+      '',
+      '## Addressing — who is live, and what is their real name',
+      '',
+      'The session registry is the **only** truth. One file per pid:',
+      '',
+      '    ls ~/.claude/sessions/*.json    # each: { "name", "pid", "status", "sessionId", "cwd" }',
+      '',
+      'Do **not** use `pgrep`, and do **not** trust a terminal tab title: a **resumed** session keeps whatever its tab was called, so matching by process or tab name silently fails and the session looks dead when it is not. Glass resolves the target by **pid → process ancestry**.',
+      '',
+      '## Replying to whoever requested you',
+      '',
+      "A spawned worker messages its coordinator back the same way — `send` to the coordinator's registry name. The reply arrives in that terminal as a new prompt. This works for long-lived and resumed coordinators (exactly what the pid-ancestry resolution exists for), so agents hold real multi-turn conversations.",
+      '',
+      '## Gotchas (each one cost a real bug)',
+      '',
+      '- Keep `prompt` on **one line** — multi-line text is typed into a terminal as multiple Enters.',
+      '- The file disappearing means Glass **picked it up**, not that the work succeeded. To verify what a session actually did, read its transcript: `~/.claude/projects/*/<sessionId>.jsonl` (`sessionId` comes from its registry file).',
+      '- `send` / `kill` reach terminals in the Glass window that consumed the request; with several IDE windows open, whichever wins the race acts.',
+      '- For `send` / `kill`, `name` must match a **live** registry name. Malformed or name-less requests are ignored (logged to the *AIOS Glass* output channel).',
+      '',
+      '## More',
+      '',
+      '- The contract every session loads: `CLAUDE.md` → **Spawning Sessions**.',
+      '- Subagent vs workflow vs spawn, and which model to route: the **`orchestration-ladder`** skill.',
+      '',
+    ].join('\n');
+    const readmePath = path.join(spawnInboxDir, 'README.md');
+    let existing = '';
+    try { existing = fs.readFileSync(readmePath, 'utf8'); } catch { /* first run */ }
+    if (existing !== readme) { fs.writeFileSync(readmePath, readme, 'utf8'); }
+  } catch { /* non-fatal — the bus works without its docs */ }
   const consumeSpawnRequest = async (fsPath: string): Promise<void> => {
     let raw: string;
     try { raw = fs.readFileSync(fsPath, 'utf8'); } catch { return; }

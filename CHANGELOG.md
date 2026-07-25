@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.4] — 2026-07-25
+
+> **The inbox documents itself.** Sessions could *use* the command bus but had to rediscover it every time — one session spent six tool calls grepping `extension.ts` to derive the `send` schema before it could say hello to another session, and another declared a live peer dead because it looked for it with `pgrep` (which lies for a resumed session). The directory now ships its own README, written by Glass on activation: the component that implements the dispatch is the only thing that documents it, so the doc can never drift from the handler.
+
+### Added
+- **`~/.aios/spawn-inbox/README.md`, written (and refreshed) by Glass on every activation.** Beside the `mkdirSync` that already creates the inbox. It documents, at the point of need: the **three verbs** with exact JSON (`spawn` · `send` · `kill`, plus optional `model`/`tier`); **addressing** — the session registry (`~/.claude/sessions/*.json` → `name` · `pid` · `status` · `sessionId`) is the *only* truth for a session's name, never `pgrep`, never a terminal tab title, because a **resumed** session keeps whatever its tab was called and silently looks dead; **replying** to whoever requested you (`send` back to the coordinator's registry name — the pid-ancestry resolution from 0.4.3 is what makes this work for long-lived coordinators); and the gotchas that each cost a real bug (one-line prompts · the file vanishing means *picked up*, not *succeeded* — verify via the target's transcript · same-window reach · malformed requests ignored). Rewritten only when the content actually changes, so the mtime stays stable. It is not a `*.json` file, so the watcher ignores it.
+- **Smoke guard: inbox self-doc** — `scripts/smoke.mjs` fails the run if `extension.ts` stops writing that README, keeping Glass the single writer (schema owner == doc owner). Joins the settings-parity and delivery-robustness guards.
+
+### Notes
+- **How you get it:** the README arrives with the extension — Open VSX auto-updates AIOS Glass, then **restart the IDE** and the file appears (or refreshes) on activation. Nothing in the framework tree can ship it: `~/.aios/spawn-inbox/` is machine-local runtime state, not a repo path, which is exactly why Glass owns it. The matching always-loaded contract (CLAUDE.md → *Spawning Sessions*) and the deeper `orchestration-ladder` skill arrive separately, via `/aios:update`.
+- No Glass installed → no watcher, no bus, and no README needed; the framework contract's "hand the spawn to the operator" path covers that case.
+
 ## [0.4.3] — 2026-07-23
 
 > **Command-bus hardening — the round-trip now closes to a resumed coordinator, and a realistic multi-line task can't crash the host.** A full end-to-end test of the 0.4.2 bus (spawn → send → receive-back → kill) surfaced two defects: messaging a session *back* silently dropped when its terminal was resumed rather than Glass-created, and a multi-line spawn task crashed the integrated terminal. Both are fixed and locked with a smoke-test invariant. `spawn`, `send`, and `kill` were each verified live; this release closes the fourth leg — a worker replying to a long-lived coordinator (`buddai`/`fleet-heron` are always resumed) — which is the whole point of inter-agent orchestration.

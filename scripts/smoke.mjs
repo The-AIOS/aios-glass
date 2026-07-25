@@ -89,7 +89,28 @@ function checkDeliveryRobustness() {
   console.log('smoke: delivery robustness ✓ — pid-from-registry resolution + temp-file task handoff present');
   return true;
 }
+
+// ── self-documenting-inbox guard ─────────────────────────────────────────────
+// Glass is the ONLY writer of ~/.aios/spawn-inbox/README.md — the component that
+// implements the dispatch is the one that documents it, so the doc can't drift from
+// the handler. If a refactor drops that write, every agent session goes back to
+// reverse-engineering the schema out of extension.ts (and mis-addressing sessions
+// via pgrep / tab names). This fails the run if the write disappears.
+function checkInboxSelfDoc() {
+  const src = readFileSync(join(root, 'src/extension.ts'), 'utf8');
+  const ok = src.includes("'README.md'") && /writeFileSync\(\s*readmePath/.test(src)
+    && src.includes('spawn-inbox — the command bus');
+  if (!ok) {
+    console.error('smoke: INBOX SELF-DOC FAILED — extension.ts no longer writes ~/.aios/spawn-inbox/README.md');
+    console.error('  Glass must stay the single writer of that README (schema owner == doc owner, so it cannot drift).');
+    console.error('  Fix: restore the README composition + writeFileSync(readmePath, …) beside the inbox mkdirSync.');
+    return false;
+  }
+  console.log('smoke: inbox self-doc ✓ — Glass writes the spawn-inbox README on activation');
+  return true;
+}
 if (!checkDeliveryRobustness()) { process.exit(1); }
+if (!checkInboxSelfDoc()) { process.exit(1); }
 
 // ── locate Chrome: env override → CI linux → macOS app bundles ──
 const candidates = [
