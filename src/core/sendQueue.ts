@@ -176,6 +176,11 @@ export const TIMINGS = {
   RETIRE_TTL_MS: 10 * 60 * 1000,
   /** Sibling-window handoffs before a request is declared undeliverable. */
   MAX_RELEASES: 2,
+  /** How many times a fulfiller may actually TYPE a message before it stops re-sending and
+   *  only watches for a late arrival. Bounded because double delivery is the worst outcome
+   *  this protocol can produce — explicitly worse than latency. Exhausting it is NOT a
+   *  failure: the fulfiller keeps waiting out MAX_HOLD_MS in silence. */
+  MAX_DELIVERY_ATTEMPTS: 3,
 } as const;
 
 /* ── Deliverability ───────────────────────────────────────────────────────────
@@ -260,7 +265,13 @@ export function canAdoptHold(
  * is very different from declaring the message undeliverable. Bounded, so two windows
  * can't ping-pong a request forever.
  */
-export function shouldReleaseForSibling(releases: number, maxReleases: number): boolean {
+export function shouldReleaseForSibling(releases: number, maxReleases: number = TIMINGS.MAX_RELEASES): boolean {
+  /* The bound now DEFAULTS to the contract value instead of relying on every caller to pass
+     the right one. It was a required parameter, which meant this pure, fully unit-tested
+     function did not own the number that decides cross-process behaviour — so both surfaces
+     could pass different values and both test suites would still be green. That is the exact
+     shape of every failure in this ticket: a check that is correct about something nobody
+     verified. Callers may still override for tests; production passes nothing. */
   return releases < maxReleases;
 }
 

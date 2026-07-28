@@ -5,9 +5,10 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
+import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
-import { swallow } from '../log';
+import { swallow, log } from '../log';
 import { askSessionName } from '../core/taskModel';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
@@ -316,7 +317,17 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       fs.writeFileSync(taskFile, taskText, 'utf8');
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
     } catch {
-      inlineTask = taskText.replace(/[\r\n]+/g, ' ').slice(0, 2000); // fallback: collapse to one line
+      /* AI-66: this used to `.slice(0, 2000)` and spawn anyway — a silent truncation that
+         handed the worker a task ending mid-sentence and reported success. That is the exact
+         shape of the incident this ticket exists for, sitting in the codebase as a "fallback".
+         There is no safe way to shorten someone's instructions, so we refuse and say so. */
+      void vscode.window.showErrorMessage(
+        `AIOS Glass: could not write the task file for “${name}”, so the session was NOT started. ` +
+        `Its task is ${byteLength(taskText)} bytes and delivering a shortened version could drop ` +
+        `instructions silently.`,
+      );
+      log(`spawn '${name}': ABORTED — task file unwritable and truncating is not an option`);
+      return;
     }
   }
   runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color });
@@ -497,9 +508,49 @@ export async function closeSessionInTerminal(name: string, pid?: number): Promis
  * Reveals the target first (Claude reads submitted input), then sends + submits.
  * No-op-with-notice if the named session isn't a terminal in this window.
  */
+/* Write an over-limit prompt to `~/.aios/bus-payloads/` and return the pointer to type.
+   Not inside the spawn-inbox: that directory is watched for `*.json` requests and a stray file
+   there is a request-shaped question nobody wants answered. Aged out on every write — these
+   hold arbitrary prompt text. */
+function spillIfLong(name: string, text: string): { text: string; failed: boolean } {
+  if (!needsPointer(text)) return { text, failed: false };
+  try {
+    const dir = path.join(os.homedir(), '.aios', 'bus-payloads');
+    fs.mkdirSync(dir, { recursive: true });
+    const now = Date.now();
+    try {
+      for (const f of fs.readdirSync(dir)) {
+        const fp = path.join(dir, f);
+        try { if (isStalePayload(fs.statSync(fp).mtimeMs, now)) fs.unlinkSync(fp); } catch { /* next */ }
+      }
+    } catch { /* no dir yet */ }
+    const safe = String(name || 'session').replace(/[^a-z0-9-]/gi, '-').slice(0, 40);
+    const file = path.join(dir, `${safe}-${now}.md`);
+    fs.writeFileSync(file, text, { mode: 0o600 });   // arbitrary prompt text: owner-only
+    log(`spawn-inbox: send → '${name}' is ${byteLength(text)} bytes; delivering a pointer to ${file}`);
+    return { text: pointerText(file), failed: false };
+  } catch {
+    return { text, failed: true };
+  }
+}
+
 export async function sendToSession(name: string, text: string, pid?: number): Promise<void> {
   const term = await findAgentTerminal(name, pid);
-  if (term) { term.show(); term.sendText(text); return; } // sendText appends a newline → submits
+  /* AI-66 — NEVER hand a long prompt to sendText. A ~2.6KB bus send arrived cut at byte 2043
+     with no error on any surface; the dropped tail carried a "do NOT push" instruction. That
+     ceiling lives inside the VS Code extension host, is not measurable from the App side, and
+     can move under an upgrade — so nothing here relies on knowing it. Above the one ceiling
+     that WAS measured (1024, macOS MAX_CANON) the text goes to a file and only a pointer is
+     typed. The gate sits inside sendToSession rather than at the bus so every caller is
+     covered, not just the one that had the incident. */
+  const payload = spillIfLong(name, text);
+  if (payload.failed) {
+    void vscode.window.showWarningMessage(
+      `AIOS Glass: refusing to send ${byteLength(text)} bytes to “${name}” — the message exceeds the inline limit and its payload file could not be written. Nothing was delivered.`,
+    );
+    return;   // loud and undelivered beats silent and partial
+  }
+  if (term) { term.show(); term.sendText(payload.text); return; } // sendText appends a newline → submits
   void vscode.window.showInformationMessage(`AIOS Glass: "${name}" ${t("isn't a terminal in this window — can't deliver the message.")}`);
 }
 
