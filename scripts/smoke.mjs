@@ -81,12 +81,42 @@ function checkDeliveryRobustness() {
   if (!spawn || !/tmpdir\s*\(/.test(spawn) || !/writeFileSync/.test(spawn) || !spawn.includes('[\\r\\n]')) {
     fails.push('launchSpawn must hand a multi-line/large task off via a temp file (os.tmpdir + writeFileSync, gated on a [\\r\\n] test) instead of typing it — a multi-line task typed via sendText crashes the integrated terminal.');
   }
+  /* AI-66 — three invariants that each cost a real lost message today. All three are
+     "the code looks fine and loses data quietly", so each is guarded by source rather than
+     trusted to review. */
+  const runner = src;   // this guard's `src` is already runner.ts
+  const ext = readFileSync(join(root, 'src/extension.ts'), 'utf8');
+  if (!/needsPointer\(/.test(runner) || !/pointerText\(/.test(runner)) {
+    fails.push('sendToSession must spill an over-limit prompt to a payload file and type a POINTER — a 2.6KB send was silently cut at byte 2043 and the lost tail carried a "do NOT push" instruction.');
+  }
+  if (/\.slice\(0,\s*2000\)/.test(runner)) {
+    fails.push('a .slice() on task text is truncate-and-report-success — the exact failure this bus keeps producing. Refuse and say so instead of shortening someone\'s instructions.');
+  }
+  /* Verification must reason about the text ACTUALLY SENT. The spill first lived downstream of
+     the needle, so Glass verified against the long prompt while typing a pointer: the marker
+     could never appear, every cycle scored a miss, and one message was delivered THREE times
+     before the cap stopped it — then reported undelivered. Found in a dev host with unit tests
+     and this smoke both green, which is why it is now pinned here. */
+  if (/safeNeedle\(prompt\)/.test(ext) || /sendToSession\(name, prompt/.test(ext)) {
+    fails.push('deliverSend must spill BEFORE computing its needle and send the spilled text — verifying against the raw prompt while typing a pointer makes verification impossible and causes repeat delivery.');
+  }
+  /* Bracketed paste: text + Enter in ONE sendText arrives as one paste and the Enter is
+     literal, so the message lands in the composer and never sends. Observed live. */
+  if (!/sendText\(payload\.text, false\)/.test(runner) || !/sendText\('', true\)/.test(runner)) {
+    fails.push('sendToSession must submit as TWO writes — text without a newline, then Enter after a beat. One write is swallowed by bracketed paste and the message sits unsent in the composer.');
+  }
+  if (!/decideAfterVerifyMiss\(/.test(ext)) {
+    fails.push('the send path must delegate the after-a-miss decision to core/sendQueue — re-deriving it here is how BOTH surfaces independently conflated "no sibling left to try" with "undeliverable" and retired a live message in 20 seconds.');
+  }
+  if (!/DEAD LETTER/.test(ext)) {
+    fails.push('.undelivered files must be READ and surfaced — retirement stops contention, it never delivers anything, and an unread dead letter is indistinguishable from a success to the sender.');
+  }
   if (fails.length) {
     console.error('smoke: DELIVERY ROBUSTNESS FAILED — the spawn-inbox command bus lost a hardening invariant:');
     for (const f of fails) { console.error('  · ' + f); }
     return false;
   }
-  console.log('smoke: delivery robustness ✓ — pid-from-registry resolution + temp-file task handoff present');
+  console.log('smoke: delivery robustness ✓ — pid resolution · temp-file handoff · pointer spill · shared miss-decision · dead letters read');
   return true;
 }
 

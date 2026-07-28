@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
@@ -24,7 +24,8 @@ import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
-  TIMINGS, countUserTurnsContaining, verifyVerdict } from './core/sendQueue';
+  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss } from './core/sendQueue';
+import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
@@ -599,6 +600,38 @@ export function activate(context: vscode.ExtensionContext): void {
   // Glass consumes (deletes) the file and acts. This is how one session spawns, kills, OR
   // messages another — inter-agent orchestration through the human-trusted extension. (2026-07-23)
   const spawnInboxDir = path.join(os.homedir(), '.aios', 'spawn-inbox');
+
+  /* DEAD LETTERS NEED A READER — the other half of AI-66 part 4.
+     `.undelivered` was written honestly and read by nobody. The README's "nothing rots" is a
+     promise about CONTENTION (a stuck claim never blocks another surface); it is not a promise
+     about messages, and retiring a request never delivered it. So a verified-FAILED send looked
+     exactly like a success to whoever sent it: one sat on disk for twenty minutes and was found
+     only because somebody happened to list the directory for an unrelated reason.
+     Surfaced on activation and every five minutes — in the IDE, where the operator is. */
+  const surfaceDeadLetters = (): void => {
+    let files: string[] = [];
+    try { files = fs.readdirSync(spawnInboxDir).filter((f) => f.endsWith('.undelivered')); }
+    catch { return; }
+    if (!files.length) return;
+    for (const f of files) {
+      let to = '?', why = 'unrecorded';
+      try {
+        const j = JSON.parse(fs.readFileSync(path.join(spawnInboxDir, f), 'utf8'));
+        to = String(j.name ?? '?');
+        why = String(j?._undelivered?.reason ?? 'unrecorded');
+      } catch { /* still report it — an unreadable dead letter is a task still owed */ }
+      log(`spawn-inbox: DEAD LETTER — a message to '${to}' was never delivered: ${why} (${f})`);
+    }
+    const first = files[0];
+    void vscode.window.showWarningMessage(
+      `AIOS Glass: ${files.length} undelivered message${files.length > 1 ? 's' : ''} on the bus — the work ${files.length > 1 ? 'they asked' : 'it asked'} for did not happen.`,
+      'Show me',
+    ).then((pick) => {
+      if (pick === 'Show me') {
+        void vscode.window.showTextDocument(vscode.Uri.file(path.join(spawnInboxDir, first)));
+      }
+    });
+  };
   try { fs.mkdirSync(spawnInboxDir, { recursive: true }); } catch { /* non-fatal */ }
   // The inbox documents ITSELF, at the point of need. Sessions kept reverse-engineering the
   // schema out of this source file (and mis-addressing each other via pgrep / terminal tab
@@ -747,15 +780,39 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   /** Deliver a bus `send`. Returns true ONLY when the text was seen to become a turn in
    *  the target's own transcript — the caller keeps the request file unless that holds. */
-  type SendOutcome = 'verified' | 'no-terminal' | 'undeliverable';
-  const deliverSend = async (name: string, prompt: string): Promise<SendOutcome> => {
+  /* 'release' is DISTINCT from 'undeliverable'. Collapsing them is the bug this fixes: a
+     handoff budget running out means "no sibling left to try", never "this message cannot be
+     delivered". See decideAfterVerifyMiss in core/sendQueue. */
+  type SendOutcome = 'verified' | 'no-terminal' | 'release' | 'undeliverable';
+  /* The REASON travels with the outcome. It used to be discarded and the caller wrote a
+     generic "delivery not verified" into every dead letter — so a send to a session that never
+     existed (nothing sent, nothing to verify) read identically to one that was typed and lost.
+     A dead letter is read by a human hours later and its reason IS the payload; a reason that
+     describes the wrong failure sends them hunting for a delivery that never happened. */
+  let lastSendReason = '';
+  const deliverSend = async (name: string, prompt: string, releases = 0): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
+    let attempts = 0;   // how many times we have actually TYPED into the target
+    /* SPILL HERE, before anything computes a needle. The spill first lived in sendToSession —
+       downstream of this function's verification marker — so Glass verified against the LONG
+       prompt while typing a POINTER. The marker could never appear, every cycle scored a miss,
+       and the message was re-delivered until the attempt cap stopped it: three copies into one
+       session, then a successful delivery reported as undelivered when the hold expired.
+       Caught in a dev host; unit tests and smoke were green for all of it.
+       Everything below must reason about the text that is actually sent. */
+    const deliverText = spillIfLong(name, prompt);
+    if (deliverText.failed) {
+      void vscode.window.showWarningMessage(`AIOS Glass: refusing to send ${byteLength(prompt)} bytes to “${name}” — over the inline limit and the payload file could not be written. Nothing was delivered.`);
+      return 'undeliverable';
+    }
+    const text = deliverText.text;
     const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — see TIMINGS
     let announced = false;
     for (;;) {
       const decision = decideSend(await find(), Date.now() - started, MAX_HOLD_MS);
       if (decision.do === 'undeliverable') {
+        lastSendReason = decision.reason;
         log(`spawn-inbox: send → '${name}' NOT DELIVERED — ${decision.reason}`);
         void vscode.window.showWarningMessage(`AIOS Glass: message to “${name}” not delivered — ${decision.reason}. The request is kept on disk as .undelivered.`);
         return 'undeliverable';
@@ -786,11 +843,24 @@ export function activate(context: vscode.ExtensionContext): void {
         log(`spawn-inbox: send → '${name}' — no transcript to verify against, refusing to claim delivery: UNVERIFIED`);
         return 'undeliverable';
       }
-      const needleFor = safeNeedle(prompt);
+      const needleFor = safeNeedle(text);
       let baseline = 0;
       try { baseline = countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needleFor); } catch { baseline = 0; }
-      await sendToSession(name, prompt, decision.pid);
-      const needle = safeNeedle(prompt);
+      /* The cap must gate the SEND. A 'wait' verdict continues this loop, so enforcing the
+         limit only in the after-a-miss decision left the message being re-typed every cycle
+         for the whole hold budget — the cap existed and capped nothing. */
+      if (attempts >= TIMINGS.MAX_DELIVERY_ATTEMPTS) {
+        if (Date.now() - started >= MAX_HOLD_MS) {
+          lastSendReason = `sent ${attempts}x over ${Math.round((Date.now() - started) / 60000)} min without it ever appearing in the target transcript`;
+          log(`spawn-inbox: send → '${name}' ${lastSendReason} — giving up`);
+          return 'undeliverable';
+        }
+        await sleep(2000);
+        continue;   // keep watching for a late arrival; never type again
+      }
+      attempts++;
+      await sendToSession(name, text, decision.pid);
+      const needle = safeNeedle(text);
       const deadline = Date.now() + 20000;
       while (Date.now() < deadline) {
         await sleep(1500);
@@ -809,9 +879,23 @@ export function activate(context: vscode.ExtensionContext): void {
           }
         } catch { /* transcript momentarily unreadable — keep polling */ }
       }
-      // Delivered into an idle session and it still didn't land: don't spin forever.
-      log(`spawn-inbox: send → '${name}' NOT VERIFIED 20s after delivery — the text did not become a turn`);
-      void vscode.window.showWarningMessage(`AIOS Glass: could not verify the message to “${name}”. The request is kept on disk as .undelivered — see the AIOS Glass output channel.`);
+      /* It did not land inside the verify window. That is NOT the same as undeliverable —
+         this used to return 'undeliverable' here and the caller retired the request, killing a
+         message ~20s after claiming it while the 30-minute hold sat almost entirely unused.
+         The four-way decision is shared with the other fulfiller so both surfaces agree by
+         construction; re-deriving it here by hand is how they diverged in the first place. */
+      const verdict = decideAfterVerifyMiss({
+        targetAlive: !!(await find()),
+        heldMs: Date.now() - started,
+        releases,
+        attempts,
+      });
+      log(`spawn-inbox: send → '${name}' not verified — ${verdict.do}: ${verdict.reason}`);
+      if (verdict.do === 'release') return 'release';
+      if (verdict.do === 'retry') continue;                       // deliver again
+      if (verdict.do === 'wait') { await sleep(2000); continue; } // never type again; keep watching
+      lastSendReason = verdict.reason;
+      void vscode.window.showWarningMessage(`AIOS Glass: could not deliver the message to “${name}” — ${verdict.reason}. It is kept on disk as .undelivered.`);
       return 'undeliverable';
     }
   };
@@ -946,13 +1030,20 @@ export function activate(context: vscode.ExtensionContext): void {
         // The request file stays on disk for the whole wait, and is removed ONLY when the
         // text is verified as a turn in the target's transcript. Anything else leaves a
         // `.undelivered` file — a message is never silently gone.
-        const outcome = await deliverSend(name, prompt);
+        // `_releases` is bookkeeping the fulfiller writes, not part of the public request
+        // shape — read it off the raw body rather than widening the request type.
+        const raw = ((): number => {
+          try { const b2 = JSON.parse(fs.readFileSync(held, 'utf8')); return typeof b2._releases === 'number' ? b2._releases : 0; }
+          catch { return 0; }
+        })();
+        const spent = raw;
+        const outcome = await deliverSend(name, prompt, spent);
         if (outcome === 'verified') { releaseRequest(held, false); }
-        else if (outcome === 'no-terminal' && releaseToSibling(held)) { /* handed back; another window may take it */ }
+        else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
           releaseRequest(held, true, outcome === 'no-terminal'
             ? "the target's terminal isn't in any window that tried — paste it manually"
-            : 'delivery not verified — re-drop it or paste it manually');
+            : (lastSendReason || 'delivery not verified — re-drop it or paste it manually'));
         }
       } else {
         // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose);
@@ -983,6 +1074,12 @@ export function activate(context: vscode.ExtensionContext): void {
   spawnInboxWatcher.onDidCreate((uri) => { void consumeSpawnRequest(uri.fsPath); });
   spawnInboxWatcher.onDidChange((uri) => { void consumeSpawnRequest(uri.fsPath); });
   context.subscriptions.push(spawnInboxWatcher);
+  /* Dead letters, on activation and every five minutes. The comment below notes that
+     `.undelivered` files are deliberately not RETRIED — correct, and precisely why they must
+     be READ: nothing retries them and, until now, nothing reported them either. */
+  surfaceDeadLetters();
+  const deadLetterTimer = setInterval(surfaceDeadLetters, 5 * 60 * 1000);
+  context.subscriptions.push({ dispose: () => clearInterval(deadLetterTimer) });
   // Drain any requests dropped while Glass was closed.
   try {
     for (const f of fs.readdirSync(spawnInboxDir)) {

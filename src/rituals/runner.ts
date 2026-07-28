@@ -317,7 +317,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       fs.writeFileSync(taskFile, taskText, 'utf8');
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
     } catch {
-      /* AI-66: this used to `.slice(0, 2000)` and spawn anyway — a silent truncation that
+      /* AI-66: this used to cut the task to 2000 chars and spawn anyway — a silent truncation that
          handed the worker a task ending mid-sentence and reported success. That is the exact
          shape of the incident this ticket exists for, sitting in the codebase as a "fallback".
          There is no safe way to shorten someone's instructions, so we refuse and say so. */
@@ -512,7 +512,7 @@ export async function closeSessionInTerminal(name: string, pid?: number): Promis
    Not inside the spawn-inbox: that directory is watched for `*.json` requests and a stray file
    there is a request-shaped question nobody wants answered. Aged out on every write — these
    hold arbitrary prompt text. */
-function spillIfLong(name: string, text: string): { text: string; failed: boolean } {
+export function spillIfLong(name: string, text: string): { text: string; failed: boolean } {
   if (!needsPointer(text)) return { text, failed: false };
   try {
     const dir = path.join(os.homedir(), '.aios', 'bus-payloads');
@@ -550,7 +550,21 @@ export async function sendToSession(name: string, text: string, pid?: number): P
     );
     return;   // loud and undelivered beats silent and partial
   }
-  if (term) { term.show(); term.sendText(payload.text); return; } // sendText appends a newline → submits
+  if (term) {
+    term.show();
+    /* TWO WRITES, not one — text first, Enter after a beat.
+       Claude Code turns on BRACKETED PASTE. `sendText(x)` appends the newline and the terminal
+       delivers the whole thing as ONE paste, and inside a paste a carriage return is literal:
+       it lands as a newline in the composer instead of submitting. The message arrives and
+       simply never goes. Observed live — a send appeared in the target's composer unsent, then
+       only went when the retry arrived behind it.
+       A person pastes and then presses Enter, after the paste has closed; so do we. The App
+       fixed this in its own send path and the knowledge never crossed to Glass, which is the
+       shared-module gap in miniature: a comment in one repo is not a fix in the other. */
+    term.sendText(payload.text, false);              // the text, WITHOUT a newline
+    setTimeout(() => { try { term.sendText('', true); } catch { /* terminal closed */ } }, 80);
+    return;
+  }
   void vscode.window.showInformationMessage(`AIOS Glass: "${name}" ${t("isn't a terminal in this window — can't deliver the message.")}`);
 }
 
