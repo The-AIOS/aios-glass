@@ -121,7 +121,53 @@ const isUserRecord = (rec: unknown): boolean => {
  * So delivery is verified by a BASELINE COUNT taken before sending and an increase
  * after: proof that *this* attempt landed, not that the text exists somewhere.
  */
-export function countUserTurnsContaining(jsonl: string, needle: string): number {
+/**
+ * The record's own wall-clock, used to bound counting to OUR attempt.
+ *
+ * Measured 2026-08-14: 11,152 of 11,152 user records across twelve transcripts carried a
+ * parseable ISO `timestamp`. Undefined means absent or unparseable, which the caller treats as
+ * NOT-OURS — see the fail-closed note below.
+ */
+const recordTimeMs = (rec: unknown): number | undefined => {
+  const ts = (rec as { timestamp?: unknown }).timestamp;
+  if (typeof ts !== 'string') { return undefined; }
+  const ms = Date.parse(ts);
+  return Number.isFinite(ms) ? ms : undefined;
+};
+
+/**
+ * Count user turns containing `needle` — optionally only those at or after `sinceMs`.
+ *
+ * WHY `sinceMs` EXISTS, and why its absence was a correctness bug rather than noise.
+ *
+ * `safeNeedle` returns the first run of >=24 safe characters, or the first 24 characters when
+ * there is no such run. A slash command is shorter than that, so for a slash-command send the
+ * needle IS THE WHOLE COMMAND — `safeNeedle('/config')` === `'/config'`. That needle identifies
+ * the COMMAND, never THIS DELIVERY: measured on real transcripts, 7 of 10 slash-command sends had
+ * a needle also present in other user records, one pair of `/config` invocations forty minutes
+ * apart and another five hours apart.
+ *
+ * Both directions were live, and the noisy one was the harmless one:
+ *   · FALSE VERIFIED — the dangerous direction. Any other invocation of the same command inside
+ *     the verification window raises the count, the bus concludes ITS send landed, and it deletes
+ *     the request. Nothing was delivered and nobody is told: a silently lost message, strictly
+ *     worse than delivering twice.
+ *   · FALSE DUPLICATE — two invocations inside the window read as `now - before > 1`, logging a
+ *     duplicate-delivery warning for a delivery that was perfectly fine.
+ *
+ * Bounding the count to records at or after the claim shrinks the window from the transcript's
+ * ENTIRE history to our own hold — seconds or minutes instead of hours or days.
+ *
+ * FAIL CLOSED on a missing timestamp: a record we cannot place in time is not counted as ours.
+ * The asymmetry is deliberate and matches `DELIVERABLE_STATUSES` — counting it could mean a
+ * silent loss, while not counting it means a retry and, at worst, a LOUD `.undelivered` the
+ * operator can see. Prefer the noisy failure to the quiet one.
+ *
+ * WHAT THIS DOES NOT FIX: someone invoking the same slash command inside our own hold window is
+ * still indistinguishable, because the needle cannot be made unique without altering the text we
+ * type, and a slash command with a marker appended is no longer that slash command.
+ */
+export function countUserTurnsContaining(jsonl: string, needle: string, sinceMs?: number): number {
   if (!needle) { return 0; }
   let n = 0;
   for (const line of jsonl.split('\n')) {
@@ -129,6 +175,10 @@ export function countUserTurnsContaining(jsonl: string, needle: string): number 
     let rec: unknown;
     try { rec = JSON.parse(line); } catch { continue; }
     if (!isUserRecord(rec)) { continue; }          // assistant echoes must not count
+    if (sinceMs !== undefined) {
+      const t = recordTimeMs(rec);
+      if (t === undefined || t < sinceMs) { continue; }   // not ours, or unplaceable in time
+    }
     if (recordText(rec).includes(needle)) { n++; }
   }
   return n;
@@ -291,20 +341,30 @@ export function shouldReleaseForSibling(releases: number, maxReleases: number = 
      wait     out of sends but NOT out of time — keep watching for a late arrival,
               and never type again. Bounded sends, unbounded patience: double delivery
               is worse than latency, so exhausting the retries must not end the wait. */
-export type MissAction = 'retire' | 'release' | 'retry' | 'wait';
+/* No 'release'. Removed rather than left unreachable (ported from the App 2026-08-14): a type
+   saying a decision CAN hand an ALREADY-TYPED message to a sibling invites a caller to handle that
+   case, and handling it IS the double-delivery bug — reaching this decision means the text was
+   typed, so passing it on means typing it twice. Release still exists in the protocol; it belongs
+   to the "could not type it here" path, which never reaches this decision. */
+export type MissAction = 'retire' | 'retry' | 'wait';
 
 export function decideAfterVerifyMiss(s: {
   targetAlive: boolean;
+  /**
+   * The target is mid-turn. It has not had the OPPORTUNITY to write the turn yet, so a missing
+   * transcript entry says nothing about whether the text arrived. Treating that silence as a
+   * failed delivery is what produced FOUR deliveries of one request on 2026-08-12.
+   */
+  targetBusy: boolean;
   heldMs: number;
-  releases: number;
   attempts: number;
 }): { do: MissAction; reason: string } {
   if (!s.targetAlive) return { do: 'retire', reason: 'the target is no longer a live session' };
   if (s.heldMs >= TIMINGS.MAX_HOLD_MS) {
     return { do: 'retire', reason: `held for ${Math.round(s.heldMs / 60000)} min without the message ever appearing in the target transcript` };
   }
-  if (shouldReleaseForSibling(s.releases)) {
-    return { do: 'release', reason: 'not verified here; another window may own that terminal' };
+  if (s.targetBusy) {
+    return { do: 'wait', reason: 'target went busy during verification — an empty transcript proves nothing yet' };
   }
   if (s.attempts < TIMINGS.MAX_DELIVERY_ATTEMPTS) {
     return { do: 'retry', reason: `no sibling left to try; re-delivering (attempt ${s.attempts + 1}/${TIMINGS.MAX_DELIVERY_ATTEMPTS})` };

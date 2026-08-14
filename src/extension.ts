@@ -24,7 +24,7 @@ import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
-  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss } from './core/sendQueue';
+  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable } from './core/sendQueue';
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
@@ -599,7 +599,31 @@ export function activate(context: vscode.ExtensionContext): void {
   //   send:            { "action":"send", "name":"<kebab>", "prompt":"<text into that live session>" }
   // Glass consumes (deletes) the file and acts. This is how one session spawns, kills, OR
   // messages another — inter-agent orchestration through the human-trusted extension. (2026-07-23)
-  const spawnInboxDir = path.join(os.homedir(), '.aios', 'spawn-inbox');
+  /* DEV ISOLATION — two switches, both dev-only, and they are not conveniences.
+   *
+   * The inbox is MACHINE-GLOBAL: every surface on the machine watches the same directory and
+   * any of them may claim any request. So an Extension Development Host launched for testing
+   * becomes a THIRD fulfiller competing with the operator's installed Glass and installed App
+   * for real work. That is not hypothetical — it is how a live brief died on 2026-07-27, claimed
+   * by a dev instance and bounced until it was retired. A test that can eat production messages
+   * is not a test.
+   *
+   *   AIOS_BUS_DISABLED=1   do not watch at all — the installed surfaces keep their inbox.
+   *   AIOS_BUS_DIR=<path>   watch a throwaway directory instead, so the bus can be driven
+   *                         end to end without touching the real one.
+   *
+   * AIOS_BUS_DIR is honoured only when NOT running as an installed extension, mirroring the
+   * App's `!app.isPackaged` guard: the real inbox must never be redirectable in a shipped
+   * build, or a stray environment variable silently detaches an operator from their own bus. */
+  const devHost = context.extensionMode !== vscode.ExtensionMode.Production;
+  const busDirOverride = (process.env.AIOS_BUS_DIR || '').trim();
+  if (busDirOverride && !devHost) {
+    log('spawn-inbox: ignoring AIOS_BUS_DIR in an installed build — the real inbox is not overridable');
+  }
+  const spawnInboxDir = busDirOverride && devHost
+    ? path.resolve(busDirOverride)
+    : path.join(os.homedir(), '.aios', 'spawn-inbox');
+  if (busDirOverride && devHost) log(`spawn-inbox: DEV override — watching ${spawnInboxDir} instead of the real inbox`);
 
   /* DEAD LETTERS NEED A READER — the other half of AI-66 part 4.
      `.undelivered` was written honestly and read by nobody. The README's "nothing rots" is a
@@ -790,7 +814,11 @@ export function activate(context: vscode.ExtensionContext): void {
      A dead letter is read by a human hours later and its reason IS the payload; a reason that
      describes the wrong failure sends them hunting for a delivery that never happened. */
   let lastSendReason = '';
-  const deliverSend = async (name: string, prompt: string, releases = 0): Promise<SendOutcome> => {
+  /* `releases` was a parameter here purely to feed decideAfterVerifyMiss. That branch is gone
+     (an already-typed message must never be handed on), so the parameter is gone too — a
+     parameter nothing reads is a claim that something does. The sibling handoff still exists,
+     bounded by `_releases` on the request file, on the 'no-terminal' path. */
+  const deliverSend = async (name: string, prompt: string): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
     let attempts = 0;   // how many times we have actually TYPED into the target
@@ -809,6 +837,15 @@ export function activate(context: vscode.ExtensionContext): void {
     const text = deliverText.text;
     const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — see TIMINGS
     let announced = false;
+    /* THE BASELINE IS CAPTURED ONCE, OUTSIDE THIS LOOP — ported from the App 2026-08-14.
+       It used to be re-read at the top of every iteration, which made it useless for the one
+       job it has: if attempt 1 landed late, iteration 2 re-read a baseline that ALREADY
+       included that arrival, so `now - before` was 0 and the verdict stayed 'pending' forever.
+       The message was then re-typed each cycle for the whole hold budget. That is the other
+       half of the 2026-08-12 four-deliveries bug and the half that made it unrecoverable —
+       after the text had landed, no later poll could ever prove it.
+       A baseline that moves cannot detect the thing it is a baseline for. */
+    let baseline: number | undefined;
     for (;;) {
       const decision = decideSend(await find(), Date.now() - started, MAX_HOLD_MS);
       if (decision.do === 'undeliverable') {
@@ -844,8 +881,13 @@ export function activate(context: vscode.ExtensionContext): void {
         return 'undeliverable';
       }
       const needleFor = safeNeedle(text);
-      let baseline = 0;
-      try { baseline = countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needleFor); } catch { baseline = 0; }
+      /* `started`, not the per-attempt clock: a bound that moves with each retry would reset the
+         count mid-flight, which is the same failure as a moving baseline. See countUserTurns-
+         Containing for why an unbounded count made a slash-command send unverifiable. */
+      if (baseline === undefined) {
+        try { baseline = countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needleFor, started); } catch { baseline = 0; }
+      }
+      const before = baseline ?? 0;
       /* The cap must gate the SEND. A 'wait' verdict continues this loop, so enforcing the
          limit only in the after-a-miss decision left the message being re-typed every cycle
          for the whole hold budget — the cap existed and capped nothing. */
@@ -865,7 +907,7 @@ export function activate(context: vscode.ExtensionContext): void {
       while (Date.now() < deadline) {
         await sleep(1500);
         try {
-          const verdict = verifyVerdict(baseline, countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needle));
+          const verdict = verifyVerdict(before, countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needle, started));
           if (verdict === 'duplicate') {
             // Never smooth this over: a double delivery is contract 2's worst outcome
             // because it produces WRONG output, not missing output.
@@ -884,14 +926,20 @@ export function activate(context: vscode.ExtensionContext): void {
          message ~20s after claiming it while the 30-minute hold sat almost entirely unused.
          The four-way decision is shared with the other fulfiller so both surfaces agree by
          construction; re-deriving it here by hand is how they diverged in the first place. */
+      /* Re-read the target: its STATUS matters as much as its existence now. A session that went
+         busy while we were verifying has not had the chance to surface the turn, and treating
+         that as a failed delivery is what produced four deliveries of one request. */
+      const after = await find();
       const verdict = decideAfterVerifyMiss({
-        targetAlive: !!(await find()),
+        targetAlive: !!after,
+        targetBusy: !!after && !isDeliverable(after.status),
         heldMs: Date.now() - started,
-        releases,
         attempts,
       });
       log(`spawn-inbox: send → '${name}' not verified — ${verdict.do}: ${verdict.reason}`);
-      if (verdict.do === 'release') return 'release';
+      /* No 'release' branch: decideAfterVerifyMiss can no longer return one, because reaching
+         here means the text WAS typed and handing it to a sibling means typing it twice. Release
+         lives only on the 'no-terminal' path above, where nothing was typed. */
       if (verdict.do === 'retry') continue;                       // deliver again
       if (verdict.do === 'wait') { await sleep(2000); continue; } // never type again; keep watching
       lastSendReason = verdict.reason;
@@ -1037,7 +1085,7 @@ export function activate(context: vscode.ExtensionContext): void {
           catch { return 0; }
         })();
         const spent = raw;
-        const outcome = await deliverSend(name, prompt, spent);
+        const outcome = await deliverSend(name, prompt);
         if (outcome === 'verified') { releaseRequest(held, false); }
         else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
@@ -1068,6 +1116,12 @@ export function activate(context: vscode.ExtensionContext): void {
       releaseRequest(held, true, `${action} failed: ${why}`);
     }
   };
+  /* A bare `return` here would have been wrong: activate() continues past the bus to register
+     the always-visible reopen button and more, so disabling the bus must not disable Glass.
+     The guard therefore scopes the bus setup and leaves the rest of activation intact. */
+  const busDisabled = process.env.AIOS_BUS_DISABLED === '1';
+  if (busDisabled) log('spawn-inbox: DISABLED by AIOS_BUS_DISABLED=1 — not watching, not draining, not surfacing dead letters');
+  if (!busDisabled) {
   const spawnInboxWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(vscode.Uri.file(spawnInboxDir), '*.json')
   );
@@ -1095,6 +1149,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   } catch { /* empty/absent inbox */ }
+  }   // end if (!busDisabled)
 
   // Always-visible reopen button — survives moving the view to the secondary
   // side bar (which empties + hides the activity-bar container icon).
