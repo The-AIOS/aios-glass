@@ -24,7 +24,8 @@ import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
-  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor } from './core/sendQueue';
+  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
+  triedBy, withTried, fulfillerId, type Surface } from './core/sendQueue';
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
@@ -657,6 +658,35 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   };
   try { fs.mkdirSync(spawnInboxDir, { recursive: true }); } catch { /* non-fatal */ }
+
+  /* Announce this surface so a REQUESTER can derive where it is running.
+   *
+   * `~/.aios/surfaces/glass.json`, outside the inbox on purpose — the watchers claim `*.json`, so a
+   * presence file in there would be read as a request. An agent that wants a worker in the surface
+   * it already lives in walks its own process ancestry and compares against these pids, which is
+   * why this is a pid and not a process name: Glass runs inside whatever IDE the operator uses, so
+   * a name list breaks the day they switch editors.
+   *
+   * The pid is the EXTENSION HOST's, which is what a terminal Glass creates descends from — that is
+   * the ancestor a session will actually see, not the IDE's outer Electron pid.
+   *
+   * Written every activation and never cleaned up on exit: a crash would skip cleanup anyway, so
+   * readers check the pid is alive rather than trusting the file exists. */
+  try {
+    const sdir = path.join(os.homedir(), '.aios', 'surfaces');
+    fs.mkdirSync(sdir, { recursive: true });
+    const version = context.extension?.packageJSON?.version ?? '?';
+    /* The literal, not MY_SURFACE: that const is declared further down this function, and hoisting
+       it would move a value the whole bus keys on for the sake of a log line. `parsePresence`
+       validates the string against the shared Surface type, so a typo here fails loudly rather
+       than writing a presence record nobody can match. */
+    const mySurface: Surface = 'glass';
+    fs.writeFileSync(path.join(sdir, `${mySurface}.json`),
+      JSON.stringify({ surface: mySurface, pid: process.pid, at: Date.now(), version }, null, 2) + '\n', 'utf8');
+    log(`spawn-inbox: announced presence — ${mySurface} pid ${process.pid}`);
+  } catch (e) {
+    log(`spawn-inbox: presence not announced (${e instanceof Error ? e.message : String(e)})`);
+  }
   // The inbox documents ITSELF, at the point of need. Sessions kept reverse-engineering the
   // schema out of this source file (and mis-addressing each other via pgrep / terminal tab
   // names, which lie for a RESUMED session), so the directory now ships its own README —
@@ -716,6 +746,32 @@ export function activate(context: vscode.ExtensionContext): void {
       '    MAX_DELIVERY_ATTEMPTS 3 times the SAME text may be typed — 1 for a slash command (below)',
       '',
       "**A slash command is typed ONCE, never re-typed.** Retry only pays when a verification miss is EVIDENCE of a failed send, and for a command the CLI handles client-side it is not: measured 2026-08-14, `/help` was delivered (the operator watched the menu appear) while the transcript recorded **zero** user turns containing the marker, so verification failed for a delivery that had plainly succeeded and the command was typed **three times**. The class is not uniform — `/config` *does* write a `<command-name>` record, `/help` does not, and nothing outside the CLI can tell which — so the rule is per-shape: any prompt matching `/^\\s*\\/[^\\s\\/]/` gets one attempt and is then WAITED on for the full hold budget. Waiting still catches a command that verifies late; re-typing catches neither and shows the operator a duplicate. Consequence accepted deliberately: a plain-text prompt that begins with `/` (a file path) also gets one attempt, so if it were dropped it dead-letters loudly instead of retrying — the safe direction.",
+      '',
+      "**Spawn where you already live.** An unaddressed request goes to whichever surface wins the race, so `spawn` could open your worker in the *other* product — measured 2026-08-14: a request written from an IDE session was fulfilled by the App, and the session appeared in a pane instead of the IDE terminal the requester meant. For `send`/`kill` a mis-race self-corrects (the wrong surface hands it back), but a spawned session lands where it lands.",
+      '',
+      "You cannot be identified by process name — Glass runs inside whatever IDE you use — so each surface announces its pid at `~/.aios/surfaces/<surface>.json`. Walk your own ancestry, compare pids, and set `surface` to what you find:",
+      '',
+      '    python3 - <<\'PY\'',
+      '    import json, os, glob, subprocess',
+      '    def parent(pid):',
+      '        r = subprocess.run(["ps","-o","ppid=","-p",str(pid)], capture_output=True, text=True)',
+      '        return int(r.stdout) if r.stdout.strip() else 0',
+      '    live = {}',
+      '    for f in glob.glob(os.path.expanduser("~/.aios/surfaces/*.json")):',
+      '        try:',
+      '            d = json.load(open(f))',
+      '            os.kill(d["pid"], 0)          # announced but dead => not running',
+      '            live[d["pid"]] = d["surface"]',
+      '        except Exception:',
+      '            pass',
+      '    p = os.getpid()',
+      '    while p and p != 1:',
+      '        if p in live:',
+      '            print(live[p]); break',
+      '        p = parent(p)',
+      '    PY',
+      '',
+      "No match is a legitimate answer, not an error: a session started by the `spawn` wrapper in a plain terminal belongs to neither surface. Omit `surface` in that case and let them race, which is the old behaviour and still correct.",
       '',
       "**Deliverability is an allowlist.** Deliver only on a status measured to accept one — currently `idle` and `shell` (a session running a Bash command *does* accept a prompt and answers after) — and **hold on anything else, including statuses nobody has characterised yet**. \"Not busy\" is not the same as \"deliverable\": the failure is asymmetric, since a wrong *deliverable* guess costs a real message while a wrong *hold* guess costs only latency. Unknown statuses are logged by name so they can be measured and promoted here rather than guessed at forever.",
       '',
@@ -1001,13 +1057,20 @@ export function activate(context: vscode.ExtensionContext): void {
     const body = readJson(held) ?? {};
     const releases = typeof body._releases === 'number' ? body._releases : 0;
     if (!shouldReleaseForSibling(releases, MAX_RELEASES)) { return false; }
-    body._releases = releases + 1;
-    delete body._claim;
+    const marked = withTried(body, fulfillerId(MY_SURFACE, process.pid));   // so I never re-claim my own release
+    marked._releases = releases + 1;
+    delete marked._claim;
     const back = held.slice(0, -HOLD_SUFFIX.length);
     try {
-      fs.writeFileSync(held, JSON.stringify(body, null, 2), 'utf8');
+      fs.writeFileSync(held, JSON.stringify(marked, null, 2), 'utf8');
       fs.renameSync(held, back);
-      log(`spawn-inbox: released ${path.basename(back)} for another window to try (handoff ${releases + 1}/${MAX_RELEASES})`);
+      log(`spawn-inbox: released ${path.basename(back)} for another window to try (handoff ${releases + 1}/${MAX_RELEASES}; tried=[${triedBy(marked).join(',')}])`);
+      /* NOTHING ROTS. My own watcher now skips this file (I am in `_tried`), and if no sibling is
+         running there is nobody left to fire. So the releaser — already awake — owns the honest
+         ending: re-check after the same grace an absent addressee gets, and dead-letter if it is
+         still sitting there. Without this, `_tried` would trade a false dead letter for a silent
+         one, which is a worse bargain. */
+      setTimeout(() => { void consumeSpawnRequest(back); }, TARGET_TTL_MS);
       return true;
     } catch { return false; }
   };
@@ -1045,11 +1108,19 @@ export function activate(context: vscode.ExtensionContext): void {
       // Addressing: a request may name the surface that should fulfil it. Fulfilment is
       // targeted; RETIREMENT is shared, so a request addressed to a surface that never
       // runs can't rot silently.
-      const verdict = claimVerdict(readJson(fsPath)?.surface, MY_SURFACE, ageOf(fsPath), TARGET_TTL_MS);
-      if (verdict === 'skip') { return; }             // addressed elsewhere and still fresh — not ours to touch
+      const fresh = readJson(fsPath) ?? {};
+      const tried = triedBy(fresh);
+      const myId = fulfillerId(MY_SURFACE, process.pid);
+      const verdict = claimVerdict(fresh.surface, MY_SURFACE, ageOf(fsPath), TARGET_TTL_MS, tried, myId);
+      if (verdict === 'skip') { return; }             // addressed elsewhere, or already tried here
       if (verdict === 'retire') {
+        /* Two ways here: addressed to an absent surface, or handed back by me and left untaken.
+           Name the second one precisely — a sibling had its chance and did not take it. */
+        const why = tried.includes(myId)
+          ? `handed back for a sibling over ${Math.round(TARGET_TTL_MS / 60000)} min ago and no other surface took it`
+          : `addressed to another surface, unclaimed for over ${Math.round(TARGET_TTL_MS / 60000)} min`;
         const h = claimRequest(fsPath);
-        if (h) { releaseRequest(h, true, `addressed to another surface, unclaimed for over ${Math.round(TARGET_TTL_MS / 60000)} min`); }
+        if (h) { releaseRequest(h, true, why); }
         return;
       }
     }
