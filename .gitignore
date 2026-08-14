@@ -3,3 +3,6 @@ out/
 *.vsix
 .DS_Store
 .vscode-test/
+
+# Dev-host command-bus inbox (AIOS_BUS_DIR) — never the real one
+.dev-inbox/

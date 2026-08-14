@@ -10,7 +10,15 @@
         "${userHome}/obsidian"
       ],
       "outFiles": ["${workspaceFolder}/out/**/*.js"],
-      "preLaunchTask": "npm: compile"
+      "preLaunchTask": "npm: compile",
+      // The inbox is MACHINE-GLOBAL, so a dev host that watches the real one becomes a THIRD
+      // fulfiller competing with the operator's installed Glass and installed App for real
+      // requests — which is how a live brief died on 2026-07-27. Isolating here rather than in a
+      // remembered shell export makes every dev-host run safe by default, including the ones
+      // launched from the Run menu by someone who never read this file.
+      "env": {
+        "AIOS_BUS_DIR": "${workspaceFolder}/.dev-inbox"
+      }
     }
   ]
 }

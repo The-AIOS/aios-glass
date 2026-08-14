@@ -24,7 +24,7 @@ import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
-  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable } from './core/sendQueue';
+  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor } from './core/sendQueue';
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
@@ -891,7 +891,7 @@ export function activate(context: vscode.ExtensionContext): void {
       /* The cap must gate the SEND. A 'wait' verdict continues this loop, so enforcing the
          limit only in the after-a-miss decision left the message being re-typed every cycle
          for the whole hold budget — the cap existed and capped nothing. */
-      if (attempts >= TIMINGS.MAX_DELIVERY_ATTEMPTS) {
+      if (attempts >= maxAttemptsFor(text)) {
         if (Date.now() - started >= MAX_HOLD_MS) {
           lastSendReason = `sent ${attempts}x over ${Math.round((Date.now() - started) / 60000)} min without it ever appearing in the target transcript`;
           log(`spawn-inbox: send → '${name}' ${lastSendReason} — giving up`);
@@ -935,6 +935,7 @@ export function activate(context: vscode.ExtensionContext): void {
         targetBusy: !!after && !isDeliverable(after.status),
         heldMs: Date.now() - started,
         attempts,
+        maxAttempts: maxAttemptsFor(text),
       });
       log(`spawn-inbox: send → '${name}' not verified — ${verdict.do}: ${verdict.reason}`);
       /* No 'release' branch: decideAfterVerifyMiss can no longer return one, because reaching
