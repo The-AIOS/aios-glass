@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { TIMINGS, decideAfterVerifyMiss, maxAttemptsFor, claimVerdict, triedBy, withTried, fulfillerId,
-  surfaceForAncestry, parsePresence, type MissAction } from '../core/sendQueue';
+  surfaceForAncestry, parsePresence, processTreeRoot, type MissAction } from '../core/sendQueue';
 
 /* THE CROSS-REPO DIFF-GUARD.
  *
@@ -345,4 +345,27 @@ test('the presence file lives OUTSIDE the inbox — the watchers claim *.json', 
   assert.ok(m, 'presence must be written under ~/.aios/surfaces');
   assert.doesNotMatch(src, /spawn-inbox['"`]\),\s*`\$\{[a-zA-Z_]*[Ss]urface\}\.json`/,
     'never inside the inbox directory');
+});
+
+test('processTreeRoot finds the pid a session actually sees, and cannot hang', () => {
+  /* The bug this fixes, measured 2026-08-14 in a live dev host: Glass announced its EXTENSION HOST
+     (53705, a "Helper (Plugin)" process) while a terminal it owns descended from the ptyHost
+     (92733, a plain "Helper"). Siblings — both children of the IDE's Electron root 92519 — so every
+     IDE-hosted session derived "neither", defeating the whole point of the record. Both resolve to
+     92519, which is the pid to announce. */
+  const tree: Record<number, number> = { 66663: 66468, 66468: 92733, 92733: 92519, 92519: 1, 53705: 92519 };
+  const parentOf = (p: number) => tree[p] ?? 0;
+  assert.equal(processTreeRoot(53705, parentOf), 92519, 'the extension host resolves to the IDE root');
+  assert.equal(processTreeRoot(66663, parentOf), 92519, 'and so does a terminal session under it');
+  assert.equal(processTreeRoot(92519, parentOf), 92519, 'a root resolves to itself');
+
+  // an unreadable parent stops the walk rather than returning something wrong
+  assert.equal(processTreeRoot(4242, () => 0), 4242);
+  // a cycle must terminate — a hang here would block startup, which is worse than a wrong answer
+  const cyclic = (p: number) => (p === 7 ? 8 : 7);
+  assert.ok([7, 8].includes(processTreeRoot(7, cyclic)), 'a cycle terminates');
+  // and a pathologically deep tree is bounded
+  /* Step by 2 so the walk never lands on pid 1 — that value is the reached-init sentinel and
+     returns immediately, which is what made the first version of this assertion wrong. */
+  assert.equal(processTreeRoot(0, (p) => p + 2), 64, 'bounded at 32 hops');
 });

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { execFileSync } from 'child_process';
 import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
@@ -25,7 +26,7 @@ import { listRunningAgents } from './agents/running';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
   TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
-  triedBy, withTried, fulfillerId, type Surface } from './core/sendQueue';
+  triedBy, withTried, fulfillerId, processTreeRoot, type Surface } from './core/sendQueue';
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
@@ -681,9 +682,23 @@ export function activate(context: vscode.ExtensionContext): void {
        validates the string against the shared Surface type, so a typo here fails loudly rather
        than writing a presence record nobody can match. */
     const mySurface: Surface = 'glass';
+    /* The tree ROOT, not process.pid. Measured 2026-08-14: this extension host was pid 53705 (a
+       "Helper (Plugin)" process) while a terminal it owns descended from 92733 (the ptyHost
+       "Helper") — SIBLINGS, both children of the IDE's Electron root 92519. Announcing the
+       extension host made every IDE-hosted session derive "neither", which is precisely the
+       question this record exists to answer. The root is the one pid that is an ancestor of both
+       the announcing code and every terminal in this surface. */
+    const ppidOf = (pid: number): number => {
+      try {
+        const out = execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8' }).trim();
+        const n = Number(out);
+        return Number.isFinite(n) ? n : 0;
+      } catch { return 0; }
+    };
+    const root = processTreeRoot(process.pid, ppidOf);
     fs.writeFileSync(path.join(sdir, `${mySurface}.json`),
-      JSON.stringify({ surface: mySurface, pid: process.pid, at: Date.now(), version }, null, 2) + '\n', 'utf8');
-    log(`spawn-inbox: announced presence — ${mySurface} pid ${process.pid}`);
+      JSON.stringify({ surface: mySurface, pid: root, at: Date.now(), version }, null, 2) + '\n', 'utf8');
+    log(`spawn-inbox: announced presence — ${mySurface} root pid ${root} (extension host ${process.pid})`);
   } catch (e) {
     log(`spawn-inbox: presence not announced (${e instanceof Error ? e.message : String(e)})`);
   }
