@@ -16,6 +16,19 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # @types/vscode is NOT a dependency to keep current — it is a restatement of
+      # `engines.vscode`, i.e. the oldest VS Code we support. Raise it alone and the
+      # compiler starts accepting APIs that are `undefined` at runtime for every user
+      # below the new floor, so the type-checker stops being a guard. `vsce package`
+      # enforces this and refuses to build: "@types/vscode ^X greater than
+      # engines.vscode ^Y. Either upgrade engines.vscode or use an older
+      # @types/vscode version" (#17, opened and red for two weeks).
+      #
+      # Ignored ENTIRELY, not just semver-major like the two above: 1.85 -> 1.134 is
+      # a minor bump, so a major-only filter would not have caught the PR that
+      # prompted this. The pair moves together, by hand, when we decide to drop
+      # support for older VS Code — never because a bot noticed a newer version.
+      - dependency-name: "@types/vscode"
 
   # Keep GitHub Actions current (auto-bumps action runtimes, e.g. the Node 24 migration).
   - package-ecosystem: github-actions
