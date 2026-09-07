@@ -369,3 +369,24 @@ test('processTreeRoot finds the pid a session actually sees, and cannot hang', (
      returns immediately, which is what made the first version of this assertion wrong. */
   assert.equal(processTreeRoot(0, (p) => p + 2), 64, 'bounded at 32 hops');
 });
+
+test('the generated inbox README does not enumerate rungs — one table, and it is not ours', () => {
+  /* AI-129's second half, and Glass is where it actually bit. The App shipped this fix in
+     v0.9.2 and it did NOT reach the operator's disk, because `shouldWrite` defers to a current
+     Glass-stamped doc by design ("if (byGlass) return false") — so on any machine with the
+     extension installed, GLASS is the writer and Glass's copy was the stale one.
+     It documented `"tier": "mechanical" | "judgment"` — a closed set of two — after the ladder
+     had grown to five, while the file it writes says of itself that it is "rewritten to match
+     the handler actually running". Worse than ordinary drift: `CLAUDE.md` names this README the
+     protocol's AUTHORITY, so an agent following the documented path concluded `fast` and
+     `scale` were invalid and fell back to a legacy alias.
+     The fix is not a longer list — a generated doc must not restate a fact it does not own.
+     `aios-app`'s src/test/inboxReadme.test.ts carries the identical assertions, so either repo
+     drifting fails its own suite. */
+  const src = fs.readFileSync('src/extension.ts', 'utf8');
+  assert.doesNotMatch(src, /"tier":\s*\\?"mechanical\\?"\s*\|\s*\\?"judgment\\?"/,
+    'a closed rung list drifts, and this file is treated as authoritative');
+  assert.match(src, /resolve-tier --list/, 'it must say where the real list lives');
+  assert.match(src, /MODEL-ROUTING\.md/, 'and where the meaning of each rung lives');
+  assert.match(src, /refused with a dead letter/, 'and that guessing is safe');
+});

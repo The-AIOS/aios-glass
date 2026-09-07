@@ -9,6 +9,12 @@ on:
     tags: ['v*']
   workflow_dispatch: {}
 
+# Needed by the Release step at the end of the job. Absent, the default GITHUB_TOKEN can be
+# read-only (GitHub's newer default) and `gh release create` fails with a 403 — on the first
+# tag that uses it, which is a release. Stated rather than inherited.
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -53,3 +59,23 @@ jobs:
         with:
           name: aios-glass-vsix
           path: aios-glass.vsix
+
+      # AI-119: a GitHub Release used to be a SECOND, HAND-DONE act after the tag, and the
+      # roadmap carried a row for exactly the divergence that invites — one release whose
+      # content mattered most to the bus protocol was, for a while, the one that could not be
+      # resolved to a commit. Two hand-coordinated steps drift; one automated step cannot.
+      # So the tag that publishes to Open VSX now also cuts the Release, from the same tag,
+      # with the .vsix attached so a human can install the exact artifact that was published.
+      #
+      # Placed LAST and deliberately allowed to fail loudly: by this point Open VSX already has
+      # the extension, so a failure here loses nothing and is recoverable by hand — whereas a
+      # silent skip would recreate the very gap this step closes. `--verify-tag` refuses to
+      # invent a tag that does not exist, and the `|| upload` fallback makes a re-run idempotent.
+      - name: Cut the GitHub Release from the same tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --title "AIOS Glass $TAG" --generate-notes --verify-tag \
+            aios-glass.vsix \
+          || gh release upload "$TAG" aios-glass.vsix --clobber
