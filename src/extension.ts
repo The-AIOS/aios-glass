@@ -671,8 +671,13 @@ export function activate(context: vscode.ExtensionContext): void {
    * The pid is the EXTENSION HOST's, which is what a terminal Glass creates descends from — that is
    * the ancestor a session will actually see, not the IDE's outer Electron pid.
    *
-   * Written every activation and never cleaned up on exit: a crash would skip cleanup anyway, so
-   * readers check the pid is alive rather than trusting the file exists. */
+   * Written every activation, and now REMOVED on a clean deactivate (see the disposable below).
+   * The liveness check remains the real defence and nothing here weakens it — a crashed extension
+   * host, a SIGKILL or a yanked power cable all skip cleanup, so a reader trusting the file's
+   * existence is still wrong. This only stops the directory misleading a human reading it by eye:
+   * measured on a live machine 2026-09-07, a `glass.json` advertising pid 87052 — dead since
+   * 2026-08-14 — sat beside a freshly-written `app.json` for three weeks. (AI-130, glass half; the
+   * App shipped its side in v0.9.2.) */
   try {
     const sdir = path.join(os.homedir(), '.aios', 'surfaces');
     fs.mkdirSync(sdir, { recursive: true });
@@ -699,6 +704,23 @@ export function activate(context: vscode.ExtensionContext): void {
     fs.writeFileSync(path.join(sdir, `${mySurface}.json`),
       JSON.stringify({ surface: mySurface, pid: root, at: Date.now(), version }, null, 2) + '\n', 'utf8');
     log(`spawn-inbox: announced presence — ${mySurface} root pid ${root} (extension host ${process.pid})`);
+    /* Withdraw it on a clean deactivate — and ONLY if the record is still ours.
+       Two surfaces share this directory, so a departing Glass must not delete the App's file;
+       and the pid check also covers a second IDE window that re-announced over ours while we
+       ran, in which case the live one's record is the correct one to leave behind.
+       A disposable rather than work inside deactivate(): the extension host disposes
+       subscriptions on unload, on window reload and on extension update — deactivate() alone
+       misses cases and would have to re-derive the root pid it no longer has in scope. */
+    const presenceFile = path.join(sdir, `${mySurface}.json`);
+    context.subscriptions.push({
+      dispose: () => {
+        try {
+          const body = JSON.parse(fs.readFileSync(presenceFile, 'utf8')) as { pid?: number };
+          if (body.pid !== root) return;   // not ours (or a live peer re-announced) — leave it
+          fs.unlinkSync(presenceFile);
+        } catch { /* absent, unreadable, or already gone — all fine */ }
+      },
+    });
   } catch (e) {
     log(`spawn-inbox: presence not announced (${e instanceof Error ? e.message : String(e)})`);
   }
@@ -1279,5 +1301,8 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  // nothing to clean up yet
+  /* Nothing here on purpose. The presence file is retracted by a DISPOSABLE registered next to
+     the code that writes it (see announce, above) — the host disposes subscriptions on unload,
+     window reload and extension update, whereas this function alone misses cases and would have
+     to re-derive state it no longer holds. Cleanup belongs beside the thing it undoes. */
 }

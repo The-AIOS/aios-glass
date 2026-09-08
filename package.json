@@ -219,6 +219,11 @@
     ],
     "keybindings": [
       {
+        "command": "aios.openHome",
+        "key": "ctrl+alt+g o",
+        "mac": "cmd+alt+g o"
+      },
+      {
         "command": "aios.palette",
         "mac": "cmd+alt+g shift+8",
         "key": "ctrl+alt+g shift+8"

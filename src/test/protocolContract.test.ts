@@ -390,3 +390,44 @@ test('the generated inbox README does not enumerate rungs — one table, and it 
   assert.match(src, /MODEL-ROUTING\.md/, 'and where the meaning of each rung lives');
   assert.match(src, /refused with a dead letter/, 'and that guessing is safe');
 });
+
+test('every keyboard chord is unique, and opening Glass has one that works from cold', () => {
+  /* Two findings, one test, because they were found together.
+     (1) NO CHORD IS DUPLICATED. `aios.openHome` was nearly bound to `cmd+alt+g g`, which
+     `aios.goWithAgents` already owned — the mistake came from reading a TRUNCATED list of the
+     keybindings and concluding the letter was free. A duplicate chord does not error; the IDE
+     silently picks one, so nothing would have surfaced it.
+     (2) OPENING GLASS NEEDS A COLD-START PATH. `cmd+alt+g h` → `aios.toggleHome` calls
+     `HomeViewProvider.current?.toggleHome()`, which no-ops when the provider has never been
+     instantiated — i.e. exactly when the operator cannot find the status-bar button and reaches
+     for the keyboard. `aios.openHome` runs `aios.home.focus`, which reveals from cold, and it
+     had no binding at all: the button was the only way in. */
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')) as
+    { contributes: { keybindings: { command: string; key: string; mac?: string }[] } };
+  const kb = pkg.contributes.keybindings;
+
+  const macs = kb.map((k) => k.mac ?? k.key);
+  const dupes = macs.filter((m, i) => macs.indexOf(m) !== i);
+  assert.deepEqual(dupes, [], `duplicate chords bind silently: ${dupes.join(', ')}`);
+
+  const open = kb.filter((k) => k.command === 'aios.openHome');
+  assert.equal(open.length, 1, 'aios.openHome needs exactly one chord — it is the cold-start path');
+
+  const src = fs.readFileSync('src/extension.ts', 'utf8');
+  assert.match(src, /'aios\.openHome', \(\) => vscode\.commands\.executeCommand\('aios\.home\.focus'\)/,
+    'openHome must REVEAL the view, not toggle a provider that may not exist');
+});
+
+test('the presence file is retracted on dispose, and only when the record is ours', () => {
+  /* AI-130, glass half. The App shipped its side in v0.9.2; a `glass.json` advertising a pid
+     dead since 2026-08-14 sat beside it for three weeks. The liveness check is still the real
+     defence — a crashed extension host cannot clean up — so this only stops the directory
+     misleading a human reading it by eye.
+     The ownership check is load-bearing: two surfaces share that directory, so a departing Glass
+     must not delete the App's record, nor one a second IDE window re-announced over ours. */
+  const src = fs.readFileSync('src/extension.ts', 'utf8');
+  assert.match(src, /if \(body\.pid !== root\) return;/, 'must not delete another surface\'s record');
+  assert.match(src, /context\.subscriptions\.push\(\{\s*\n\s*dispose: \(\) => \{/,
+    'a disposable, not deactivate() — the host disposes on unload, reload AND update');
+  assert.match(src, /fs\.unlinkSync\(presenceFile\)/);
+});
