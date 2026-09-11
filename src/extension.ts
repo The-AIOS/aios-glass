@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, MAX_RESUME_SCAN, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { normalizeVerb } from './core/busVerbs';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
@@ -739,7 +740,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       "Why this exists: Claude's auto-mode classifier gates agent-invoked `spawn`/`spawn-kill` (they read as \"launch/kill an autonomous agent\"), and an agent cannot author its own autonomy grant. So an agent *requests*, and a surface the human already trusts acts. **Request, don't spawn.**",
       '',
-      '## Three verbs',
+      '## Four verbs',
       '',
       '**spawn** (the default — no `action` key) — launch a named session:',
       '',
@@ -756,6 +757,23 @@ export function activate(context: vscode.ExtensionContext): void {
       "**kill** — close that session's terminal (shell + claude + respawn loop):",
       '',
       '    { "action": "kill", "name": "designer" }',
+      '',
+      '**resume** (contract 3) — reopen a session you already had, as the SAME someone:',
+      '',
+      '    { "action": "resume", "name": "designer", "prompt": "pick up the hero work" }',
+      '',
+      '- `spawn` gives you a fresh **something**; `resume` gives you back the same **someone** — its memory of the work, the corrections it absorbed, the shape of the thing you were building. Reach for it whenever a closed session has context worth more than a clean start.',
+      '- The name is resolved from the transcripts on disk (`~/.claude/projects/*/*.jsonl`), not the live session registry — the registry only holds RUNNING sessions, and a closed one is the only kind this verb is for. A session that renamed itself resolves by its **latest** name.',
+      '- **Already running?** It is revealed and your `prompt` is delivered into it, exactly as `send` would. Resuming a live session would give one identity two processes.',
+      '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Only the newest sessions are scanned, so a very old name reports the miss rather than being found slowly. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
+      '',
+      '      { "action": "resume", "name": "designer", "prompt": "…", "fallback": "spawn" }',
+      '',
+      '- No `--name` and no `--model` are passed: a resumed session keeps the identity and the model it already had.',
+      '',
+      '### An absent action is spawn; an unrecognised one is refused',
+      '',
+      'Omit `action` entirely and you get a spawn — contract-1 `{ name, task }` requests still work untouched. But an action that is *written* and not one of the four above is **dead-lettered naming what you wrote**, never quietly run as a spawn. Contract 2 did degrade it; since `resume` arrived the two outcomes differ, so a typo\'d `"resmue"` would have handed back a brand-new session in place of the one you asked to reopen.',
       '',
       'The filename is arbitrary (must end in `.json`) — use a distinct one so concurrent requests never collide.',
       '',
@@ -1167,15 +1185,27 @@ export function activate(context: vscode.ExtensionContext): void {
     let raw: string;
     try { raw = fs.readFileSync(held, 'utf8'); } catch { return; }
     if (!raw.trim()) { releaseRequest(held, false); return; }
-    let req: { action?: unknown; name?: unknown; task?: unknown; model?: unknown; tier?: unknown; prompt?: unknown };
+    let req: { action?: unknown; name?: unknown; task?: unknown; model?: unknown; tier?: unknown; prompt?: unknown; fallback?: unknown };
     try { req = JSON.parse(raw); } catch {
       releaseRequest(held, true, 'malformed JSON'); return;
     }
     const name = String(req.name ?? '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    // Command bus: `action` defaults to "spawn" (back-compat with plain {name,task}).
-    //   spawn → launch a worker · kill → tear one down · send → deliver a prompt to a live session.
-    const action = (typeof req.action === 'string' ? req.action : 'spawn').toLowerCase();
+    /* Command bus verbs. An ABSENT action means spawn (back-compat with plain {name,task});
+       a WRITTEN one must be a verb we implement.
+         spawn  → launch a worker          · kill   → tear one down
+         send   → prompt a LIVE session    · resume → reopen a CLOSED one, same someone
+       An unrecognised verb is REFUSED rather than degraded to spawn: since resume arrived, the
+       two outcomes differ (a fresh something vs the same someone), so guessing spawn for a
+       typo'd `"resmue"` performs exactly the substitution resume exists to prevent. */
+    const written = (typeof req.action === 'string' ? req.action : '').trim().toLowerCase();
+    const action = normalizeVerb(req.action);
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
+    if (action === 'unknown') {
+      releaseRequest(held, true,
+        `unknown action '${written}' — this surface implements spawn, kill, send and resume. `
+        + 'Omit "action" entirely for a plain spawn.');
+      return;
+    }
     try {
       if (action === 'kill') {
         // disposeAgentTerminal = the NON-interactive "kill now": dispose the worker's terminal
@@ -1206,6 +1236,44 @@ export function activate(context: vscode.ExtensionContext): void {
             ? "the target's terminal isn't in any window that tried — paste it manually"
             : (lastSendReason || 'delivery not verified — re-drop it or paste it manually'));
         }
+      } else if (action === 'resume') {
+        const prompt = typeof req.prompt === 'string' ? req.prompt : (typeof req.task === 'string' ? req.task : '');
+        /* ALREADY AWAKE → reveal and deliver, never reopen. The caller asked for a specific
+           someone; that someone is running, so resuming would create a SECOND process for one
+           identity — the duplication this verb exists to avoid, reached from the other side. */
+        const live = (await listRunningAgents()).find((a) => a.name === name);
+        if (live) {
+          await revealAgentTerminal(name, live.pid);
+          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering`);
+          if (!prompt) { releaseRequest(held, false); return; }
+          const outcome = await deliverSend(name, prompt);
+          if (outcome === 'verified') { releaseRequest(held, false); }
+          else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back */ }
+          else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
+          return;
+        }
+        const sid = resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
+        if (sid) {
+          await launchResumeSession(name, sid, prompt);
+          releaseRequest(held, false);
+          return;
+        }
+        /* NO TRANSCRIPT. Falling back to a spawn unasked would hand back a fresh something for a
+           request that named a someone — so refuse by default and SAY the name that could not be
+           found, which is what makes the dead letter actionable. */
+        if (req.fallback !== 'spawn') {
+          releaseRequest(held, true,
+            `resume '${name}': no transcript found for that name — nothing to resume `
+            + `(it may never have run, or its history is older than the ${MAX_RESUME_SCAN} most `
+            + 'recent sessions). Pass "fallback":"spawn" to start a fresh one instead.');
+          return;
+        }
+        log(`spawn-inbox: resume '${name}' — no transcript; falling back to spawn as asked`);
+        await launchSpawn(name, prompt, {
+          model: typeof req.model === 'string' ? req.model : undefined,
+          tier: typeof req.tier === 'string' ? req.tier : undefined,
+        });
+        releaseRequest(held, false);
       } else {
         // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose);
         // launchSpawn whitelists them before they touch the command line.
