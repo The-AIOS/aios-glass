@@ -10,6 +10,7 @@ import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
 import { askSessionName } from '../core/taskModel';
+import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 
@@ -371,6 +372,80 @@ export async function launchPrimary(name: string): Promise<void> {
 }
 
 /** Resume a Claude conversation — always a new terminal with the session picker. */
+/**
+ * Resume a SPECIFIC session by id (AI-149) — the bus's `resume` verb.
+ *
+ * The sibling of {@link launchResume}: that one hands the operator Claude's own picker, which
+ * needs a human in the chair. A bus request names the session it wants, so nothing may be picked
+ * — the id goes straight on the command line and the terminal is named for the agent, exactly as
+ * a spawn would be, so the resumed session reappears in the Running list under the name it
+ * already answered to.
+ *
+ * NO `--name`, NO `--model`. A resume inherits both from the session it reopens; passing either
+ * would re-name or re-pin the very identity the verb exists to preserve.
+ */
+export async function launchResumeSession(name: string, sessionId: string, prompt?: string): Promise<void> {
+  const agent = discoverAgents().find((a) => a.name === name);
+  const icon = iconForAgent(agent ?? { name });
+  /* Same task-transport hardening as launchSpawn, for the same reason: this TYPES the command
+     into a terminal, so a multi-line or long prompt becomes a burst of Enter presses that can
+     crash the host. Long prompts go through a file; refusing beats silently shortening. */
+  const text = prompt?.trim() ?? '';
+  let inline = text;
+  if (text && (/[\r\n]/.test(text) || text.length > 240)) {
+    try {
+      const f = path.join(os.tmpdir(), `aios-resume-task-${name}.md`);
+      fs.writeFileSync(f, text, 'utf8');
+      inline = `Read ${f} and follow the instructions inside.`;
+    } catch {
+      void vscode.window.showErrorMessage(
+        `AIOS Glass: could not write the prompt file for “${name}”, so the session was NOT resumed. ` +
+        `Its prompt is ${byteLength(text)} bytes and delivering a shortened version could drop ` +
+        `instructions silently.`,
+      );
+      log(`resume '${name}': ABORTED — prompt file unwritable and truncating is not an option`);
+      return;
+    }
+  }
+  runNew(`${claudeBin()} --resume ${sessionId}${inline ? ` ${shellQuote(inline)}` : ''}`,
+    { name, icon, color: 'terminal.ansiBlue' });
+  log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
+}
+
+/**
+ * Which session does a name resume to? Scans transcripts newest-first and stops at the first
+ * match. The RULE is pure and shared with the App (core/resumeTarget); only the reading is here.
+ *
+ * BOUNDED ON PURPOSE — transcripts are large and there can be hundreds; the bus must not stall
+ * reading history. A name older than the scan window is reported as "nothing to resume" rather
+ * than found slowly.
+ */
+export const MAX_RESUME_SCAN = 60;
+export function resumeIdFor(name: string, excludeSessionId?: string): string | undefined {
+  const base = path.join(os.homedir(), '.claude', 'projects');
+  const files: { f: string; mtimeMs: number }[] = [];
+  try {
+    for (const d of fs.readdirSync(base)) {
+      let entries: string[] = [];
+      try { entries = fs.readdirSync(path.join(base, d)); } catch { continue; }
+      for (const e of entries) {
+        if (!e.endsWith('.jsonl')) continue;
+        const full = path.join(base, d, e);
+        try { files.push({ f: full, mtimeMs: fs.statSync(full).mtimeMs }); } catch { /* vanished */ }
+      }
+    }
+  } catch { return undefined; }
+  for (const { f, mtimeMs } of files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, MAX_RESUME_SCAN)) {
+    let text = '';
+    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    const hit = pickResume(name, [{
+      sessionId: path.basename(f, '.jsonl'), mtimeMs, latestName: latestAgentName(text),
+    }], excludeSessionId);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 /**
  * Resume picker. The operator picks the session INSIDE Claude's TUI, so Glass
  * can't name the terminal up front — but once picked, the session registers in
