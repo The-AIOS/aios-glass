@@ -407,7 +407,9 @@ export async function launchResumeSession(name: string, sessionId: string, promp
       return;
     }
   }
-  runNew(`${claudeBin()} --resume ${sessionId}${inline ? ` ${shellQuote(inline)}` : ''}`,
+  /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
+     core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
+  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${inline ? ` ${shellQuote(inline)}` : ''}`,
     { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
