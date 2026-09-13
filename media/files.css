@@ -13,7 +13,7 @@
   }
   body.light{
     --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#eeeeec;
-    --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#8a8a90;
+    --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#5a5a62;
     --accent:#ff5d4d; --accent-line:rgba(214,64,44,.5);
     --edge:inset 0 1px 0 rgba(255,255,255,.85);
   }

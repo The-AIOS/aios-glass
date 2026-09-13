@@ -6,7 +6,7 @@
   "colors": {
     "//": "Grounded in the AIOS Glass light tokens: canvas #f7f7f5, surfaces #fff/#f1f1ee/#e9e9e4, line #e3e3dd, ink #0c0c0d, muted #52525b, subtle #8a8a90, accent coral #ff5d4d, accent-soft (legible coral text) #d6402c, ok #1f9d57.",
     "foreground": "#52525b",
-    "descriptionForeground": "#8a8a90",
+    "descriptionForeground": "#5a5a62",
     "errorForeground": "#c0392b",
     "focusBorder": "#d6402c80",
     "contrastBorder": "#00000000",
@@ -59,7 +59,7 @@
     "input.background": "#ffffff",
     "input.foreground": "#0c0c0d",
     "input.border": "#e3e3dd",
-    "input.placeholderForeground": "#8a8a90",
+    "input.placeholderForeground": "#5a5a62",
     "inputOption.activeBorder": "#ff5d4d",
     "inputOption.activeBackground": "#ff5d4d33",
     "inputValidation.errorBackground": "#fbe7e4",
@@ -80,7 +80,7 @@
 
     "activityBar.background": "#f1f1ee",
     "activityBar.foreground": "#0c0c0d",
-    "activityBar.inactiveForeground": "#8a8a90",
+    "activityBar.inactiveForeground": "#5a5a62",
     "activityBar.border": "#e3e3dd",
     "activityBar.activeBorder": "#ff5d4d",
     "activityBarBadge.background": "#ff5d4d",
@@ -91,7 +91,7 @@
     "sideBar.border": "#e3e3dd",
     "sideBarTitle.foreground": "#52525b",
     "sideBarSectionHeader.background": "#f7f7f5",
-    "sideBarSectionHeader.foreground": "#8a8a90",
+    "sideBarSectionHeader.foreground": "#5a5a62",
     "sideBarSectionHeader.border": "#e3e3dd",
 
     "list.activeSelectionBackground": "#e9e9e4",
@@ -114,7 +114,7 @@
     "tab.activeBorderTop": "#ff5d4d",
     "tab.activeBorder": "#00000000",
     "tab.inactiveBackground": "#f1f1ee",
-    "tab.inactiveForeground": "#8a8a90",
+    "tab.inactiveForeground": "#5a5a62",
     "tab.border": "#e3e3dd",
     "tab.hoverBackground": "#eeeeea",
     "tab.unfocusedActiveForeground": "#52525b",
@@ -122,7 +122,7 @@
     "titleBar.activeBackground": "#f1f1ee",
     "titleBar.activeForeground": "#52525b",
     "titleBar.inactiveBackground": "#f1f1ee",
-    "titleBar.inactiveForeground": "#8a8a90",
+    "titleBar.inactiveForeground": "#5a5a62",
     "titleBar.border": "#e3e3dd",
 
     "statusBar.background": "#f1f1ee",
@@ -139,7 +139,7 @@
     "panel.background": "#f7f7f5",
     "panel.border": "#e3e3dd",
     "panelTitle.activeForeground": "#0c0c0d",
-    "panelTitle.inactiveForeground": "#8a8a90",
+    "panelTitle.inactiveForeground": "#5a5a62",
     "panelTitle.activeBorder": "#ff5d4d",
     "panelInput.border": "#e3e3dd",
 
@@ -172,7 +172,7 @@
     "scrollbarSlider.activeBackground": "#00000033",
     "minimap.background": "#f7f7f5",
 
-    "breadcrumb.foreground": "#8a8a90",
+    "breadcrumb.foreground": "#5a5a62",
     "breadcrumb.focusForeground": "#52525b",
     "breadcrumb.background": "#f7f7f5",
 

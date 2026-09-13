@@ -20,7 +20,7 @@
      One class on <body> reskins every surface because every colour is a token. */
   body.light{
     --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#f1f1ee; --surface-3:#e9e9e4;
-    --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#8a8a90;
+    --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#5a5a62;
     --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.12); --accent-soft:#d6402c; --accent-line:rgba(214,64,44,.5);
     --ok:#1f9d57;
     --glass-top:rgba(255,255,255,.85); --glass-top-strong:rgba(255,255,255,1);

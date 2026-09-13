@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.8] — 2026-09-13
+
+> **The light theme was failing accessibility, not just looking faint.** Ships alongside the AIOS App's own v0.9.6 fix, at the identical value — the two surfaces sit side by side on one screen, and fixing only one makes the other look broken.
+
+### Fixed
+- **Muted text in the light theme was below the WCAG AA floor, and by more than the App was.** `#8a8a90` measured **3.20:1** on the editor/sidebar background and **3.03:1** on inactive tabs and the activity bar — against a 4.5:1 minimum for normal text. It is now `#5a5a62`: **6.37:1** and **6.04:1**. Eight UI tokens carried the old value — `descriptionForeground`, `tab.inactiveForeground`, `input.placeholderForeground`, `panelTitle.inactiveForeground`, `activityBar.inactiveForeground`, `sideBarSectionHeader.foreground`, `titleBar.inactiveForeground`, `breadcrumb.foreground` — so the fix is one value across the whole quiet layer rather than a patch on whichever label someone noticed first.
+- **The AIOS panel's webviews carried the same value independently** (`media/files.css`, `media/home.css` both define `--subtle` in their `body.light` block), so they were fixed too. Worth knowing they are a separate code path from the theme JSON: a fix to one does not reach the other.
+
+### Notes
+- **The dark theme is byte-identical** — this touches `body.light` and the light colour theme only.
+- **`terminal.ansiBrightBlack` was deliberately left at `#8a8a90`** (3.20:1). It is the colour programs render *dim* text into rather than interface chrome, so changing it alters every program's output and not just ours. A separate decision, not an oversight.
+
+
 ## [0.5.7] — 2026-09-11
 
 > **A closed session can come back as itself.** The bus gains a fourth verb, landed in lockstep with the AIOS App in the same cut — two independent implementations of one protocol, and a verb that exists on one surface and not the other is the shape of the bug this pairing keeps producing.
