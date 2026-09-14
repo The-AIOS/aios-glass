@@ -25,5 +25,6 @@
   "cmd.showLogs": "AIOS: Ver registros",
   "cmd.askAios": "AIOS: Pregúntale a AIOS",
   "cmd.frequentMenu": "AIOS: Tareas frecuentes y rutinas",
-  "cmd.palette": "AIOS: Buscar todo (paleta)"
+  "cmd.palette": "AIOS: Buscar todo (paleta)",
+  "cmd.nextWaiting": "AIOS: Ir a la siguiente sesión en espera"
 }

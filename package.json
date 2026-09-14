@@ -215,6 +215,10 @@
       {
         "command": "aios.palette",
         "title": "%cmd.palette%"
+      },
+      {
+        "command": "aios.nextWaiting",
+        "title": "%cmd.nextWaiting%"
       }
     ],
     "keybindings": [
@@ -327,6 +331,11 @@
         "command": "aios.openFiles",
         "mac": "cmd+alt+g b",
         "key": "ctrl+alt+g b"
+      },
+      {
+        "command": "aios.nextWaiting",
+        "key": "ctrl+alt+g j",
+        "mac": "cmd+alt+g j"
       }
     ],
     "menus": {
@@ -502,6 +511,21 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Show the ISO week-number column (e.g. `W30`) down the left edge of the Home calendar, in both month and week views. Turn off if you don't work in week numbers."
+        },
+        "aiosGlass.attention": {
+          "type": "string",
+          "enum": [
+            "banner",
+            "badge",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Status-bar counter plus one notification per block, when a session starts waiting on you (default)",
+            "Status-bar counter only — no notifications",
+            "Nothing: no counter, no notifications"
+          ],
+          "default": "banner",
+          "markdownDescription": "How a session blocked on you reaches you outside the terminal. Work that FINISHED while you were away only ever adds to the counter — never a notification. Separate from Claude Code's own `inputNeededNotifEnabled`/`agentPushNotifEnabled`, which push to your phone."
         }
       }
     },

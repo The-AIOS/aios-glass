@@ -60,6 +60,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(shield) ' + t('Permission mode'), description: currentMode(), id: 'mode' },
     { label: '$(terminal) ' + t('Terminal mode'), description: currentTerminalMode(), id: 'terminal' },
     { label: '$(trash) ' + t('Kill behavior'), description: vscode.workspace.getConfiguration('aiosGlass').get<string>('killBehavior', 'ask'), id: 'killbehavior' },
+    { label: '$(bell) ' + t('Session alerts'), description: vscode.workspace.getConfiguration('aiosGlass').get<string>('attention', 'banner'), id: 'attention' },
     { label: '$(list-flat) ' + t('Native terminal tabs'), description: shownHidden(nativeTabsEnabled()), id: 'nativetabs' },
     { label: '$(broadcast) ' + t('Remote control'), description: onOff(remoteControlOn()), id: 'remote' },
     { label: '$(sync) ' + t('Automatic updates'), description: onOff(automaticUpdates()), id: 'autoupdate' },
@@ -213,6 +214,23 @@ export async function openConfigMenu(): Promise<void> {
         { title: `${t('Kill behavior')} — ${t('currently')} ${cfg.get<string>('killBehavior', 'ask')}` }
       );
       if (choice) { await cfg.update('killBehavior', choice.value, vscode.ConfigurationTarget.Global); }
+      return;
+    }
+    /* #22 — how a session blocked on you reaches you outside the terminal. Three rungs rather
+       than a toggle, because the two useful ways to want less are different: some operators
+       want the count without the interruption. Work that FINISHED unseen only ever adds to the
+       counter at every rung — a finished job is not worth a notification. */
+    case 'attention': {
+      const cfg = vscode.workspace.getConfiguration('aiosGlass');
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: '$(bell-dot) ' + t('Counter + notification'), description: t('one notification per block, plus the status-bar count'), value: 'banner' },
+          { label: '$(bell) ' + t('Counter only'), description: t('the status-bar count, never a notification'), value: 'badge' },
+          { label: '$(bell-slash) ' + t('Off'), description: t('no counter, no notifications'), value: 'off' },
+        ],
+        { title: `${t('Session alerts')} — ${t('currently')} ${cfg.get<string>('attention', 'banner')}` }
+      );
+      if (choice) { await cfg.update('attention', choice.value, vscode.ConfigurationTarget.Global); }
       return;
     }
     case 'remote': {

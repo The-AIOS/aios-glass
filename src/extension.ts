@@ -24,6 +24,7 @@ import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents } from './agents/running';
+import { createAttentionBar } from './agents/attentionBar';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
   TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
@@ -69,6 +70,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const home = new HomeViewProvider(context.extensionUri);
   initGlassState(context); // tasks/routines state: vault file, globalState as migration source
+
+  /* #22 — the standing "what is waiting on you" counter, and the source of truth for #23's
+     jump order. An extension does not own the Dock icon, so the App's badge becomes a
+     status-bar item here; the DEFINITIONS behind both are the same byte-identical
+     core/attention.ts (pinned by ATTENTION_SHA in both repos). Created BEFORE the command
+     registrations because `aios.nextWaiting` closes over it. */
+  const attention = createAttentionBar(context);
+  context.subscriptions.push(attention);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(HomeViewProvider.viewId, home, {
@@ -242,11 +251,37 @@ export function activate(context: vscode.ExtensionContext): void {
       if (pick) await vscode.commands.executeCommand('aios.browseContext', pick.ck);
     }),
 
+    /* #23 — jump to the next session waiting on you. The terminal list deliberately never
+       reorders itself on a state change (spatial memory beats sorting), which is exactly why
+       walking it is the thing this replaces. `blocked()` is already oldest-first, so pressing
+       this repeatedly walks the queue in the order it should actually be answered. Starting
+       AFTER the active terminal is what makes a second press go somewhere. */
+    vscode.commands.registerCommand('aios.nextWaiting', async () => {
+      const waiting = attention.blocked();
+      if (!waiting.length) { void vscode.window.showInformationMessage(t('AIOS Glass: nothing is waiting on you.')); return; }
+      const cur = vscode.window.activeTerminal?.name ?? '';
+      const at = waiting.findIndex((a) => a.name === cur);
+      const next = waiting[(at + 1) % waiting.length];
+      await revealAgentTerminal(next.name, next.pid);
+    }),
+
     vscode.commands.registerCommand('aios.runningPicker', async () => {
       const sessions = await listRunningAgents();
       const sessionNames = new Set(sessions.map((a) => a.name));
       type RunItem = vscode.QuickPickItem & { rk: 'session' | 'terminal'; name?: string; pid?: number; term?: vscode.Terminal };
-      const items: RunItem[] = sessions.map((a) => ({ label: `$(server-process) ${a.name}`, description: a.status || t('session'), rk: 'session', name: a.name, pid: a.pid }));
+      /* #23: blocked sessions first, oldest first, each naming WHAT it waits for. The list is
+         a queue to work through, so its order is the order to answer in — unlike the terminal
+         strip, which must keep its positions. */
+      const rank = (a: typeof sessions[number]): number => (a.status === 'waiting' ? 0 : 1);
+      const since = (a: typeof sessions[number]): number => a.statusUpdatedAt ?? a.updatedAt ?? 0;
+      const ordered = [...sessions].sort((x, y) => rank(x) - rank(y) || since(x) - since(y));
+      const items: RunItem[] = ordered.map((a) => ({
+        label: `${a.status === 'waiting' ? '$(bell-dot)' : '$(server-process)'} ${a.name}`,
+        description: a.status === 'waiting'
+          ? `${t('waiting on you')}${a.waitingFor ? ' · ' + a.waitingFor : ''}`
+          : (a.status || t('session')),
+        rk: 'session', name: a.name, pid: a.pid,
+      }));
       for (const term of vscode.window.terminals) {
         if (sessionNames.has(term.name)) continue;
         if (await terminalHasClaude(term)) continue;

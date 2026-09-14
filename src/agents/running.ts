@@ -19,6 +19,14 @@ export interface RunningAgent {
   updatedAt: number;
   /** Claude Code version running the session (may be empty). */
   version: string;
+  /** What the session is blocked ON — present only while `status` is 'waiting', absent
+   *  otherwise, because Claude Code's writer returns `{status:'waiting', waitingFor:<what>}`
+   *  or `{status:'busy'|'idle', waitingFor:undefined}`. Its absence on an idle machine is the
+   *  field working, not the field missing. */
+  waitingFor?: string;
+  /** When the CURRENT status was entered — i.e. how long it has been blocked, without us
+   *  having to remember anything, so it survives a restart of the IDE. */
+  statusUpdatedAt?: number;
 }
 
 /**
@@ -69,6 +77,8 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
           startedAt: Number(d?.startedAt) || 0,
           updatedAt: Number(d?.updatedAt) || 0,
           version: String(d?.version ?? '').trim(),
+          ...(typeof d?.waitingFor === 'string' && d.waitingFor.trim() ? { waitingFor: d.waitingFor.trim() } : {}),
+          ...(Number(d?.statusUpdatedAt) > 0 ? { statusUpdatedAt: Number(d.statusUpdatedAt) } : {}),
         });
       }
 
