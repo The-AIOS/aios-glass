@@ -11,10 +11,6 @@
  * two different answers from two windows onto the same sessions — and each would look right on
  * its own, which is the kind of disagreement nobody debugs because nobody sees both at once.
  *
- * "Visible" is the honest difference between the surfaces. The App can say a pane is on screen;
- * an extension cannot see which terminal the operator is looking at with any reliability, so
- * Glass reports visibility only when a terminal is BOTH the active terminal AND the window has
- * focus. When the window is unfocused, nothing is visible — the same rule the App applies.
  */
 import * as vscode from 'vscode';
 import {
@@ -39,19 +35,6 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
   let state: AttentionState = EMPTY_ATTENTION;
   let lastBlocked: RunningAgent[] = [];
 
-  /** Every session the operator can actually see, as IDS.
-   *  A terminal only gives us its NAME, and names are not unique — two `ingest` sessions share
-   *  one. So a name is resolved to an id only when it is UNAMBIGUOUS; with a duplicate we report
-   *  nothing, which over-counts unread rather than wrongly clearing it. Failing toward "you have
-   *  not seen this" is the safe direction. */
-  const visible = (running: readonly RunningAgent[]): string[] => {
-    if (!vscode.window.state.focused) return [];       // IDE in the background → nothing is seen
-    const name = vscode.window.activeTerminal?.name;
-    if (!name) return [];
-    const matches = running.filter((a) => a.name === name);
-    return matches.length === 1 ? [sessionKey(matches[0])] : [];
-  };
-
   const level = (): ReturnType<typeof normalizeNotifyLevel> =>
     normalizeNotifyLevel(vscode.workspace.getConfiguration('aiosGlass').get<string>('attention'));
 
@@ -61,7 +44,6 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
     const r = attentionTick(
       state,
       running.map((a) => ({ id: sessionKey(a), name: a.name, status: a.status, waitingFor: a.waitingFor })),
-      visible(running),
     );
     state = r.state;
 
@@ -74,17 +56,12 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
     if (lvl === 'off' || r.badge === 0) {
       item.hide();
     } else {
-      const blocks = r.blocks.length;
-      item.text = blocks > 0 ? `$(bell-dot) ${blocks}` : `$(inbox) ${r.unread.length}`;
-      item.tooltip = blocks > 0
-        ? `${blocks} ${t('waiting on you')} · ${r.unread.length} ${t('finished unseen')}`
-        : `${r.unread.length} ${t('finished unseen')}`;
-      /* Warning colour only for a real block. An unread RESULT is not a problem to be alarmed
-         about — it is something to read when you get to it, and colouring it would train the
-         operator to ignore the colour that does mean "answer me". */
-      item.backgroundColor = blocks > 0
-        ? new vscode.ThemeColor('statusBarItem.warningBackground')
-        : undefined;
+      /* ONE meaning, so the number is readable without a legend: sessions blocked on you. The
+         design also counted "finished while you were away" and the operator could not read the
+         result — a 4 beside two waiting sessions, with no way to clear the other half. */
+      item.text = `$(bell-dot) ${r.badge}`;
+      item.tooltip = `${r.badge} ${t('waiting on you')}`;
+      item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
       item.show();
     }
 
