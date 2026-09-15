@@ -1,26 +1,33 @@
 /**
- * Spawn-inbox send queue — the pure decisions, so they can be unit-tested.
+ * Spawn-inbox send queue — the pure decisions, ported from the Glass extension's
+ * src/core/sendQueue.ts so the two fulfillers provably agree. Names and semantics are
+ * kept IDENTICAL on purpose: if these functions ever disagree between surfaces, the
+ * protocol is broken, and a diff should be the way to find out.
  *
- * Why this module exists (2026-07-25, learned the hard way twice in one day):
+ * The problem being solved (Glass hit it in production on 2026-07-25): the inbox has two
+ * fulfillers and they RACE. A message meant for an IDE session was won by the App, which
+ * consumed it (unlink on pickup), could not deliver it there, and left no trace at all.
  *
- *  1. Delivering into a session that is mid-turn DROPS the text. It never reaches the
- *     input and is never queued by the target — it is simply gone. So a send must be
- *     status-gated, never fired blind.
- *  2. The first fix held the message in extension memory and, on timeout, "delivered
- *     anyway". That is a GUARANTEED loss — the timeout path performed exactly the
- *     failure the gate existed to prevent — and an in-memory hold also evaporates on
- *     an IDE reload, because the request file had already been consumed.
+ * The fix is that the request FILE is the queue:
+ *  - It is never deleted on pickup. It is CLAIMED — atomically renamed out of the
+ *    watcher's `*.json` glob — and deleted only once delivery is VERIFIED.
+ *  - So a race has exactly one winner (rename is atomic), a held message survives a
+ *    restart (the claim is recovered), and giving up leaves a visible `.undelivered`
+ *    artifact instead of silence.
  *
- * The correction: the request FILE is the queue. It is not deleted when picked up —
- * it is *claimed* (atomically renamed out of the watcher's `*.json` glob) and only
- * deleted once delivery is VERIFIED. So a held message survives a reload (the claimed
- * file is recovered on activation), two windows cannot both take it (rename is atomic),
- * and giving up leaves a visible `.undelivered` artifact instead of silence.
+ * Two rules here must never soften:
+ *  1. A BUSY target is never delivered into. Text sent mid-turn is dropped — it does not
+ *     queue. When the hold budget runs out we report undeliverable; we do NOT "try
+ *     anyway", which was Glass's 0.4.6 bug (the timeout path performed exactly the loss
+ *     the gate existed to prevent).
+ *  2. "The file is gone" only ever proved pickup. Delivery is proven in the TARGET'S
+ *     transcript, by COUNTING occurrences — double delivery is the scariest failure mode
+ *     this protocol can produce, so the expected count is exactly 1.
  *
- * Nothing here touches the disk or vscode — see extension.ts for the IO that uses it.
+ * Nothing here touches disk — see src/main/commandBus.ts for the IO that uses it.
  */
 
-/** A live session as the registry reports it (subset of RunningAgent). */
+/** A live session as the registry reports it. */
 export interface SendTarget {
   name: string;
   pid: number;
@@ -33,8 +40,8 @@ export type SendDecision =
   | { do: 'hold'; reason: string }
   | { do: 'undeliverable'; reason: string };
 
-/** Suffixes deliberately chosen so neither matches the watcher's `*.json` glob —
- *  a claimed or abandoned request must never be re-picked-up as a new one. */
+/** Suffixes chosen so neither matches the watcher's `*.json` glob — a claimed or
+ *  abandoned request must never be re-picked-up as a new one. */
 export const HOLD_SUFFIX = '.holding';
 export const UNDELIVERED_SUFFIX = '.undelivered';
 
@@ -47,11 +54,25 @@ export const isBusy = (status: string | undefined): boolean =>
   (status || '').trim().toLowerCase() === 'busy';
 
 /**
- * Should we deliver now, keep holding, or give up?
+ * Deliverability is an ALLOWLIST, not "anything that isn't busy".
  *
- * The one rule that must never soften: a BUSY target is never delivered to. When the
- * hold budget runs out we report `undeliverable` — we do NOT "try anyway", because
- * that is a known, silent loss rather than a best effort.
+ * The registry emits more than two statuses — we measured 'shell' on a session mid-Bash —
+ * so a denylist silently treats every uncharacterised state as ready, and the cost of being
+ * wrong is a dropped message. An allowlist inverts that: an unknown status holds, which
+ * costs seconds.
+ *
+ * 'shell' is on the list because it was MEASURED as safe, not assumed: a message delivered
+ * to a session in that state landed as a user turn, and the target itself acknowledged
+ * holding it until its background command finished. Glass 0.5.1 allowlists the same two, so
+ * both surfaces now agree — add a status here only with a measurement behind it.
+ */
+const DELIVERABLE_STATUSES = new Set(['idle', 'shell']);
+export const isDeliverable = (status: string | undefined): boolean =>
+  DELIVERABLE_STATUSES.has((status || '').trim().toLowerCase());
+
+/**
+ * Deliver now, keep holding, or give up? A busy target is never delivered to; an expired
+ * budget reports undeliverable rather than forcing it through.
  */
 export function decideSend(
   target: SendTarget | undefined,
@@ -65,9 +86,9 @@ export function decideSend(
     return { do: 'deliver', pid: target.pid };
   }
   if (heldForMs < maxHoldMs) {
-    // Name the status in the reason: an UNCHARACTERISED status is exactly what we want
-    // surfaced in the log, so it can be measured and promoted into DELIVERABLE_STATUSES
-    // instead of being guessed at forever.
+    /* NAME THE STATUS in the reason, and say when it is one we do not characterise. An
+       uncharacterised status is exactly what wants surfacing in the log, so it can be measured
+       and promoted into DELIVERABLE_STATUSES instead of guessed at forever. */
     const status = (target.status || '(none)').trim();
     const known = isBusy(status) ? '' : ' — status not yet characterised, holding to be safe';
     return { do: 'hold', reason: `'${target.name}' is ${status}${known}` };
@@ -80,57 +101,48 @@ export function decideSend(
 
 /**
  * A verification needle that survives `.jsonl` encoding: the longest leading run of
- * characters that are NOT escaped inside JSON (no quotes, no backslashes), so looking
- * for it in a raw transcript can't fail on escaping alone.
+ * characters that are NOT escaped inside JSON, so a transcript match can't fail on
+ * escaping alone.
  */
 export function safeNeedle(text: string): string {
   const m = text.match(/[A-Za-z0-9 ,.\-—:;()!?']{24,}/);
   return (m ? m[0] : text.slice(0, 24)).slice(0, 48);
 }
 
-/** Pull the plain text out of a transcript record's `content` (string, or block array). */
-function recordText(rec: unknown): string {
-  const msg = (rec as { message?: unknown })?.message as { content?: unknown } | undefined;
-  const c = msg?.content;
-  if (typeof c === 'string') { return c; }
-  if (Array.isArray(c)) {
-    return c.map((b) => (b && typeof b === 'object' && typeof (b as { text?: unknown }).text === 'string'
-      ? (b as { text: string }).text : '')).join(' ');
-  }
-  return '';
-}
-
+/**
+ * Delivery verification, as pure functions — ported from Glass's module of the same names
+ * so both sides can be diffed, and so the counting rule is UNIT-TESTED rather than trusted.
+ *
+ * Why a baseline: the marker appears in the transcript more than once per delivery (measured:
+ * 1 user turn + 2 assistant messages quoting it back = 5 raw substring hits). And on a
+ * re-attempt — sibling handoff, adopted hold — it is already there from the first try. So
+ * presence proves nothing; only an INCREASE in user-turn count proves that THIS attempt landed.
+ */
 const isUserRecord = (rec: unknown): boolean => {
+  if (!rec || typeof rec !== 'object') return false;
   const r = rec as { type?: unknown; message?: { role?: unknown } };
-  return r?.type === 'user' || r?.message?.role === 'user';
+  return r.type === 'user' || r.message?.role === 'user';
 };
 
-/**
- * How many times does `needle` appear as an actual USER TURN in a `.jsonl` transcript?
- *
- * Why counting, and why user-turn-scoped (both measured by the AIOS App, 2026-07-25):
- *
- *  · A raw `includes()` over the whole file cannot detect a DOUBLE delivery, which is
- *    contract 2's worst failure — it produces wrong output rather than missing output.
- *    One delivery was measured producing FIVE substring hits (1 user turn + assistant
- *    messages quoting the marker back), so presence is not even evidence of one turn.
- *  · On contract 2's own new paths — a sibling handoff, or adopting a hold — the needle
- *    is ALREADY in the transcript from the earlier attempt. Presence is therefore true
- *    on the first poll, and a presence check "verifies" a delivery it never observed.
- *
- * So delivery is verified by a BASELINE COUNT taken before sending and an increase
- * after: proof that *this* attempt landed, not that the text exists somewhere.
- */
+const recordText = (rec: unknown): string => {
+  const c = (rec as { message?: { content?: unknown } }).message?.content;
+  if (typeof c === 'string') return c;
+  if (Array.isArray(c)) {
+    return c.map((blk) => (blk && typeof blk === 'object' ? String((blk as { text?: unknown }).text ?? '') : '')).join(' ');
+  }
+  return '';
+};
+
 /**
  * The record's own wall-clock, used to bound counting to OUR attempt.
  *
  * Measured 2026-08-14: 11,152 of 11,152 user records across twelve transcripts carried a
- * parseable ISO `timestamp`. Undefined means absent or unparseable, which the caller treats as
- * NOT-OURS — see the fail-closed note below.
+ * parseable ISO `timestamp`. Undefined means the field was absent or unparseable, which the
+ * caller treats as NOT-OURS — see the fail-closed note below.
  */
 const recordTimeMs = (rec: unknown): number | undefined => {
   const ts = (rec as { timestamp?: unknown }).timestamp;
-  if (typeof ts !== 'string') { return undefined; }
+  if (typeof ts !== 'string') return undefined;
   const ms = Date.parse(ts);
   return Number.isFinite(ms) ? ms : undefined;
 };
@@ -152,8 +164,9 @@ const recordTimeMs = (rec: unknown): number | undefined => {
  *     the verification window raises the count, the bus concludes ITS send landed, and it deletes
  *     the request. Nothing was delivered and nobody is told: a silently lost message, strictly
  *     worse than delivering twice.
- *   · FALSE DUPLICATE — two invocations inside the window read as `now - before > 1`, logging a
- *     duplicate-delivery warning for a delivery that was perfectly fine.
+ *   · FALSE DUPLICATE — two invocations inside the window read as `now - before > 1`, logging
+ *     `DUPLICATE DELIVERY … INVESTIGATE` for a delivery that was perfectly fine. Since the bus
+ *     trail became durable this misinformation persists and will mislead the next investigation.
  *
  * Bounding the count to records at or after the claim shrinks the window from the transcript's
  * ENTIRE history to our own hold — seconds or minutes instead of hours or days.
@@ -168,43 +181,36 @@ const recordTimeMs = (rec: unknown): number | undefined => {
  * type, and a slash command with a marker appended is no longer that slash command.
  */
 export function countUserTurnsContaining(jsonl: string, needle: string, sinceMs?: number): number {
-  if (!needle) { return 0; }
+  if (!needle) return 0;
   let n = 0;
   for (const line of jsonl.split('\n')) {
-    if (!line.includes(needle)) { continue; }      // cheap prefilter before JSON.parse
+    if (!line.includes(needle)) continue;   // cheap prefilter before JSON.parse
     let rec: unknown;
     try { rec = JSON.parse(line); } catch { continue; }
-    if (!isUserRecord(rec)) { continue; }          // assistant echoes must not count
+    if (!isUserRecord(rec)) continue;       // assistant echoes must not count
     if (sinceMs !== undefined) {
       const t = recordTimeMs(rec);
-      if (t === undefined || t < sinceMs) { continue; }   // not ours, or unplaceable in time
+      if (t === undefined || t < sinceMs) continue;   // not ours, or unplaceable in time
     }
-    if (recordText(rec).includes(needle)) { n++; }
+    if (recordText(rec).includes(needle)) n++;
   }
   return n;
 }
 
-/** Verdict for a verification poll, given the baseline taken before delivering. */
+/** Verdict for a verification poll, given the baseline taken BEFORE delivering. */
 export type VerifyVerdict = 'pending' | 'verified' | 'duplicate';
 
 export function verifyVerdict(before: number, now: number): VerifyVerdict {
-  if (now <= before) { return 'pending'; }
+  if (now <= before) return 'pending';
   return now - before > 1 ? 'duplicate' : 'verified';
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    CONTRACT 2 — the multi-fulfiller protocol
-   ══════════════════════════════════════════════════════════════════════════════
-   The inbox has more than one fulfiller (AIOS Glass in the IDE, the AIOS App
-   standalone) and they race: on 2026-07-25 a message intended for an IDE session was
-   won by the App, which consumed it, could not deliver it there, and left no trace.
-   Claim-by-rename makes a race SAFE (exactly one winner, nothing lost) but it does not
-   make a request ADDRESSABLE, and it introduces three new ways to be wrong:
-   stealing another surface's live hold, failing a request a sibling window could have
-   delivered, and letting a request for an absent surface rot forever.
-
-   Contract 2 closes all four. It is additive — a request with no `surface` behaves
-   exactly as contract 1 did (any fulfiller may take it).
+   Claim-by-rename makes a race SAFE but not ADDRESSABLE, and it opens three new ways to
+   be wrong: stealing another surface's live hold, failing a request a sibling could have
+   delivered, and letting a request for an absent surface rot forever. Contract 2 closes
+   all four. It is ADDITIVE — a request with no `surface` behaves exactly as contract 1.
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* Contract 3 (AI-149) adds the `resume` verb and — the part that needs a version number — changes
@@ -241,30 +247,18 @@ export const TIMINGS = {
   MAX_DELIVERY_ATTEMPTS: 3,
 } as const;
 
-/* ── Deliverability ───────────────────────────────────────────────────────────
-   The registry emits more than the two statuses we first assumed: the App measured
-   `shell` on a session running a Bash command, and measured that delivering during
-   `shell` SUCCEEDS (the target queued the prompt and answered after its command).
-
-   So the canonical rule is an explicit ALLOWLIST of statuses measured to accept a
-   delivery, and HOLD on anything else — including statuses neither fulfiller has
-   characterised yet. Rationale: the failure is asymmetric (a wrong "deliverable" guess
-   costs a real message; a wrong "hold" guess costs latency), but we don't pay that
-   latency on statuses we have actually measured. Unknown statuses are logged so they
-   can be characterised and promoted here rather than guessed at forever. */
-export const DELIVERABLE_STATUSES: readonly string[] = ['idle', 'shell'];
-
-export const isDeliverable = (status: string | undefined): boolean =>
-  DELIVERABLE_STATUSES.includes((status || '').trim().toLowerCase());
-
 /** Which fulfiller a request is addressed to. Absent → any (contract-1 behaviour). */
 export type Surface = 'glass' | 'app';
 
 export const isSurface = (v: unknown): v is Surface => v === 'glass' || v === 'app';
 
-/** Who holds a claimed request, so a recovering process can tell a live hold from an
- *  orphan — embedded in the held file itself, which makes the claim self-describing
- *  (and leaves useful forensics in any `.undelivered` artifact). */
+/* MY_SURFACE IS NOT HERE, AND THAT IS THE POINT. It is the one value in this file that MUST
+   differ between the two fulfillers, so keeping it here made the file un-pinnable — and an
+   unpinned file is one the two surfaces can silently disagree in. Each surface declares its own
+   (`src/main/surface.ts` in the App; a local const in Glass's extension host). */
+
+/** Who holds a claimed request — embedded in the held file, so the claim is
+ *  self-describing and any `.undelivered` artifact carries forensics. */
 export interface ClaimStamp {
   surface: Surface;
   pid: number;
@@ -272,20 +266,20 @@ export interface ClaimStamp {
 }
 
 export function parseClaim(raw: unknown): ClaimStamp | undefined {
-  if (!raw || typeof raw !== 'object') { return undefined; }
+  if (!raw || typeof raw !== 'object') return undefined;
   const c = raw as Record<string, unknown>;
-  if (!isSurface(c.surface) || typeof c.pid !== 'number' || typeof c.at !== 'number') { return undefined; }
+  if (!isSurface(c.surface) || typeof c.pid !== 'number' || typeof c.at !== 'number') return undefined;
   return { surface: c.surface, pid: c.pid, at: c.at };
 }
 
 /**
  * May THIS fulfiller take this request at all?
  *
- * - `skip`   → addressed to another surface and still fresh: leave it alone entirely
- *              (do not claim, do not touch — the addressee may be starting up).
- * - `retire` → addressed elsewhere but older than the TTL and nobody took it. Any
- *              surface may RETIRE it (mark `.undelivered`) — fulfilment is targeted,
- *              retirement is shared, so a request can never rot silently.
+ * - `skip`   → addressed elsewhere and still fresh: leave it COMPLETELY alone (the
+ *              addressee may be starting up).
+ * - `retire` → addressed elsewhere, older than the TTL, nobody took it. Any surface may
+ *              retire it, so fulfilment is targeted while retirement is shared and
+ *              nothing rots silently.
  * - `claim`  → ours, or unaddressed.
  */
 export function claimVerdict(
@@ -354,12 +348,10 @@ export function withTried(body: Record<string, unknown>, myId: string): Record<s
 }
 
 /**
- * On startup we find a `.holding` file. Is it an orphan we should resume, or a hold
- * another live process is actively waiting on?
- *
- * Adopt only when the claimer is demonstrably gone (dead pid) or the claim is older
- * than `staleMs` (a hold that outlived any legitimate wait). Never adopt a fresh claim
- * belonging to a live process — that is the cross-surface double-delivery bug.
+ * We found a `.holding` file on startup. Orphan to resume, or a hold another live
+ * process is actively waiting on? Adopting a fresh claim held by a live process IS the
+ * cross-surface double-delivery bug, so only adopt when the holder is demonstrably gone
+ * or the hold outlived any legitimate wait.
  */
 export function canAdoptHold(
   claim: ClaimStamp | undefined,
@@ -367,16 +359,15 @@ export function canAdoptHold(
   staleMs: number,
   claimerAlive: boolean,
 ): boolean {
-  if (!claim) { return true; }                    // unstamped (contract-1 era) → adoptable
-  if (!claimerAlive) { return true; }             // the holder died mid-wait → resume it
-  return nowMs - claim.at >= staleMs;             // live holder, but the hold is stale
+  if (!claim) return true;              // unstamped (contract-1 era) → adoptable
+  if (!claimerAlive) return true;       // holder died mid-wait → resume it
+  return nowMs - claim.at >= staleMs;   // live holder, but the hold is stale
 }
 
 /**
- * The claimer could not find the target's terminal — but a SIBLING window might hold
- * it. Releasing the claim (renaming back to `*.json`) lets another window try, which
- * is very different from declaring the message undeliverable. Bounded, so two windows
- * can't ping-pong a request forever.
+ * We claimed it but cannot reach the target's terminal — a SIBLING (the other surface, or
+ * another window) might. Releasing the claim back to `*.json` is very different from
+ * declaring the message undeliverable. Bounded, so two fulfillers can't ping-pong it.
  */
 export function shouldReleaseForSibling(releases: number, maxReleases: number = TIMINGS.MAX_RELEASES): boolean {
   /* The bound now DEFAULTS to the contract value instead of relying on every caller to pass
@@ -513,19 +504,17 @@ export function surfaceForAncestry(
      wait     out of sends but NOT out of time — keep watching for a late arrival,
               and never type again. Bounded sends, unbounded patience: double delivery
               is worse than latency, so exhausting the retries must not end the wait. */
-/* No 'release'. Removed rather than left unreachable (ported from the App 2026-08-14): a type
-   saying a decision CAN hand an ALREADY-TYPED message to a sibling invites a caller to handle that
-   case, and handling it IS the double-delivery bug — reaching this decision means the text was
-   typed, so passing it on means typing it twice. Release still exists in the protocol; it belongs
-   to the "could not type it here" path, which never reaches this decision. */
+/* No 'release'. It was removed on 2026-08-12 rather than left unreachable: a type that says a
+   decision CAN hand an already-typed message to a sibling invites a caller to handle that case,
+   and handling it is the double-delivery bug. Release still exists in the protocol — it just
+   belongs to the "could not type it here" path, which never reaches this decision. */
 export type MissAction = 'retire' | 'retry' | 'wait';
 
 export function decideAfterVerifyMiss(s: {
   targetAlive: boolean;
   /**
    * The target is mid-turn. It has not had the OPPORTUNITY to write the turn yet, so a missing
-   * transcript entry says nothing about whether the text arrived. Treating that silence as a
-   * failed delivery is what produced FOUR deliveries of one request on 2026-08-12.
+   * transcript entry says nothing about whether the text arrived.
    */
   targetBusy: boolean;
   heldMs: number;
@@ -541,9 +530,33 @@ export function decideAfterVerifyMiss(s: {
   if (s.heldMs >= TIMINGS.MAX_HOLD_MS) {
     return { do: 'retire', reason: `held for ${Math.round(s.heldMs / 60000)} min without the message ever appearing in the target transcript` };
   }
+  /* THE 2026-08-12 BUG, half one — a busy target at VERIFY time proves nothing.
+     `decideSend` refuses to type into a non-deliverable session, so a send only happens while the
+     status is deliverable. The target can then go busy during the verification window, and a
+     session that is mid-turn has not written the incoming turn to its transcript yet. So an empty
+     transcript here distinguishes nothing, and acting on it re-types a message that may already
+     have arrived.
+     MEASURED, not inferred: one `/aios:close-session --auto` reached a busy session FOUR times
+     (~2 min apart, no operator typing), while two IDLE targets in the same minutes verified and
+     consumed on the first try. That contrast is the evidence; the precise fate of mid-turn text is
+     NOT something this was able to establish — note rule 1 in this file's header, which says such
+     text is dropped rather than queued. Waiting is the correct action under either reading: if it
+     queued, the turn appears and we consume; if it was dropped, the target goes idle and the
+     bounded retry below re-sends it once. What is never correct is concluding failure — or handing
+     it to a sibling — while the target has had no chance to answer. */
   if (s.targetBusy) {
     return { do: 'wait', reason: 'target went busy during verification — an empty transcript proves nothing yet' };
   }
+  /* THE 2026-08-12 BUG, half two — `release` used to be FIRST here, and it is now gone entirely.
+     Reaching this function means we already TYPED the message successfully (a surface that could
+     not type it returns !ok and releases on that path, which is the case release was built for —
+     see the AI-67 comment in commandBus.runSend). Handing an already-typed request to a sibling
+     asks a second surface to type it AGAIN: double delivery, the one outcome this protocol calls
+     explicitly worse than latency. And with a single fulfiller running there is no sibling at all,
+     so the request came straight back to the same App, which re-typed it and burned a release —
+     twice, to MAX_RELEASES, one step from retiring work that had already been done as a FALSE dead
+     letter. `releases` is therefore no longer read here: after a successful type, the sibling
+     budget is irrelevant to what we do next. */
   if (s.attempts < cap) {
     /* Wording unified across surfaces 2026-08-14: Glass's said "no sibling left to try", which
        stopped being true when the release branch was removed — a reason string that describes a
@@ -555,16 +568,14 @@ export function decideAfterVerifyMiss(s: {
 
 
 /**
- * Should we (over)write the inbox README?
- *
- * Glass owns the doc when both surfaces are installed (the App defers to it), so Glass
- * normally overwrites. The exception that keeps that honest: never DOWNGRADE a doc that
- * declares a HIGHER contract than we implement — a newer fulfiller's doc is the accurate
- * one, and stomping it would replace correct instructions with stale ones.
+ * Never DOWNGRADE a README that declares a HIGHER contract than we implement — a newer
+ * fulfiller's doc is the accurate one, and stomping it would replace correct instructions
+ * with stale ones. (The App additionally defers to Glass at equal contract; see
+ * inboxReadme.shouldWrite.)
  */
 export function shouldWriteDoc(existing: string | undefined, ourContract: number, ours: string): boolean {
-  if (!existing || !existing.trim()) { return true; }
+  if (!existing || !existing.trim()) return true;
   const m = /aios-spawn-inbox: contract\s+(\d+)/i.exec(existing);
-  if (m && Number(m[1]) > ourContract) { return false; }
+  if (m && Number(m[1]) > ourContract) return false;
   return existing.trim() !== ours.trim();
 }
