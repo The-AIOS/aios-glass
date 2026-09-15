@@ -5,6 +5,7 @@ import * as os from 'os';
 import { execFileSync } from 'child_process';
 import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, MAX_RESUME_SCAN, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { normalizeVerb } from './core/busVerbs';
+import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
@@ -707,13 +708,20 @@ export function activate(context: vscode.ExtensionContext): void {
    * The pid is the EXTENSION HOST's, which is what a terminal Glass creates descends from — that is
    * the ancestor a session will actually see, not the IDE's outer Electron pid.
    *
-   * Written every activation, and now REMOVED on a clean deactivate (see the disposable below).
+   * Written every activation, and REMOVED on a clean deactivate (see the disposable below).
    * The liveness check remains the real defence and nothing here weakens it — a crashed extension
    * host, a SIGKILL or a yanked power cable all skip cleanup, so a reader trusting the file's
    * existence is still wrong. This only stops the directory misleading a human reading it by eye:
    * measured on a live machine 2026-09-07, a `glass.json` advertising pid 87052 — dead since
    * 2026-08-14 — sat beside a freshly-written `app.json` for three weeks. (AI-130, glass half; the
-   * App shipped its side in v0.9.2.) */
+   * App shipped its side in v0.9.2.)
+   *
+   * DEFERS TO A LIVE INCUMBENT instead of overwriting it, via the shared decision in
+   * `core/presence` — see that file for the measured failure. The short version: ownership was
+   * checked on the way OUT and not on the way IN, so the record named whoever wrote last rather
+   * than whoever was running, and a second window that opened late and closed early deleted the
+   * record out from under the window still serving it. Here that is not an exotic case; it is
+   * simply two IDE windows, which is why Glass hits it more often than the App did. */
   try {
     const sdir = path.join(os.homedir(), '.aios', 'surfaces');
     fs.mkdirSync(sdir, { recursive: true });
@@ -737,23 +745,50 @@ export function activate(context: vscode.ExtensionContext): void {
       } catch { return 0; }
     };
     const root = processTreeRoot(process.pid, ppidOf);
-    fs.writeFileSync(path.join(sdir, `${mySurface}.json`),
-      JSON.stringify({ surface: mySurface, pid: root, at: Date.now(), version }, null, 2) + '\n', 'utf8');
-    log(`spawn-inbox: announced presence — ${mySurface} root pid ${root} (extension host ${process.pid})`);
+    const pfile = path.join(sdir, `${mySurface}.json`);
+    const readRec = (): string | undefined => {
+      try { return fs.readFileSync(pfile, 'utf8'); } catch { return undefined; }
+    };
+    /* Signal 0 checks existence + permission and delivers nothing. Only ESRCH proves absence —
+       EPERM means the process is there and simply not ours to signal, which is still alive. */
+    const pidAlive = (pid: number): boolean => {
+      if (!Number.isInteger(pid) || pid <= 1) return false;
+      try { process.kill(pid, 0); return true; } catch (err) {
+        return (err as NodeJS.ErrnoException)?.code !== 'ESRCH';
+      }
+    };
+    const claim = (why: string): void => {
+      const rec = parsePresenceRecord(readRec());
+      if (presenceVerdict(rec, root, pidAlive) === 'leave') {
+        if (why === 'announce') log(`spawn-inbox: presence left to pid ${rec?.pid} — it is still running`);
+        return;
+      }
+      fs.mkdirSync(sdir, { recursive: true });
+      fs.writeFileSync(pfile,
+        JSON.stringify({ surface: mySurface, pid: root, at: Date.now(), version }, null, 2) + '\n', 'utf8');
+      log(`spawn-inbox: ${why} presence — ${mySurface} root pid ${root} (extension host ${process.pid})`);
+    };
+    claim('announce');
+    /* THE BACKSTOP, and the part no announce/retract pairing can replace: re-claim whenever the
+       record names nobody alive. That covers the window we deferred to having since closed, and
+       it covers every crash — where `dispose` never runs and a dead pid would otherwise sit in
+       the file indefinitely. Passive while the record is healthy, so two live windows settle
+       rather than trade it every tick. */
+    const heal = setInterval(() => { try { claim('re-claimed'); } catch { /* next tick */ } }, 20_000);
+    context.subscriptions.push({ dispose: () => clearInterval(heal) });
     /* Withdraw it on a clean deactivate — and ONLY if the record is still ours.
-       Two surfaces share this directory, so a departing Glass must not delete the App's file;
-       and the pid check also covers a second IDE window that re-announced over ours while we
-       ran, in which case the live one's record is the correct one to leave behind.
+       Two surfaces share this directory, so a departing Glass must not delete the App's file.
+       This check alone was once believed to cover a second window re-announcing over ours; it
+       does not, and could not — announce is what assigns ownership, so the second window OWNED
+       the record and deleted it on the way out. The claim-if-vacant above is the other half.
        A disposable rather than work inside deactivate(): the extension host disposes
        subscriptions on unload, on window reload and on extension update — deactivate() alone
        misses cases and would have to re-derive the root pid it no longer has in scope. */
-    const presenceFile = path.join(sdir, `${mySurface}.json`);
     context.subscriptions.push({
       dispose: () => {
         try {
-          const body = JSON.parse(fs.readFileSync(presenceFile, 'utf8')) as { pid?: number };
-          if (body.pid !== root) return;   // not ours (or a live peer re-announced) — leave it
-          fs.unlinkSync(presenceFile);
+          if (!mayRetract(parsePresenceRecord(readRec()), root)) return;   // not ours — leave it
+          fs.unlinkSync(pfile);
         } catch { /* absent, unreadable, or already gone — all fine */ }
       },
     });
