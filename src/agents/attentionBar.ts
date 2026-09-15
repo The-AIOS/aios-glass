@@ -18,7 +18,7 @@
  */
 import * as vscode from 'vscode';
 import {
-  attentionTick, markNotified, mayBanner, normalizeNotifyLevel,
+  attentionTick, markNotified, mayBanner, normalizeNotifyLevel, sessionKey,
   EMPTY_ATTENTION, type AttentionState,
 } from '../core/attention';
 import { listRunningAgents, type RunningAgent } from './running';
@@ -39,11 +39,17 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
   let state: AttentionState = EMPTY_ATTENTION;
   let lastBlocked: RunningAgent[] = [];
 
-  /** Every session pane the operator can actually see. */
-  const visible = (): string[] => {
+  /** Every session the operator can actually see, as IDS.
+   *  A terminal only gives us its NAME, and names are not unique — two `ingest` sessions share
+   *  one. So a name is resolved to an id only when it is UNAMBIGUOUS; with a duplicate we report
+   *  nothing, which over-counts unread rather than wrongly clearing it. Failing toward "you have
+   *  not seen this" is the safe direction. */
+  const visible = (running: readonly RunningAgent[]): string[] => {
     if (!vscode.window.state.focused) return [];       // IDE in the background → nothing is seen
-    const active = vscode.window.activeTerminal;
-    return active ? [active.name] : [];
+    const name = vscode.window.activeTerminal?.name;
+    if (!name) return [];
+    const matches = running.filter((a) => a.name === name);
+    return matches.length === 1 ? [sessionKey(matches[0])] : [];
   };
 
   const level = (): ReturnType<typeof normalizeNotifyLevel> =>
@@ -54,15 +60,15 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
     const lvl = level();
     const r = attentionTick(
       state,
-      running.map((a) => ({ name: a.name, status: a.status, waitingFor: a.waitingFor })),
-      visible(),
+      running.map((a) => ({ id: sessionKey(a), name: a.name, status: a.status, waitingFor: a.waitingFor })),
+      visible(running),
     );
     state = r.state;
 
     /* Oldest first — the one that has been blocked longest is the one to answer next, and the
        terminal list cannot tell you that because it never reorders (nor should it). */
     lastBlocked = running
-      .filter((a) => r.blocks.some((b) => b.name === a.name))
+      .filter((a) => r.blocks.some((b) => b.id === sessionKey(a)))
       .sort((x, y) => (x.statusUpdatedAt ?? x.updatedAt ?? 0) - (y.statusUpdatedAt ?? y.updatedAt ?? 0));
 
     if (lvl === 'off' || r.badge === 0) {
@@ -92,7 +98,7 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
         ).then((pick) => {
           if (pick) void vscode.commands.executeCommand('aios.revealAgent', s.name);
         });
-        delivered.push(s.name);
+        delivered.push(s.id);
       } catch { /* not shown → stays pending, and the next tick tries again */ }
     }
     // ONLY what actually went out: a notification that threw must not be remembered as shown.
