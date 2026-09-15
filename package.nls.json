@@ -1,6 +1,5 @@
 {
   "_comment": "Default (English) display strings for static package.json contributions — command titles. VS Code resolves %key% from this file, overridden by package.nls.<locale>.json when the editor's display language matches.",
-
   "cmd.openHome": "AIOS: Open Home",
   "cmd.openWalkthrough": "AIOS: Open Getting Started",
   "cmd.openReadme": "AIOS: Open README",
@@ -28,5 +27,6 @@
   "cmd.showLogs": "AIOS: Show Logs",
   "cmd.askAios": "AIOS: Ask AIOS",
   "cmd.frequentMenu": "AIOS: Frequent Tasks & Routines",
-  "cmd.palette": "AIOS: Search Everything (Palette)"
+  "cmd.palette": "AIOS: Search Everything (Palette)",
+  "cmd.nextWaiting": "AIOS: Jump to the Next Waiting Session"
 }

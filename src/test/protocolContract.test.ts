@@ -420,18 +420,33 @@ test('every keyboard chord is unique, and opening Glass has one that works from 
     'openHome must REVEAL the view, not toggle a provider that may not exist');
 });
 
-test('the presence file is retracted on dispose, and only when the record is ours', () => {
+test('presence is WIRED to the shared decision, on all three paths', () => {
   /* AI-130, glass half. The App shipped its side in v0.9.2; a `glass.json` advertising a pid
      dead since 2026-08-14 sat beside it for three weeks. The liveness check is still the real
-     defence — a crashed extension host cannot clean up — so this only stops the directory
-     misleading a human reading it by eye.
-     The ownership check is load-bearing: two surfaces share that directory, so a departing Glass
-     must not delete the App's record, nor one a second IDE window re-announced over ours. */
+     defence — a crashed extension host cannot clean up.
+     WHAT is decided now lives in core/presence and is tested purely there. What this asserts is
+     the WIRING, because that is where the defect was: the retract checked ownership and the
+     announce checked nothing, so the record belonged to whoever wrote last. The previous version
+     of this test asserted the literal text of the retract — the one path that was already
+     right — and said nothing about the entrance. Two IDE windows is all it took. */
   const src = fs.readFileSync('src/extension.ts', 'utf8');
-  assert.match(src, /if \(body\.pid !== root\) return;/, 'must not delete another surface\'s record');
+  assert.match(src, /presenceVerdict\([\s\S]{0,80}?'leave'/,
+    'ARRIVING must defer to a live incumbent — this is the half that was missing');
+  assert.match(src, /mayRetract\(parsePresenceRecord\(readRec\(\)\), root\)/,
+    'LEAVING must not delete a record it does not own');
+  assert.match(src, /setInterval\(\(\) => \{ try \{ claim\('re-claimed'\)/,
+    'and a heal re-claims a record naming nobody alive — the only path that survives a crash');
+  assert.match(src, /clearInterval\(heal\)/, 'the heal timer is disposed with the extension');
+
+  /* Liveness by signal, never by process name — this surface cannot be identified by name, which
+     is the whole reason the record holds a pid. */
+  assert.match(src, /process\.kill\(pid, 0\)/, 'signal 0 is the liveness probe');
+  assert.match(src, /!== 'ESRCH'/,
+    'only ESRCH proves absence: EPERM is a process that exists and is not ours to signal');
+
   assert.match(src, /context\.subscriptions\.push\(\{\s*\n\s*dispose: \(\) => \{/,
     'a disposable, not deactivate() — the host disposes on unload, reload AND update');
-  assert.match(src, /fs\.unlinkSync\(presenceFile\)/);
+  assert.match(src, /fs\.unlinkSync\(pfile\)/);
 });
 
 /* Where this surface reads the verb, and where it acts on it. The App parses in core and
@@ -470,6 +485,41 @@ test('PROTOCOL: the name→session resolution is byte-identical across both fulf
   const sha = crypto.createHash('sha256').update(src).digest('hex').slice(0, 16);
   assert.equal(sha, RESUME_SHA,
     'core/resumeTarget.ts changed. This is a PROTOCOL change: make the same edit in the sibling repo, update RESUME_SHA in BOTH, and update the spawn-inbox README — in one push.');
+});
+
+/* The ATTENTION contract is shared for a reason the UI hides: the two surfaces answer the same
+   question — "what is waiting on you, and what have you already seen" — on one machine, about
+   one set of sessions. If they disagreed about when a block is ENTERED, or about what counts as
+   SEEN, the operator would get two different answers from two windows onto the same registry,
+   and each would look correct on its own. The UI is per-surface by design (a Dock badge here, a
+   status-bar item there); the DEFINITIONS are not. core/attention.ts is copied byte-identical. */
+const ATTENTION_SHA = 'b922c4e05a1d522d';
+
+test('PROTOCOL: the attention counters are byte-identical across both surfaces', () => {
+  const src = fs.readFileSync('src/core/attention.ts', 'utf8');
+  const sha = crypto.createHash('sha256').update(src).digest('hex').slice(0, 16);
+  assert.equal(sha, ATTENTION_SHA,
+    'core/attention.ts changed. This is a shared CONTRACT: make the same edit in the sibling repo '
+    + 'and update ATTENTION_SHA in BOTH, in one push. Diverging here means two windows onto the '
+    + 'same sessions disagreeing about what you have already seen.');
+});
+
+/* PRESENCE is shared for the reason the two implementations proved by both getting it wrong:
+   they write to ONE directory, on one machine, answering one question an agent gates on — "is a
+   fulfiller alive, and which pid". Each enforced ownership only where a process LEAVES, so the
+   record named whoever wrote last rather than whoever was running, and a second instance that
+   started late and quit early deleted the record out from under the one still serving. Both
+   comments claimed the case was covered. A rule about who may own a shared record cannot live
+   in two places and stay the same rule. core/presence.ts is copied byte-identical. */
+const PRESENCE_SHA = '303e7d68bf76a85f';
+
+test('PROTOCOL: presence ownership is byte-identical across both surfaces', () => {
+  const src = fs.readFileSync('src/core/presence.ts', 'utf8');
+  const sha = crypto.createHash('sha256').update(src).digest('hex').slice(0, 16);
+  assert.equal(sha, PRESENCE_SHA,
+    'core/presence.ts changed. This is a shared CONTRACT: make the same edit in the sibling repo '
+    + 'and update PRESENCE_SHA in BOTH, in one push. Diverging here means one surface deleting a '
+    + 'record the other is still serving, and every agent concluding no surface exists.');
 });
 
 test('PROTOCOL: a renamed session resolves by its LATEST name, and never to itself', () => {
