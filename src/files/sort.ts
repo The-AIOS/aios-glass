@@ -14,7 +14,7 @@
  *   - `mtime` — most-recently-modified first (the file you just saved on top)
  *
  * The pref is keyed by a WORKSPACE-ROOT path and applied to that root's whole
- * subtree — Chuy's case: `~/code` alphabetical (stable), `~/Downloads` newest
+ * subtree — e.g. `~/code` alphabetical (stable), `~/Downloads` newest
  * (alphabetical there is painful). Vault + framework trees keep `name` in v1.
  */
 
