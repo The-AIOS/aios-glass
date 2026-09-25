@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.10] — 2026-09-25
+
+> **No more phantom sessions.** Ships alongside the AIOS App's v0.10.0, with the identical rule.
+
+### Fixed
+- **Claude Code's background spare sessions no longer appear as your sessions.** The daemon keeps a few pre-started spares so background agents open instantly; they register with `kind: "bg"` and no name, so they showed under numeric ids and came back when closed. The tree, palette, manage-sessions, home panel, attention bar and Close-all now list only `kind: "interactive"` sessions (a missing kind counts as interactive).
+- **Headless tool runs are hidden too.** `kind` only marks the daemon's sessions, so a plugin's review run (`sdk-py`) or a `claude -p` showed as a working session. Sessions whose `entrypoint` is `sdk-cli`, `sdk-py` or `sdk-ts` are now excluded.
+- Lookups by name for the spawn-inbox's `send` and `kill` still see every session, so a named background agent stays reachable.
+
 ## [0.5.8] — 2026-09-13
 
 > **The light theme was failing accessibility, not just looking faint.** Ships alongside the AIOS App's own v0.9.6 fix, at the identical value — the two surfaces sit side by side on one screen, and fixing only one makes the other look broken.
