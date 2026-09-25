@@ -17,7 +17,7 @@ import {
   attentionTick, markNotified, mayBanner, normalizeNotifyLevel, sessionKey,
   EMPTY_ATTENTION, type AttentionState,
 } from '../core/attention';
-import { listRunningAgents, type RunningAgent } from './running';
+import { listOperatorSessions, type RunningAgent } from './running';
 import { t } from '../i18n';
 
 const POLL_MS = 2000;
@@ -39,7 +39,7 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
     normalizeNotifyLevel(vscode.workspace.getConfiguration('aiosGlass').get<string>('attention'));
 
   const tick = async (): Promise<void> => {
-    const running = await listRunningAgents();
+    const running = await listOperatorSessions();   // AI-165: never a daemon spare
     const lvl = level();
     const r = attentionTick(
       state,

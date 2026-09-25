@@ -24,7 +24,7 @@ import { companyAction, collaborateAction } from './spaces/spacesActions';
 import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
-import { listRunningAgents } from './agents/running';
+import { listRunningAgents, listOperatorSessions } from './agents/running';
 import { createAttentionBar } from './agents/attentionBar';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
@@ -267,7 +267,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand('aios.runningPicker', async () => {
-      const sessions = await listRunningAgents();
+      const sessions = await listOperatorSessions();
       const sessionNames = new Set(sessions.map((a) => a.name));
       type RunItem = vscode.QuickPickItem & { rk: 'session' | 'terminal'; name?: string; pid?: number; term?: vscode.Terminal };
       /* #23: blocked sessions first, oldest first, each naming WHAT it waits for. The list is
@@ -427,7 +427,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const sep = (label: string): PalItem => ({ label, kind: vscode.QuickPickItemKind.Separator });
       const items: PalItem[] = [];
 
-      const sessions = await listRunningAgents();
+      const sessions = await listOperatorSessions();
       if (sessions.length) {
         items.push(sep(t('Sessions')));
         items.push(...sessions.map((s) => ({
@@ -564,7 +564,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     vscode.commands.registerCommand('aios.manageAgents', async () => {
-      const running = await listRunningAgents();
+      const running = await listOperatorSessions();
       if (running.length === 0) {
         void vscode.window.showInformationMessage(t('AIOS Glass: no running sessions detected.'));
         return;

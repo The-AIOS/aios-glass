@@ -7,7 +7,7 @@ import { swallow } from '../log';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
-import { listRunningAgents } from '../agents/running';
+import { listOperatorSessions } from '../agents/running';
 import { sessionNoteCounts } from '../agents/sessionNotes';
 import { computeHealth } from './health';
 import { discoverSkills } from '../capabilities/capabilities';
@@ -286,7 +286,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async refreshRunning(): Promise<void> {
-    const running = await listRunningAgents();
+    const running = await listOperatorSessions();
     this.lastRunningCount = running.length; // feeds the daytime "wrap your sessions" nudge
     // Usage line (green→red) + swap button. Read live each 2s poll (the cache
     // updates ~per statusline turn). The swap is offered only with 2+ accounts.
@@ -330,7 +330,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
   /** Open integrated terminals that aren't live Claude sessions — the Terminals list
    *  in the Sessions card, so terminals stay manageable with the native tabs hidden. */
   private async postTerminals(sessionNames?: Set<string>): Promise<void> {
-    const names = sessionNames ?? new Set((await listRunningAgents()).map((a) => a.name));
+    const names = sessionNames ?? new Set((await listOperatorSessions()).map((a) => a.name));
     // A terminal is "plain" only if it's neither a live session (by name) nor
     // running Claude (catches a just-spawned session before it hits the registry —
     // the open-event can fire before the process registers). The 2s poll calls this

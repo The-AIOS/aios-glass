@@ -27,6 +27,9 @@ export interface RunningAgent {
   /** When the CURRENT status was entered — i.e. how long it has been blocked, without us
    *  having to remember anything, so it survives a restart of the IDE. */
   statusUpdatedAt?: number;
+  /** Claude Code's own session kind: 'interactive' for a terminal session, 'bg' for a background
+   *  session (including the daemon's pre-started spares). Missing on older CLIs → 'interactive'. */
+  kind: string;
 }
 
 /**
@@ -79,6 +82,7 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
           version: String(d?.version ?? '').trim(),
           ...(typeof d?.waitingFor === 'string' && d.waitingFor.trim() ? { waitingFor: d.waitingFor.trim() } : {}),
           ...(Number(d?.statusUpdatedAt) > 0 ? { statusUpdatedAt: Number(d.statusUpdatedAt) } : {}),
+          kind: String(d?.kind ?? '').trim() || 'interactive',
         });
       }
 
@@ -89,6 +93,23 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
       resolve([]);
     }
   });
+}
+
+/**
+ * AI-165 — the sessions the OPERATOR is running, for everything that shows, alerts or broadcasts.
+ *
+ * Claude Code's background daemon keeps pre-started spare sessions so a background agent opens
+ * instantly. They register like any other session but with no name, so they appeared under their
+ * ids, and closing one made the daemon start a replacement (operator-reported 2026-09-24). The
+ * registry says which is which: spares are `kind: "bg"`, terminal sessions `kind: "interactive"`
+ * (measured in the 2.1.282 binary; Claude Code's own FleetView filters the same way). Same rule as
+ * the App (`listOperatorSessions` in aios-app).
+ *
+ * listRunningAgents() keeps returning everything: name lookups for the spawn-inbox (send/kill)
+ * must still reach a named background agent.
+ */
+export async function listOperatorSessions(): Promise<RunningAgent[]> {
+  return (await listRunningAgents()).filter((a) => a.kind === 'interactive');
 }
 
 /** True if the process is still running (ESRCH = dead; EPERM = alive, not ours). */
