@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { findAgentTerminal, launchPrimary } from '../rituals/runner';
-import { listRunningAgents } from '../agents/running';
+import { listOperatorSessions } from '../agents/running';
 import { primaryName } from '../home/vault';
 import { t } from '../i18n';
 
@@ -62,8 +62,8 @@ export async function closeAll(): Promise<void> {
   // Agent-first: the session registry carries the CORRECT status + pid. Resolve each agent to its
   // terminal in THIS window via pid-ancestry (findAgentTerminal) — never term.name (unreliable).
   // Keep only sessions whose terminal is here, i.e. ones we can actually drive.
-  let agents: Awaited<ReturnType<typeof listRunningAgents>> = [];
-  try { agents = await listRunningAgents(); } catch { /* best-effort */ }
+  let agents: Awaited<ReturnType<typeof listOperatorSessions>> = [];
+  try { agents = await listOperatorSessions(); } catch { /* best-effort */ }
   const resolved: { name: string; status: string; term: vscode.Terminal }[] = [];
   for (const a of agents) {
     const term = await findAgentTerminal(a.name, a.pid);
@@ -134,7 +134,7 @@ async function watchSessionsDone(allNames: string[], killTerms: Map<string, vsco
 
   while (stillWatching.size > 0 && Date.now() < deadline) {
     let status = new Map<string, string>();
-    try { status = new Map((await listRunningAgents()).map((a) => [a.name, a.status])); } catch { /* keep last */ }
+    try { status = new Map((await listOperatorSessions()).map((a) => [a.name, a.status])); } catch { /* keep last */ }
 
     for (const name of [...stillWatching]) {
       const st = status.get(name);
