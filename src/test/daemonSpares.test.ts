@@ -30,6 +30,15 @@ test('a daemon spare is hidden; the terminal session beside it shows; the full l
   });
 });
 
+test('a headless SDK run (plugin review, `claude -p`) is hidden too', async () => {
+  await withRegistry([
+    { pid: LIVE[0], sessionId: 's-1', name: 'buddai', kind: 'interactive', entrypoint: 'cli', status: 'idle' },
+    { pid: LIVE[1], sessionId: '1dc5e420', name: 'aios-app-5e', kind: 'interactive', entrypoint: 'sdk-py', status: 'busy' },
+  ], async () => {
+    assert.deepEqual((await listOperatorSessions()).map((a) => a.name), ['buddai']);
+  });
+});
+
 test('no kind (an older Claude Code) counts as a terminal session', async () => {
   await withRegistry([{ pid: LIVE[0], sessionId: 's-old', name: 'legacy', status: 'busy' }], async () => {
     assert.deepEqual((await listOperatorSessions()).map((a) => a.name), ['legacy']);
