@@ -14,9 +14,11 @@ async function withRegistry(entries: object[], fn: () => Promise<void>) {
   const dir = path.join(home, '.claude', 'sessions');
   fs.mkdirSync(dir, { recursive: true });
   entries.forEach((e, i) => fs.writeFileSync(path.join(dir, `${i + 1}.json`), JSON.stringify(e)));
-  const saved = process.env.HOME;
-  process.env.HOME = home;
-  try { await fn(); } finally { process.env.HOME = saved; fs.rmSync(home, { recursive: true, force: true }); }
+  // Both: os.homedir() reads HOME on macOS/Linux and USERPROFILE on Windows.
+  const saved = { h: process.env.HOME, u: process.env.USERPROFILE };
+  process.env.HOME = home; process.env.USERPROFILE = home;
+  const restore = (k: 'HOME' | 'USERPROFILE', v: string | undefined) => { if (v === undefined) delete process.env[k]; else process.env[k] = v; };
+  try { await fn(); } finally { restore('HOME', saved.h); restore('USERPROFILE', saved.u); fs.rmSync(home, { recursive: true, force: true }); }
 }
 const LIVE = [process.pid, process.ppid];
 
