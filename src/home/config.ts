@@ -1,3 +1,4 @@
+import { resolveGlassTheme } from './themeResolve';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -201,10 +202,17 @@ export async function setFileIcons(value: 'enhanced' | 'plain'): Promise<void> {
   await vscode.workspace.getConfiguration('aiosGlass').update('fileIcons', value, vscode.ConfigurationTarget.Global);
 }
 
-/** Glass surface theme — 'dark' (default) or 'light'. Shared across every Glass
- *  webview (Home + Files) so a single toggle reskins them all consistently. */
+/** Glass surface theme, resolved. Shared across every Glass webview (Home + Files) so a single
+ *  toggle reskins them all consistently. `auto` (the default) follows the editor's theme kind;
+ *  an explicit 'dark'/'light' (what the sun/moon writes) always wins. */
 export function currentTheme(): 'dark' | 'light' {
-  return vscode.workspace.getConfiguration('aiosGlass').get<string>('theme', 'dark') === 'light' ? 'light' : 'dark';
+  return resolveGlassTheme(themePref(), vscode.window.activeColorTheme.kind);
+}
+
+/** The stored preference: 'auto' unless the operator picked. */
+export function themePref(): 'auto' | 'dark' | 'light' {
+  const v = vscode.workspace.getConfiguration('aiosGlass').get<string>('theme', 'auto');
+  return v === 'dark' || v === 'light' ? v : 'auto';
 }
 
 /** The bundled workbench theme names, keyed by Glass mode. */

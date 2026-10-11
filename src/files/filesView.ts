@@ -71,6 +71,8 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (e.affectsConfiguration('aiosGlass.language')) this.rerender();
       if (e.affectsConfiguration('files.exclude')) { this.excludeRe = undefined; this.post({ type: 'reload' }); }
     }));
+    // AI-190: with the theme on `auto`, follow the editor's theme live.
+    this.disposables.push(vscode.window.onDidChangeActiveColorTheme(() => this.post({ type: 'theme', theme: currentTheme() })));
     // Mirror this view's visibility to Home so the files button shows active (and
     // toggles). Fires on show/hide (including when another container takes over).
     this.syncVisibility();

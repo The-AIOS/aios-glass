@@ -487,15 +487,17 @@
         "aiosGlass.theme": {
           "type": "string",
           "enum": [
+            "auto",
             "dark",
             "light"
           ],
           "enumDescriptions": [
-            "Deep black canvas with the coral accent — the default Glass look",
+            "Follow the editor: light when your IDE theme is light, dark otherwise — and live as it changes",
+            "Deep black canvas with the coral accent",
             "Paper-light canvas (The-AIOS light), same coral accent — legible in bright rooms / on projectors"
           ],
-          "default": "dark",
-          "markdownDescription": "Visual theme for the Glass surfaces (Home panel + Files explorer). Toggle from the header sun/moon button or the cog menu. Terminals always stay dark."
+          "default": "auto",
+          "markdownDescription": "Visual theme for the Glass surfaces (Home panel + Files explorer). `auto` follows your editor's theme (and so your OS, when the IDE auto-detects it). Picking with the header sun/moon button or the cog menu stores an explicit choice. Terminals are the IDE's own and follow the editor theme."
         },
         "aiosGlass.showHints": {
           "type": "boolean",

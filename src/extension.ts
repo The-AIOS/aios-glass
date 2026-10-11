@@ -22,7 +22,7 @@ import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
 import { companyAction, collaborateAction } from './spaces/spacesActions';
 import { openConfigMenu } from './home/configMenu';
-import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
+import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench, themePref } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents, listOperatorSessions } from './agents/running';
 import { createAttentionBar } from './agents/attentionBar';
@@ -624,7 +624,10 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory') || e.affectsConfiguration('aiosGlass.showWeekNumbers')) HomeViewProvider.current?.refresh();
       // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
       if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
-    })
+    }),
+    /* AI-190: with the theme on `auto`, an editor theme change (⌘K⌘T, or the OS flipping it
+       through window.autoDetectColorScheme) repaints Glass live. */
+    vscode.window.onDidChangeActiveColorTheme(() => { if (themePref() === 'auto') HomeViewProvider.current?.refresh(); })
   );
 
   // ── Spawn-inbox command bus: let AGENTS drive Glass without tripping Claude's auto-mode classifier ──
