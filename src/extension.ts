@@ -28,7 +28,7 @@ import { listRunningAgents, listOperatorSessions } from './agents/running';
 import { createAttentionBar } from './agents/attentionBar';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
-  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
+  TIMINGS, countDeliveries, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
   triedBy, withTried, fulfillerId, processTreeRoot, type Surface } from './core/sendQueue';
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
@@ -1073,7 +1073,7 @@ export function activate(context: vscode.ExtensionContext): void {
          count mid-flight, which is the same failure as a moving baseline. See countUserTurns-
          Containing for why an unbounded count made a slash-command send unverifiable. */
       if (baseline === undefined) {
-        try { baseline = countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needleFor, started); } catch { baseline = 0; }
+        try { baseline = countDeliveries(fs.readFileSync(tx, 'utf8'), text, needleFor, started); } catch { baseline = 0; }
       }
       const before = baseline ?? 0;
       /* The cap must gate the SEND. A 'wait' verdict continues this loop, so enforcing the
@@ -1095,7 +1095,7 @@ export function activate(context: vscode.ExtensionContext): void {
       while (Date.now() < deadline) {
         await sleep(1500);
         try {
-          const verdict = verifyVerdict(before, countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needle, started));
+          const verdict = verifyVerdict(before, countDeliveries(fs.readFileSync(tx, 'utf8'), text, needle, started));
           if (verdict === 'duplicate') {
             // Never smooth this over: a double delivery is contract 2's worst outcome
             // because it produces WRONG output, not missing output.

@@ -197,6 +197,56 @@ export function countUserTurnsContaining(jsonl: string, needle: string, sinceMs?
   return n;
 }
 
+/**
+ * AI-170 — the slash command a delivered text IS, or null. `/remote-control`, `/rename x`,
+ * `/aios:today` → the command word; anything else → null.
+ */
+export function slashCommandOf(text: string): string | null {
+  const m = /^\s*(\/[A-Za-z0-9][\w:.-]*)(?:\s|$)/.exec(String(text ?? ''));
+  return m ? m[1] : null;
+}
+
+/**
+ * Count `system`/`local_command` records naming `command`, at or after `sinceMs`.
+ *
+ * A BUILT-IN slash command is handled inside Claude Code and never becomes a user turn. Measured
+ * on real transcripts: `/remote-control` writes `{"type":"system","subtype":"local_command",
+ * "content":"<command-name>/remote-control</command-name>…"}` and nothing else, so a send of it
+ * could never verify by user turns: every successful Remote Control re-attach sat `.holding`
+ * for the whole hold budget and ended as a false `.undelivered`, which /today then reported as
+ * work owed. Same time bound and same fail-closed rule as countUserTurnsContaining.
+ */
+export function countLocalCommands(jsonl: string, command: string, sinceMs?: number): number {
+  if (!command) return 0;
+  const tag = `<command-name>${command}</command-name>`;
+  let n = 0;
+  for (const line of jsonl.split('\n')) {
+    if (!line.includes(tag)) continue;
+    let rec: unknown;
+    try { rec = JSON.parse(line); } catch { continue; }
+    const r = rec as { type?: unknown; subtype?: unknown; content?: unknown };
+    if (r.type !== 'system' || r.subtype !== 'local_command' || typeof r.content !== 'string' || !r.content.includes(tag)) continue;
+    if (sinceMs !== undefined) {
+      const t = recordTimeMs(rec);
+      if (t === undefined || t < sinceMs) continue;
+    }
+    n++;
+  }
+  return n;
+}
+
+/**
+ * How many times `deliverText` has landed in this transcript since `sinceMs` — the number both
+ * fulfillers verify a `send` with. For a slash command, whichever record kind the command
+ * produces counts (a built-in writes `local_command`, a custom one a user turn); the larger is
+ * taken, never the sum, so one delivery is never read as two.
+ */
+export function countDeliveries(jsonl: string, deliverText: string, needle: string, sinceMs?: number): number {
+  const turns = countUserTurnsContaining(jsonl, needle, sinceMs);
+  const cmd = slashCommandOf(deliverText);
+  return cmd ? Math.max(turns, countLocalCommands(jsonl, cmd, sinceMs)) : turns;
+}
+
 /** Verdict for a verification poll, given the baseline taken BEFORE delivering. */
 export type VerifyVerdict = 'pending' | 'verified' | 'duplicate';
 
