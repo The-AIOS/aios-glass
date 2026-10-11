@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, MAX_RESUME_SCAN, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { normalizeVerb } from './core/busVerbs';
 import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
@@ -849,7 +849,8 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `spawn` gives you a fresh **something**; `resume` gives you back the same **someone** — its memory of the work, the corrections it absorbed, the shape of the thing you were building. Reach for it whenever a closed session has context worth more than a clean start.',
       '- The name is resolved from the transcripts on disk (`~/.claude/projects/*/*.jsonl`), not the live session registry — the registry only holds RUNNING sessions, and a closed one is the only kind this verb is for. A session that renamed itself resolves by its **latest** name.',
       '- **Already running?** It is revealed and your `prompt` is delivered into it, exactly as `send` would. Resuming a live session would give one identity two processes.',
-      '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Only the newest sessions are scanned, so a very old name reports the miss rather than being found slowly. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
+      '- **Any age.** A name is found however old its session is: an index of every transcript, not a count of the newest ones. If a session was renamed, its latest name is the one that counts.',
+      '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
       '',
       '      { "action": "resume", "name": "designer", "prompt": "…", "fallback": "spawn" }',
       '',
@@ -1352,7 +1353,7 @@ export function activate(context: vscode.ExtensionContext): void {
           else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
           return;
         }
-        const sid = resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
+        const sid = await resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
         if (sid) {
           let advisorModel: string | undefined;
           if (c4.advisor) {
@@ -1369,8 +1370,8 @@ export function activate(context: vscode.ExtensionContext): void {
         if (req.fallback !== 'spawn') {
           releaseRequest(held, true,
             `resume '${name}': no transcript found for that name — nothing to resume `
-            + `(it may never have run, or its history is older than the ${MAX_RESUME_SCAN} most `
-            + 'recent sessions). Pass "fallback":"spawn" to start a fresh one instead.');
+            + '(it may never have run under that name, or it was renamed since). '
+            + 'Pass "fallback":"spawn" to start a fresh one instead.');
           return;
         }
         log(`spawn-inbox: resume '${name}' — no transcript; falling back to spawn as asked`);
@@ -1407,6 +1408,7 @@ export function activate(context: vscode.ExtensionContext): void {
      the always-visible reopen button and more, so disabling the bus must not disable Glass.
      The guard therefore scopes the bus setup and leaves the rest of activation intact. */
   const busDisabled = process.env.AIOS_BUS_DISABLED === '1';
+  if (!process.env.AIOS_BUS_DISABLED) warmResumeIndex();   // AI-204: built in the background, before the first resume
   if (busDisabled) log('spawn-inbox: DISABLED by AIOS_BUS_DISABLED=1 — not watching, not draining, not surfacing dead letters');
   if (!busDisabled) {
   const spawnInboxWatcher = vscode.workspace.createFileSystemWatcher(

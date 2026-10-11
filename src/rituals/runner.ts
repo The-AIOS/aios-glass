@@ -1,3 +1,4 @@
+import { ResumeIndex } from '../agents/resumeIndex';
 import * as vscode from 'vscode';
 import { AiosCommand, discoverCommands, expandHome, resolveCommandsDir } from '../aios/commands';
 import * as path from 'path';
@@ -420,38 +421,23 @@ export async function launchResumeSession(name: string, sessionId: string, promp
 }
 
 /**
- * Which session does a name resume to? Scans transcripts newest-first and stops at the first
- * match. The RULE is pure and shared with the App (core/resumeTarget); only the reading is here.
- *
- * BOUNDED ON PURPOSE — transcripts are large and there can be hundreds; the bus must not stall
- * reading history. A name older than the scan window is reported as "nothing to resume" rather
- * than found slowly.
+ * AI-204 — which session does a name resume to? Through a persisted, incremental index of EVERY
+ * transcript (agents/resumeIndex — byte-identical to the App's, pinned by hash in both repos),
+ * never the 60 newest: a workforce night pushed named sessions out of that window and a resume
+ * dead-lettered with "no transcript found" while 69 records carried the name. "Latest name wins"
+ * is unchanged (core/resumeTarget). Both surfaces share ~/.aios/resume-index.json; saves are
+ * tmp+rename, so concurrent writers can only lose a little incremental work, never corrupt it.
  */
-export const MAX_RESUME_SCAN = 60;
-export function resumeIdFor(name: string, excludeSessionId?: string): string | undefined {
-  const base = path.join(os.homedir(), '.claude', 'projects');
-  const files: { f: string; mtimeMs: number }[] = [];
-  try {
-    for (const d of fs.readdirSync(base)) {
-      let entries: string[] = [];
-      try { entries = fs.readdirSync(path.join(base, d)); } catch { continue; }
-      for (const e of entries) {
-        if (!e.endsWith('.jsonl')) continue;
-        const full = path.join(base, d, e);
-        try { files.push({ f: full, mtimeMs: fs.statSync(full).mtimeMs }); } catch { /* vanished */ }
-      }
-    }
-  } catch { return undefined; }
-  for (const { f, mtimeMs } of files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, MAX_RESUME_SCAN)) {
-    let text = '';
-    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
-    const hit = pickResume(name, [{
-      sessionId: path.basename(f, '.jsonl'), mtimeMs, latestName: latestAgentName(text),
-    }], excludeSessionId);
-    if (hit) return hit;
-  }
-  return undefined;
+const resumeIndex = new ResumeIndex(
+  path.join(os.homedir(), '.claude', 'projects'),
+  path.join(os.homedir(), '.aios', 'resume-index.json'),
+);
+export function resumeIdFor(name: string, excludeSessionId?: string): Promise<string | undefined> {
+  return resumeIndex.lookup(name, excludeSessionId).catch(() => undefined);
 }
+/** Build the index in the background at activation, so the first resume does not pay for it. */
+export function warmResumeIndex(): void { void resumeIndex.refresh().catch(() => undefined); }
+
 
 /**
  * Resume picker. The operator picks the session INSIDE Claude's TUI, so Glass
