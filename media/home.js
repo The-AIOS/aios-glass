@@ -385,6 +385,8 @@
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + titleAttr + '">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + noteBadge
+            // AI-171 step 1 — skills/agents this session used; hover names them all.
+            + (a.used ? '<span class="rused" title="' + (NLS('running.usedTip', 'This session used: ') + String(a.usedNames || '')).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"> · ' + NLS('running.used', 'used') + ': ' + String(a.used).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>' : '')
             + (mem ? '<span class="rmem">' + mem + '</span>' : '')
             + '<span class="runacts">'
             // AI-18: the 4th (first-listed) hover button — attach a post-it to this session.

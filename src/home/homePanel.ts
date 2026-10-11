@@ -1,7 +1,9 @@
+import { usageIn, usageChip, type ToolUsage } from '../core/toolUse';
 import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
@@ -201,6 +203,39 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     }, 120);
   }
 
+  /** AI-171 — what each session used, read incrementally: only bytes appended since the last poll. */
+  private usageCache = new Map<string, { file: string; offset: number; carry: string; usage: ToolUsage }>();
+  private usageFor(sessionId: string): ToolUsage | undefined {
+    if (!sessionId) return undefined;
+    let c = this.usageCache.get(sessionId);
+    if (!c) {
+      const base = path.join(os.homedir(), '.claude', 'projects');
+      let file = '';
+      try { for (const d of fs.readdirSync(base)) { const f = path.join(base, d, `${sessionId}.jsonl`); if (fs.existsSync(f)) { file = f; break; } } } catch { /* none */ }
+      if (!file) return undefined;
+      c = { file, offset: 0, carry: '', usage: { skills: [], agents: [] } };
+      this.usageCache.set(sessionId, c);
+    }
+    try {
+      const size = fs.statSync(c.file).size;
+      if (size < c.offset) { c.offset = 0; c.carry = ''; c.usage = { skills: [], agents: [] }; }
+      if (size > c.offset) {
+        const fd = fs.openSync(c.file, 'r');
+        try {
+          const len = Math.min(size - c.offset, 8 * 1024 * 1024);
+          const buf = Buffer.alloc(len);
+          fs.readSync(fd, buf, 0, len, c.offset);
+          c.offset += len;
+          const text = c.carry + buf.toString('utf8');
+          const cut = text.lastIndexOf('\n');
+          usageIn(cut === -1 ? '' : text.slice(0, cut), c.usage);
+          c.carry = cut === -1 ? text : text.slice(cut + 1);
+        } finally { fs.closeSync(fd); }
+      }
+    } catch { /* momentarily unreadable */ }
+    return c.usage;
+  }
+
   /** Re-pull live state: counts, running sessions, and the update-status badge. */
   private recheck(): void {
     if (!this.view) return;
@@ -317,10 +352,13 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // AI-18 post-it counts, joined onto each session.
     const notes = sessionNoteCounts();
     const rows = running.map((a) => {
+      const u = this.usageFor(a.sessionId);
       return {
         name: a.name, pid: a.pid, status: a.status,
         proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
         notes: notes[a.name] || 0,
+        // AI-171 step 1 — the skills and agents this session used (shared core/toolUse).
+        used: u ? usageChip(u) : '', usedNames: u ? [...u.skills, ...u.agents].join(', ') : '',
       };
     });
     this.post({ type: 'running', running: rows, quota });
