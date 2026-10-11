@@ -27,7 +27,7 @@ import { TIMINGS, decideAfterVerifyMiss, maxAttemptsFor, claimVerdict, triedBy, 
  * identical edit in the other repo, recompute, update PROTOCOL_TIMINGS_SHA in BOTH, and update
  * the inbox README's invariants section. All in the same push, or a live fleet runs split-brain.
  */
-const PROTOCOL_TIMINGS_SHA = 'ee54bd44cff806e1';
+const PROTOCOL_TIMINGS_SHA = 'eb54e938ca3dc631';
 
 function timingsBlock(): string {
   const src = fs.readFileSync('src/core/sendQueue.ts', 'utf8');
@@ -44,8 +44,10 @@ test('PROTOCOL: the TIMINGS block is byte-identical across both fulfillers', () 
 
 test('PROTOCOL: the values themselves are the agreed ones', () => {
   // Belt and braces: the hash catches edits, these catch a hash updated without thought.
-  assert.equal(TIMINGS.HOLD_STALE_MS, 45 * 60 * 1000);
+  assert.equal(TIMINGS.QUEUE_CEILING_MS, 24 * 60 * 60 * 1000, 'AI-205: a busy target is waited on until its next idle');
+  assert.equal(TIMINGS.HOLD_STALE_MS, 24 * 60 * 60 * 1000 + 15 * 60 * 1000);
   assert.equal(TIMINGS.MAX_HOLD_MS, 30 * 60 * 1000);
+  assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.QUEUE_CEILING_MS, 'a LIVE holder waiting for an idle target must never look stale to a sibling');
   assert.equal(TIMINGS.RETIRE_TTL_MS, 10 * 60 * 1000);
   assert.equal(TIMINGS.MAX_RELEASES, 2);
   assert.equal(TIMINGS.MAX_DELIVERY_ATTEMPTS, 3);
@@ -531,7 +533,7 @@ test('PROTOCOL: presence ownership is byte-identical across both surfaces', () =
    was simply more informative on one side), but harmless-by-luck is not a property you can keep.
    The file could not be pinned before because MY_SURFACE lived in it — the one value that MUST
    differ per surface. It now lives beside each surface's own code, and the rest is pinned whole. */
-const SENDQUEUE_SHA = 'd2afb14bc558a83c';
+const SENDQUEUE_SHA = 'dc9a51f9e132f119';
 
 test('PROTOCOL: the bus decisions are byte-identical across both fulfillers', () => {
   const src = fs.readFileSync('src/core/sendQueue.ts', 'utf8');

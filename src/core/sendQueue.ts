@@ -282,9 +282,17 @@ export const INBOX_CONTRACT = 3;
    Change these only in lockstep across every fulfiller, and update the inbox README so
    the next one inherits them. */
 export const TIMINGS = {
-  /** A `.holding` older than this may be adopted even if its claimer still lives. */
-  HOLD_STALE_MS: 45 * 60 * 1000,
-  /** How long a fulfiller waits for a target to become deliverable before giving up. */
+  /** A `.holding` older than this may be adopted even if its claimer still lives. Must exceed
+   *  QUEUE_CEILING_MS (AI-205): a live holder legitimately waits that long for an idle target,
+   *  and adopting it earlier is the cross-surface double delivery. */
+  HOLD_STALE_MS: 24 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  /** AI-205 — how long a `send` waits for a LIVE but busy target to reach its next idle. Was the
+   *  30-min MAX_HOLD_MS, which killed coordinator messages to builders that stayed busy for an
+   *  hour (5 in one day). Never typed into a busy session either way; this only bounds patience. */
+  QUEUE_CEILING_MS: 24 * 60 * 60 * 1000,
+  /** After the FIRST time a message is typed: how long to keep watching for it to verify.
+   *  Measured from the first type, not the claim — a message that queued for hours must still
+   *  get its full verification window. */
   MAX_HOLD_MS: 30 * 60 * 1000,
   /** A request addressed to a surface that never took it is retired after this. */
   RETIRE_TTL_MS: 10 * 60 * 1000,
@@ -296,6 +304,39 @@ export const TIMINGS = {
    *  failure: the fulfiller keeps waiting out MAX_HOLD_MS in silence. */
   MAX_DELIVERY_ATTEMPTS: 3,
 } as const;
+
+/**
+ * AI-205 — whose turn is it? Held `send`s to one target go out OLDEST FIRST (by claim time), and
+ * a newer message from the same sender (`from`, contract 4) SUPERSEDES an older one still waiting:
+ * a coordinator re-briefing a busy builder wants the latest brief read, not every draft in a row.
+ * Pure: the caller lists the held sends it can see (both surfaces' `.holding` files).
+ */
+export interface QueuedSend { key: string; target: string; from?: string; queuedAt: number }
+export type QueueTurn = { do: 'go' } | { do: 'wait'; behind: string } | { do: 'superseded'; by: string };
+
+export function queueTurn(me: QueuedSend, held: readonly QueuedSend[]): QueueTurn {
+  const same = held.filter((h) => h.key !== me.key && h.target === me.target);
+  const order = (a: QueuedSend, b: QueuedSend) => a.queuedAt - b.queuedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  if (me.from) {
+    const newer = same.filter((h) => h.from === me.from && order(h, me) > 0).sort(order).pop();
+    if (newer) return { do: 'superseded', by: newer.key };
+  }
+  /* An older entry only blocks if it is still going to be delivered — one that a newer message
+     from its own sender supersedes is about to retire, and must not hold the line. */
+  const live = same.filter((h) => !(h.from && same.concat(me).some((o) => o.from === h.from && order(o, h) > 0)));
+  const ahead = live.filter((h) => order(h, me) < 0).sort(order)[0];
+  return ahead ? { do: 'wait', behind: ahead.key } : { do: 'go' };
+}
+
+/** AI-205 — a message that waited is typed with its age, so the receiver knows it is not fresh.
+ *  Not for a slash command, which a prefix would turn into plain text. */
+export const AGE_STAMP_AFTER_MS = 2 * 60 * 1000;
+export function stampAge(text: string, waitedMs: number, from?: string): string {
+  if (waitedMs < AGE_STAMP_AFTER_MS || /^\s*\//.test(text)) return text;
+  const min = Math.round(waitedMs / 60000);
+  const age = min >= 120 ? `${Math.round(min / 60)} h` : `${min} min`;
+  return `[queued ${age} ago${from ? ` by ${from}` : ''}] ${text}`;
+}
 
 /** Which fulfiller a request is addressed to. Absent → any (contract-1 behaviour). */
 export type Surface = 'glass' | 'app';

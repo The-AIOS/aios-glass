@@ -27,5 +27,15 @@ test('AI-198: Glass dead-letters a contract-4 field it cannot honour, naming why
   const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
   assert.match(ext, /const c4 = contract4Fields\(req as Record<string, unknown>, action\);\s*if \(!c4\.accept\) \{/);
   assert.match(ext, /effort\/advisor on a spawn needs the spawn wrapper from AIOS v0\.8\.9/, 'never a silent launch without the asked-for effort');
-  assert.equal((ext.match(/await deliverSend\(name, prompt, from\);/g) || []).length, 2, 'send and live resume both carry from');
+  assert.equal((ext.match(/await deliverSend\(name, prompt, from(, held)?\);/g) || []).length, 2, 'send and live resume both carry from');
+});
+
+test('AI-205: Glass waits for the next idle, in order, superseding, aged — and verifies from the first type', () => {
+  const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
+  assert.match(ext, /decideSend\(await find\(\), Date\.now\(\) - started, TIMINGS\.QUEUE_CEILING_MS\)/);
+  assert.match(ext, /const turn = queueTurn\(\{ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt \}, heldSends\(\)\);/);
+  assert.match(ext, /if \(!firstTypedAt\) text = stampAge\(deliverText\.text, Date\.now\(\) - myQueuedAt, sendFrom\);/);
+  assert.match(ext, /heldMs: Date\.now\(\) - firstTypedAt,/);
+  assert.match(ext, /if \(outcome === 'verified' \|\| outcome === 'superseded'\) \{ releaseRequest\(held, false\); \}/, 'a superseded message is retired quietly, not dead-lettered');
+  assert.match(ext, /QUEUE_CEILING_MS 24 h/, 'the README timings say so');
 });

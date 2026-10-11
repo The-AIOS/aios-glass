@@ -1,3 +1,6 @@
+import { queueTurn, stampAge, parseClaim as parseClaimQ, type QueuedSend } from './core/sendQueue';
+import { cleanFrom } from './core/contract4';
+import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs } from './core/contract4';
 import { recordTyped } from './bus/busSent';
 import * as vscode from 'vscode';
@@ -880,13 +883,16 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '**Timings** — change only in lockstep across every fulfiller, and update this file:',
       '',
-      '    HOLD_STALE_MS  45 min   a .holding older than this may be adopted even if its claimer lives',
-      '    MAX_HOLD_MS    30 min   how long to wait for a target before giving up (< HOLD_STALE_MS)',
+      '    QUEUE_CEILING_MS 24 h   how long a send waits for a LIVE busy target to reach its next idle',
+      '    HOLD_STALE_MS  24 h 15m a .holding older than this may be adopted even if its claimer lives (> QUEUE_CEILING_MS)',
+      '    MAX_HOLD_MS    30 min   after the FIRST type: how long to watch for it to verify',
       '    RETIRE_TTL_MS  10 min   when any surface may retire a request addressed to an absent one',
       '    MAX_RELEASES   2        sibling-window handoffs before declaring it undeliverable',
       '    MAX_DELIVERY_ATTEMPTS 3 times the SAME text may be typed — 1 for a slash command (below)',
       '',
       "**A slash command is typed ONCE, never re-typed.** Retry only pays when a verification miss is EVIDENCE of a failed send, and for a command the CLI handles client-side it is not: measured 2026-08-14, `/help` was delivered (the operator watched the menu appear) while the transcript recorded **zero** user turns containing the marker, so verification failed for a delivery that had plainly succeeded and the command was typed **three times**. The class is not uniform — `/config` *does* write a `<command-name>` record, `/help` does not, and nothing outside the CLI can tell which — so the rule is per-shape: any prompt matching `/^\\s*\\/[^\\s\\/]/` gets one attempt and is then WAITED on for the full hold budget. Waiting still catches a command that verifies late; re-typing catches neither and shows the operator a duplicate. Consequence accepted deliberately: a plain-text prompt that begins with `/` (a file path) also gets one attempt, so if it were dropped it dead-letters loudly instead of retrying — the safe direction.",
+      '',
+      '**A busy session is waited on, in order (AI-205).** A `send` is never typed into a busy session; it waits for the next idle, however long (up to 24 h), and is typed with its age — `[queued 47 min ago by <from>]` — when it waited over 2 min (never on a slash command). Several sends to one session go oldest first, and a newer send from the same `from` replaces an older one still waiting.',
       '',
       "**Spawn where you already live.** An unaddressed request goes to whichever surface wins the race, so `spawn` could open your worker in the *other* product — measured 2026-08-14: a request written from an IDE session was fulfilled by the App, and the session appeared in a pane instead of the IDE terminal the requester meant. For `send`/`kill` a mis-race self-corrects (the wrong surface hands it back), but a spawned session lands where it lands.",
       '',
@@ -1007,7 +1013,23 @@ export function activate(context: vscode.ExtensionContext): void {
   /* 'release' is DISTINCT from 'undeliverable'. Collapsing them is the bug this fixes: a
      handoff budget running out means "no sibling left to try", never "this message cannot be
      delivered". See decideAfterVerifyMiss in core/sendQueue. */
-  type SendOutcome = 'verified' | 'no-terminal' | 'release' | 'undeliverable';
+  type SendOutcome = 'verified' | 'no-terminal' | 'release' | 'undeliverable' | 'superseded';
+  /** AI-205 — every send currently held by any surface, as the queue sees it (both surfaces'
+   *  `.holding` files: claim time orders them, `from` decides supersession). */
+  const heldSends = (): QueuedSend[] => {
+    const out: QueuedSend[] = [];
+    let names: string[] = [];
+    try { names = fs.readdirSync(spawnInboxDir).filter((n) => n.endsWith('.json.holding')); } catch { return out; }
+    for (const n of names) {
+      try {
+        const b = JSON.parse(fs.readFileSync(path.join(spawnInboxDir, n), 'utf8')) as Record<string, unknown>;
+        if (normalizeVerbQ(b.action) !== 'send' || typeof b.name !== 'string') continue;
+        const claim = parseClaimQ(b._claim);
+        out.push({ key: n, target: b.name, from: cleanFrom(b.from), queuedAt: claim ? claim.at : fs.statSync(path.join(spawnInboxDir, n)).mtimeMs });
+      } catch { /* mid-write or gone */ }
+    }
+    return out;
+  };
   /* The REASON travels with the outcome. It used to be discarded and the caller wrote a
      generic "delivery not verified" into every dead letter — so a send to a session that never
      existed (nothing sent, nothing to verify) read identically to one that was typed and lost.
@@ -1018,7 +1040,7 @@ export function activate(context: vscode.ExtensionContext): void {
      (an already-typed message must never be handed on), so the parameter is gone too — a
      parameter nothing reads is a claim that something does. The sibling handoff still exists,
      bounded by `_releases` on the request file, on the 'no-terminal' path. */
-  const deliverSend = async (name: string, prompt: string, sendFrom?: string): Promise<SendOutcome> => {
+  const deliverSend = async (name: string, prompt: string, sendFrom?: string, heldPath?: string): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
     let attempts = 0;   // how many times we have actually TYPED into the target
@@ -1034,8 +1056,14 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.window.showWarningMessage(`AIOS Glass: refusing to send ${byteLength(prompt)} bytes to “${name}” — over the inline limit and the payload file could not be written. Nothing was delivered.`);
       return 'undeliverable';
     }
-    const text = deliverText.text;
-    const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — see TIMINGS
+    /* AI-205: the text is fixed at the FIRST type, not here — a message that queued gets its age
+       stamped on, and everything downstream (needle, baseline, provenance) must see that text. */
+    let text = deliverText.text;
+    let firstTypedAt = 0;
+    const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — verification budget AFTER the first type
+    const myKey = heldPath ? path.basename(heldPath) : '';
+    let myQueuedAt = started;
+    try { const c = heldPath ? parseClaimQ(JSON.parse(fs.readFileSync(heldPath, 'utf8'))._claim) : undefined; if (c) myQueuedAt = c.at; } catch { /* keep started */ }
     let announced = false;
     /* THE BASELINE IS CAPTURED ONCE, OUTSIDE THIS LOOP — ported from the App 2026-08-14.
        It used to be re-read at the top of every iteration, which made it useless for the one
@@ -1047,7 +1075,9 @@ export function activate(context: vscode.ExtensionContext): void {
        A baseline that moves cannot detect the thing it is a baseline for. */
     let baseline: number | undefined;
     for (;;) {
-      const decision = decideSend(await find(), Date.now() - started, MAX_HOLD_MS);
+      /* AI-205: a live but busy target is waited on until its next idle (QUEUE_CEILING_MS), not
+         30 min; the never-type-into-busy rule is unchanged. */
+      const decision = decideSend(await find(), Date.now() - started, TIMINGS.QUEUE_CEILING_MS);
       if (decision.do === 'undeliverable') {
         lastSendReason = decision.reason;
         log(`spawn-inbox: send → '${name}' NOT DELIVERED — ${decision.reason}`);
@@ -1061,6 +1091,20 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         await sleep(2000);
         continue;
+      }
+      /* AI-205 — one at a time, oldest first, and a newer message from the same sender replaces
+         an older one still waiting. Only before the first type: once typed, it is in flight. */
+      if (!firstTypedAt && myKey) {
+        const turn = queueTurn({ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt }, heldSends());
+        if (turn.do === 'superseded') {
+          log(`spawn-inbox: send → '${name}' SUPERSEDED by a newer message from '${sendFrom}' (${turn.by}) — not delivering the older one`);
+          return 'superseded';
+        }
+        if (turn.do === 'wait') {
+          if (!announced) { announced = true; log(`spawn-inbox: send → '${name}' queued behind ${turn.behind}`); }
+          await sleep(2000);
+          continue;
+        }
       }
       // deliver — but if the target's terminal isn't in THIS window, a sibling window may
       // hold it: report that distinctly so the caller can hand the request back instead of
@@ -1080,6 +1124,7 @@ export function activate(context: vscode.ExtensionContext): void {
         log(`spawn-inbox: send → '${name}' — no transcript to verify against, refusing to claim delivery: UNVERIFIED`);
         return 'undeliverable';
       }
+      if (!firstTypedAt) text = stampAge(deliverText.text, Date.now() - myQueuedAt, sendFrom);   // AI-205
       const needleFor = safeNeedle(text);
       /* `started`, not the per-attempt clock: a bound that moves with each retry would reset the
          count mid-flight, which is the same failure as a moving baseline. See countUserTurns-
@@ -1092,8 +1137,8 @@ export function activate(context: vscode.ExtensionContext): void {
          limit only in the after-a-miss decision left the message being re-typed every cycle
          for the whole hold budget — the cap existed and capped nothing. */
       if (attempts >= maxAttemptsFor(text)) {
-        if (Date.now() - started >= MAX_HOLD_MS) {
-          lastSendReason = `sent ${attempts}x over ${Math.round((Date.now() - started) / 60000)} min without it ever appearing in the target transcript`;
+        if (Date.now() - firstTypedAt >= MAX_HOLD_MS) {
+          lastSendReason = `sent ${attempts}x over ${Math.round((Date.now() - firstTypedAt) / 60000)} min without it ever appearing in the target transcript`;
           log(`spawn-inbox: send → '${name}' ${lastSendReason} — giving up`);
           return 'undeliverable';
         }
@@ -1101,6 +1146,7 @@ export function activate(context: vscode.ExtensionContext): void {
         continue;   // keep watching for a late arrival; never type again
       }
       attempts++;
+      if (!firstTypedAt) firstTypedAt = Date.now();
       recordTyped(text, name, 'send', sendFrom);   // AI-172: before typing, so the label can never lose the race
       await sendToSession(name, text, decision.pid);
       const needle = safeNeedle(text);
@@ -1134,7 +1180,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const verdict = decideAfterVerifyMiss({
         targetAlive: !!after,
         targetBusy: !!after && !isDeliverable(after.status),
-        heldMs: Date.now() - started,
+        heldMs: Date.now() - firstTypedAt,   // AI-205: verification budget runs from the first type
         attempts,
         maxAttempts: maxAttemptsFor(text),
       });
@@ -1329,8 +1375,8 @@ export function activate(context: vscode.ExtensionContext): void {
           catch { return 0; }
         })();
         const spent = raw;
-        const outcome = await deliverSend(name, prompt, from);
-        if (outcome === 'verified') { releaseRequest(held, false); }
+        const outcome = await deliverSend(name, prompt, from, held);
+        if (outcome === 'verified' || outcome === 'superseded') { releaseRequest(held, false); }
         else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
           releaseRequest(held, true, outcome === 'no-terminal'
