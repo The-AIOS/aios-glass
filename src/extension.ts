@@ -1,3 +1,4 @@
+import { contract4Fields, contract4LaunchArgs } from './core/contract4';
 import { recordTyped } from './bus/busSent';
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -61,6 +62,15 @@ function noteWhen(ts: number): string {
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs}h`;
   return new Date(ts).toLocaleDateString();
+}
+
+/** AI-198 — a rung's model id via canonical hooks/resolve-tier ('' = inherit the default, or unavailable). */
+function resolveTierModel(rung: string): string {
+  const root = frameworkRoot();
+  if (!root) return '';
+  try {
+    return execFileSync('bash', [path.join(root, 'hooks', 'resolve-tier'), rung], { encoding: 'utf8', timeout: 4000 }).trim();
+  } catch { return ''; }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -1007,7 +1017,7 @@ export function activate(context: vscode.ExtensionContext): void {
      (an already-typed message must never be handed on), so the parameter is gone too — a
      parameter nothing reads is a claim that something does. The sibling handoff still exists,
      bounded by `_releases` on the request file, on the 'no-terminal' path. */
-  const deliverSend = async (name: string, prompt: string): Promise<SendOutcome> => {
+  const deliverSend = async (name: string, prompt: string, sendFrom?: string): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
     let attempts = 0;   // how many times we have actually TYPED into the target
@@ -1090,7 +1100,7 @@ export function activate(context: vscode.ExtensionContext): void {
         continue;   // keep watching for a late arrival; never type again
       }
       attempts++;
-      recordTyped(text, name, 'send');   // AI-172: before typing, so the label can never lose the race
+      recordTyped(text, name, 'send', sendFrom);   // AI-172: before typing, so the label can never lose the race
       await sendToSession(name, text, decision.pid);
       const needle = safeNeedle(text);
       const deadline = Date.now() + 20000;
@@ -1281,6 +1291,21 @@ export function activate(context: vscode.ExtensionContext): void {
         + 'Omit "action" entirely for a plain spawn.');
       return;
     }
+    /* AI-198 — contract 4. The shared core decides (same function and conformance fixture as the
+       App). A field that cannot be honoured is dead-lettered naming it, never silently dropped. */
+    const c4 = contract4Fields(req as Record<string, unknown>, action);
+    if (!c4.accept) {
+      releaseRequest(held, true, `${c4.field} '${c4.value}' is not valid — ${c4.field === 'effort' ? 'use one of low, medium, high, xhigh, max' : 'use a rung or a model id'}`);
+      return;
+    }
+    const from = c4.from;
+    /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
+       its v0.8.9 (AI-175/176). Until then a spawn that asks for them is refused and says why —
+       a worker started without the effort it was asked for is the quiet failure. */
+    if ((action === 'spawn' || (action === 'resume' && req.fallback === 'spawn')) && (c4.effort || c4.advisor)) {
+      releaseRequest(held, true, 'effort/advisor on a spawn needs the spawn wrapper from AIOS v0.8.9 (--effort / --advisor); run /aios:update, or resend without them');
+      return;
+    }
     try {
       if (action === 'kill') {
         // disposeAgentTerminal = the NON-interactive "kill now": dispose the worker's terminal
@@ -1303,7 +1328,7 @@ export function activate(context: vscode.ExtensionContext): void {
           catch { return 0; }
         })();
         const spent = raw;
-        const outcome = await deliverSend(name, prompt);
+        const outcome = await deliverSend(name, prompt, from);
         if (outcome === 'verified') { releaseRequest(held, false); }
         else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
@@ -1319,9 +1344,9 @@ export function activate(context: vscode.ExtensionContext): void {
         const live = (await listRunningAgents()).find((a) => a.name === name);
         if (live) {
           await revealAgentTerminal(name, live.pid);
-          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering`);
+          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering${c4.effort || c4.advisor ? ' (effort/advisor NOT applied: a running session cannot change them)' : ''}`);
           if (!prompt) { releaseRequest(held, false); return; }
-          const outcome = await deliverSend(name, prompt);
+          const outcome = await deliverSend(name, prompt, from);
           if (outcome === 'verified') { releaseRequest(held, false); }
           else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back */ }
           else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
@@ -1329,7 +1354,12 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         const sid = resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
         if (sid) {
-          await launchResumeSession(name, sid, prompt, true);
+          let advisorModel: string | undefined;
+          if (c4.advisor) {
+            advisorModel = c4.advisorRung ? (resolveTierModel(c4.advisor) || '') : c4.advisor;
+            if (!advisorModel) { releaseRequest(held, true, `advisor rung '${c4.advisor}' resolves to the session default and names no model — pass a model id`); return; }
+          }
+          await launchResumeSession(name, sid, prompt, true, contract4LaunchArgs({ effort: c4.effort, advisorModel }), from);
           releaseRequest(held, false);
           return;
         }

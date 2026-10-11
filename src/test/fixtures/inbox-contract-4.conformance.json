@@ -1,0 +1,57 @@
+{
+  "contract": 4,
+  "status": "draft",
+  "how_to_run": "For each case, feed `request` to the surface's request normalizer (no terminal needed) and compare its decision with `expect`. `launch_args` are the arguments ADDED to the claude command line; `record` is the line appended to ~/.aios/bus-sent.jsonl before typing (fp and at omitted: they vary).",
+  "cases": [
+    {
+      "case": "contract-3 send is unchanged",
+      "request": {"action": "send", "name": "worker", "prompt": "ship it"},
+      "expect": {"accept": true, "verb": "send", "launch_args": [], "record": {"to": "worker", "action": "send", "via": "surface"}}
+    },
+    {
+      "case": "send names its sender",
+      "request": {"action": "send", "name": "worker", "prompt": "ship it", "from": "coordinator"},
+      "expect": {"accept": true, "verb": "send", "launch_args": [], "record": {"to": "worker", "action": "send", "via": "surface", "from": "coordinator"}}
+    },
+    {
+      "case": "an unusable from is ignored, the delivery proceeds",
+      "request": {"action": "send", "name": "worker", "prompt": "ship it", "from": "a name with spaces and $(x)"},
+      "expect": {"accept": true, "verb": "send", "launch_args": [], "record": {"to": "worker", "action": "send", "via": "surface"}}
+    },
+    {
+      "case": "spawn with effort",
+      "request": {"name": "worker", "task": "sweep the notes", "tier": "fast", "effort": "low"},
+      "expect": {"accept": true, "verb": "spawn", "launch_args": ["--effort", "low"], "record": {"to": "worker", "action": "spawn", "via": "surface"}}
+    },
+    {
+      "case": "an unknown effort is dead-lettered naming the field",
+      "request": {"name": "worker", "task": "x", "effort": "ultra"},
+      "expect": {"accept": false, "dead_letter_field": "effort", "dead_letter_value": "ultra"}
+    },
+    {
+      "case": "spawn with an advisor rung",
+      "request": {"name": "worker", "task": "x", "tier": "scale", "advisor": "judgment"},
+      "expect": {"accept": true, "verb": "spawn", "launch_args_contains": ["--settings"], "advisor_model_from": "hooks/resolve-tier judgment"}
+    },
+    {
+      "case": "spawn with an advisor model id",
+      "request": {"name": "worker", "task": "x", "advisor": "claude-opus-5-5"},
+      "expect": {"accept": true, "verb": "spawn", "launch_args_contains": ["--settings"], "advisor_model": "claude-opus-5-5"}
+    },
+    {
+      "case": "no advisor field means no advisor",
+      "request": {"name": "worker", "task": "x", "tier": "scale"},
+      "expect": {"accept": true, "verb": "spawn", "launch_args_absent": ["--settings"]}
+    },
+    {
+      "case": "resume carries from and effort",
+      "request": {"action": "resume", "name": "worker", "prompt": "the review came back", "from": "coordinator", "effort": "high"},
+      "expect": {"accept": true, "verb": "resume", "launch_args": ["--effort", "high"], "record": {"to": "worker", "action": "resume", "via": "surface", "from": "coordinator"}}
+    },
+    {
+      "case": "an unknown verb is still refused",
+      "request": {"action": "resmue", "name": "worker", "prompt": "x"},
+      "expect": {"accept": false, "dead_letter_field": "action", "dead_letter_value": "resmue"}
+    }
+  ]
+}

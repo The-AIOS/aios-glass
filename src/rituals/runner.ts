@@ -387,7 +387,7 @@ export async function launchPrimary(name: string): Promise<void> {
  * NO `--name`, NO `--model`. A resume inherits both from the session it reopens; passing either
  * would re-name or re-pin the very identity the verb exists to preserve.
  */
-export async function launchResumeSession(name: string, sessionId: string, prompt?: string, bus = false): Promise<void> {
+export async function launchResumeSession(name: string, sessionId: string, prompt?: string, bus = false, extraArgs: string[] = [], from?: string): Promise<void> {
   const agent = discoverAgents().find((a) => a.name === name);
   const icon = iconForAgent(agent ?? { name });
   /* Same task-transport hardening as launchSpawn, for the same reason: this TYPES the command
@@ -412,8 +412,9 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   }
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
-  if (bus && inline) recordTyped(inline, name, 'resume');   // AI-172
-  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${inline ? ` ${shellQuote(inline)}` : ''}`,
+  if (bus && inline) recordTyped(inline, name, 'resume', from);   // AI-172
+  const extra = extraArgs.map((a) => ` ${shellQuote(a)}`).join('');   // contract 4: --effort / --settings
+  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${extra}${inline ? ` ${shellQuote(inline)}` : ''}`,
     { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }

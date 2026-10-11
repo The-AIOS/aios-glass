@@ -45,7 +45,7 @@ export function busFingerprint(text: string): string {
  * a text re-sent after that must be logged again.)
  */
 export function busSentLine(
-  text: string, to: string, action: string, via: string, existingLog: string, nowSec: number,
+  text: string, to: string, action: string, via: string, existingLog: string, nowSec: number, from?: string,
 ): string | null {
   if (!String(text ?? '').trim()) return null;
   const fp = busFingerprint(text);
@@ -57,5 +57,6 @@ export function busSentLine(
       if (e.fp === fp && (e.at ?? 0) >= cutoff) return null;
     } catch { /* a torn line is not a match */ }
   }
-  return JSON.stringify({ at: nowSec, fp, to, action, via, head: busNorm(text).slice(0, 80) });
+  /* `from` (contract 4) only when the request carried a usable one — a claim, never an identity. */
+  return JSON.stringify({ at: nowSec, fp, to, action, via, head: busNorm(text).slice(0, 80), ...(from ? { from } : {}) });
 }

@@ -14,12 +14,14 @@ export function busLogPath(): string {
   return process.env.AIOS_BUS_LOG || path.join(os.homedir(), '.aios', 'bus-sent.jsonl');
 }
 
-export function recordTyped(text: string, to: string, action: string, via = 'glass'): void {
+/* `via: "surface"` and `from` are inbox contract 4's record (canonical inbox-contract-4.md). */
+export function recordTyped(text: string, to: string, action: string, from?: string): void {
+  const via = 'surface';
   try {
     const p = busLogPath();
     let existing = '';
     try { existing = fs.readFileSync(p, 'utf8'); } catch { /* first entry */ }
-    const line = busSentLine(text, to, action, via, existing, Math.floor(Date.now() / 1000));
+    const line = busSentLine(text, to, action, via, existing, Math.floor(Date.now() / 1000), from);
     if (!line) return;
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.appendFileSync(p, line + '\n');
