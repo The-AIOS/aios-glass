@@ -6,6 +6,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
+import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
@@ -289,7 +290,7 @@ export async function runRitualPicker(): Promise<void> {
 // ── Always-new actions ────────────────────────────────────────────────────
 
 /** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
-export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string }): Promise<void> {
+export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string; bus?: boolean }): Promise<void> {
   // Icon comes from the agent's own context (declared frontmatter `icon:`, else
   // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
   // a graph, etc. Builder keeps a distinct amber tab.
@@ -331,6 +332,8 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       return;
     }
   }
+  // AI-172: a bus spawn's first prompt is bus-typed — record exactly what the worker receives.
+  if (opts?.bus && inlineTask) recordTyped(inlineTask, name, 'spawn');
   runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color });
 }
 
@@ -384,7 +387,7 @@ export async function launchPrimary(name: string): Promise<void> {
  * NO `--name`, NO `--model`. A resume inherits both from the session it reopens; passing either
  * would re-name or re-pin the very identity the verb exists to preserve.
  */
-export async function launchResumeSession(name: string, sessionId: string, prompt?: string): Promise<void> {
+export async function launchResumeSession(name: string, sessionId: string, prompt?: string, bus = false): Promise<void> {
   const agent = discoverAgents().find((a) => a.name === name);
   const icon = iconForAgent(agent ?? { name });
   /* Same task-transport hardening as launchSpawn, for the same reason: this TYPES the command
@@ -409,6 +412,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   }
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
+  if (bus && inline) recordTyped(inline, name, 'resume');   // AI-172
   runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${inline ? ` ${shellQuote(inline)}` : ''}`,
     { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);

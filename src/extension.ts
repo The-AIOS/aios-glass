@@ -1,3 +1,4 @@
+import { recordTyped } from './bus/busSent';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -1089,6 +1090,7 @@ export function activate(context: vscode.ExtensionContext): void {
         continue;   // keep watching for a late arrival; never type again
       }
       attempts++;
+      recordTyped(text, name, 'send');   // AI-172: before typing, so the label can never lose the race
       await sendToSession(name, text, decision.pid);
       const needle = safeNeedle(text);
       const deadline = Date.now() + 20000;
@@ -1327,7 +1329,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         const sid = resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
         if (sid) {
-          await launchResumeSession(name, sid, prompt);
+          await launchResumeSession(name, sid, prompt, true);
           releaseRequest(held, false);
           return;
         }
@@ -1345,6 +1347,7 @@ export function activate(context: vscode.ExtensionContext): void {
         await launchSpawn(name, prompt, {
           model: typeof req.model === 'string' ? req.model : undefined,
           tier: typeof req.tier === 'string' ? req.tier : undefined,
+          bus: true,
         });
         releaseRequest(held, false);
       } else {
@@ -1361,7 +1364,7 @@ export function activate(context: vscode.ExtensionContext): void {
           releaseRequest(held, false); return;
         }
         log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${model ? ` [model ${model}]` : tier ? ` [tier ${tier}]` : ''}`);
-        await launchSpawn(name, task, { model, tier });
+        await launchSpawn(name, task, { model, tier, bus: true });
         releaseRequest(held, false);
       }
     } catch (e) {
