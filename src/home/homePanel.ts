@@ -18,7 +18,7 @@ import { countAgentSuggestions } from '../tasks/goWithAgents';
 import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
-import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
+import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates, testingBranch } from '../spaces/spaces';
 import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory, showWeekNumbers } from './config';
 import { getFilesVisible } from '../files/filesState';
 import { effectiveLocale, webviewCatalog } from '../i18n';
@@ -242,7 +242,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     this.postState();
     void this.refreshRunning();
     void this.postTerminals();
-    void checkForUpdates().then((state) => this.post({ type: 'updateStatus', state, framework: readFrameworkStatus() ?? null }));
+    void checkForUpdates().then((state) => this.post({ type: 'updateStatus', state, framework: readFrameworkStatus() ?? null, branch: state === 'testing' ? testingBranch() : '' }));
   }
 
   private async onMessage(msg: any): Promise<void> {

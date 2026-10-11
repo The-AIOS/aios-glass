@@ -1,3 +1,4 @@
+import { freshness, parseLsRemote } from '../core/freshness';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
@@ -22,6 +23,8 @@ export interface FrameworkStatus {
   repo: string;
   hash: string;
   synced: string;
+  /** Branch the vault tracks when it is not the default (canonical writes `ref=` while testing). */
+  ref?: string;
 }
 
 function stripCell(s: string): string {
@@ -88,10 +91,15 @@ export function readFrameworkStatus(): FrameworkStatus | undefined {
     const m = line.match(/^([a-z]+)=(.*)$/i);
     if (m) kv[m[1]] = m[2].trim();
   }
-  return { repo: kv.repo ?? '', hash: kv.hash ?? '', synced: kv.synced ?? '' };
+  return { repo: kv.repo ?? '', hash: kv.hash ?? '', synced: kv.synced ?? '', ref: kv.ref ?? '' };
 }
 
-export type UpdateState = 'up-to-date' | 'available' | 'unknown';
+export type UpdateState = 'up-to-date' | 'available' | 'unknown' | 'testing';
+
+/* TESTING (canonical freshness-probe.sh): the vault is on a non-default branch, ahead of main —
+   never offer an update for it. The branch of the last check, for the badge to name. */
+let lastTestingBranch = '';
+export function testingBranch(): string { return lastTestingBranch; }
 
 /**
  * Compare the last-synced hash (`.aios-update`) against canonical HEAD via
@@ -101,11 +109,13 @@ export function checkForUpdates(): Promise<UpdateState> {
   const status = readFrameworkStatus();
   if (!status || !status.repo || !status.hash) return Promise.resolve('unknown');
   return new Promise((resolve) => {
-    execFile('git', ['ls-remote', status.repo, 'HEAD'], { timeout: 8000 }, (err, stdout) => {
+    /* Every branch head (shared core/freshness, same as the App): a vault on a release branch is
+       AHEAD of main, and comparing with HEAD alone read it as "update available". */
+    execFile('git', ['ls-remote', '--symref', status.repo], { timeout: 8000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
       if (err || !stdout) return resolve('unknown');
-      const remote = stdout.trim().split(/\s+/)[0];
-      if (!remote) return resolve('unknown');
-      resolve(remote.startsWith(status.hash) ? 'up-to-date' : 'available');
+      const f = freshness({ hash: status.hash, ref: status.ref }, parseLsRemote(stdout));
+      lastTestingBranch = f.state === 'testing' ? f.branch : '';
+      resolve(f.state);
     });
   });
 }

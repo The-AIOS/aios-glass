@@ -2,7 +2,7 @@
     --canvas:#0a0a0a; --surface-1:#111111; --surface-2:#181818; --surface-3:#1f1f1f;
     --line:#262626; --ink:#fafafa; --muted:#c4c4c4; --subtle:#707070;
     --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.18); --accent-soft:#ffb3a8; --accent-line:rgba(255,93,77,.45);
-    --ok:#5ad19a;
+    --ok:#5ad19a; --testing:#6cb0ff;
     /* Glass cues, tokenized so the light theme can reground them: a top edge that
        catches light, the float-off-background depth, the text colour on a coral
        fill, and the neutral white-ward hover glow. In dark these are white-on-black;
@@ -22,7 +22,7 @@
     --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#f1f1ee; --surface-3:#e9e9e4;
     --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#5a5a62;
     --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.12); --accent-soft:#d6402c; --accent-line:rgba(214,64,44,.5);
-    --ok:#1f9d57;
+    --ok:#1f9d57; --testing:#1d61bb;
     --glass-top:rgba(255,255,255,.85); --glass-top-strong:rgba(255,255,255,1);
     --shadow-card:0 8px 22px -16px rgba(15,15,20,.22); --shadow-card-hover:0 12px 28px -14px rgba(15,15,20,.26);
     /* white text on the coral CTA in light — reads as a brighter, more "button"-like
@@ -76,6 +76,7 @@
   .status .dot{width:7px; height:7px; border-radius:50%; background:var(--subtle); flex:0 0 auto; transition:background .15s}
   .status .updtext{font-size:11px; color:var(--subtle); letter-spacing:.01em}
   .status.ok .dot{background:var(--ok)}
+  .status.testing .dot{background:var(--testing)}   /* ahead of main — not an update */
   .status.upd{cursor:pointer}
   .status.upd .dot{background:var(--accent)}
   .status.upd .updtext{color:var(--accent)}

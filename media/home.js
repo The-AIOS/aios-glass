@@ -467,6 +467,7 @@
       const txt = document.getElementById('updText');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
       if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = 'up to date'; b.title = 'Up to date' + fw; }
+      else if (msg.state === 'testing'){ b.className = 'status testing'; txt.textContent = 'testing'; b.title = 'Testing ' + String(msg.branch || '').replace(/</g, '&lt;') + ', ahead of main — no update is offered while you test' + fw; }   // never 'upd': a click must not run /aios:update
       else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = 'update available'; b.title = 'Updates available — click to run /aios:update' + fw; }
       else { b.className = 'status'; txt.textContent = ''; b.title = 'Status unknown' + fw; }
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
