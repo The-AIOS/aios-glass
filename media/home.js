@@ -466,10 +466,11 @@
       const b = document.getElementById('updBadge');
       const txt = document.getElementById('updText');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
-      if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = 'up to date'; b.title = 'Up to date' + fw; }
-      else if (msg.state === 'testing'){ b.className = 'status testing'; txt.textContent = 'testing'; b.title = 'Testing ' + String(msg.branch || '').replace(/</g, '&lt;') + ', ahead of main — no update is offered while you test' + fw; }   // never 'upd': a click must not run /aios:update
-      else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = 'update available'; b.title = 'Updates available — click to run /aios:update' + fw; }
-      else { b.className = 'status'; txt.textContent = ''; b.title = 'Status unknown' + fw; }
+      /* `title` is a PROPERTY, so it takes plain text: HTML-escaping here showed a literal `&lt;`. */
+      if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = NLS('topbar.update.upToDate', 'up to date'); b.title = NLS('topbar.update.upToDate.title', 'Up to date') + fw; }
+      else if (msg.state === 'testing'){ b.className = 'status testing'; txt.textContent = NLS('topbar.update.testing', 'testing'); b.title = NLS('topbar.update.testing.title', 'Testing {branch}, ahead of main — no update is offered while you test').replace('{branch}', String(msg.branch || '')) + fw; }   // never 'upd': a click must not run /aios:update
+      else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = NLS('topbar.update.available', 'update available'); b.title = NLS('topbar.update.available.title', 'Updates available — click to run /aios:update') + fw; }
+      else { b.className = 'status'; txt.textContent = ''; b.title = NLS('topbar.update.unknown.title', 'Status unknown') + fw; }
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }

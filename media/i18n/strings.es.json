@@ -152,5 +152,15 @@
   "files.sub.external": "externo",
   "files.addFolder": "Agregar una carpeta a tu espacio de trabajo",
   "files.removeFolder": "Quitar del espacio de trabajo",
-  "files.empty": "Agrega una carpeta (un repo, una carpeta de Drive) para navegarla aquí."
+  "files.empty": "Agrega una carpeta (un repo, una carpeta de Drive) para navegarla aquí.",
+
+  "running.used": "usó",
+  "running.usedTip": "Esta sesión usó: ",
+  "topbar.update.upToDate": "al día",
+  "topbar.update.upToDate.title": "Al día",
+  "topbar.update.available": "actualización disponible",
+  "topbar.update.available.title": "Hay actualizaciones — haz clic para ejecutar /aios:update",
+  "topbar.update.testing": "probando",
+  "topbar.update.testing.title": "Probando {branch}, adelante de main — no se ofrecen actualizaciones mientras pruebas",
+  "topbar.update.unknown.title": "Estado desconocido"
 }
