@@ -30,3 +30,15 @@ for (const c of fx.cases) {
 test('the old 30-min hold no longer decides a send to a live busy session', () => {
   assert.equal(decideSend({ name: 'w', status: 'busy', pid: 1, sessionId: 's' }, 31 * 60 * 1000, TIMINGS.QUEUE_CEILING_MS).do, 'hold');
 });
+
+test('review blocker 5: an adopted hold keeps its FIRST queue time, so a correction is never overtaken', async () => {
+  const { withQueuedAt, queuedAtOf } = await import('../core/sendQueue');
+  const A = withQueuedAt({ action: 'send', name: 'w', from: 'buddai', prompt: 'old' }, 10 * 60_000);     // 10:00
+  const B = withQueuedAt({ action: 'send', name: 'w', from: 'buddai', prompt: 'correction' }, 20 * 60_000);   // 10:20
+  withQueuedAt(A, 30 * 60_000);   // the App restarts at 10:30 and ADOPTS A — re-claiming must not move it
+  assert.equal(queuedAtOf(A, 0), 10 * 60_000, '_queuedAt is set once and kept');
+  const qA = { key: 'A', target: 'w', from: 'buddai', queuedAt: queuedAtOf(A, 0) };
+  const qB = { key: 'B', target: 'w', from: 'buddai', queuedAt: queuedAtOf(B, 0) };
+  assert.deepEqual(queueTurn(qA, [qB]), { do: 'superseded', by: 'B' }, 'the old message is the one retired');
+  assert.deepEqual(queueTurn(qB, [qA]), { do: 'go' }, 'and the correction is delivered');
+});

@@ -270,8 +270,12 @@ export function verifyVerdict(before: number, now: number): VerifyVerdict {
    lockstep, so the mixed window is a single update apart — and while it lasts, the README's
    contract stamp is how a reading agent can tell which rule the fulfiller on this machine
    follows, and `"surface"` is how it can insist on one. Still ADDITIVE for every contract-1/2
-   request: absent `action` means spawn, exactly as before. */
-export const INBOX_CONTRACT = 3;
+   request: absent `action` means spawn, exactly as before.
+   Contract 4 (canonical inbox-contract-4.md, App 0.11.0 / Glass 0.5.11) adds three OPTIONAL fields —
+   `from` (send/resume), `effort` and `advisor` (spawn/resume) — and the AI-205 queue amendment.
+   Stamped 4 only now that BOTH surfaces honour every field; an older surface reading a contract-4
+   README refuses to downgrade it (shouldWriteDoc). Additive: a contract-3 request is unchanged. */
+export const INBOX_CONTRACT = 4;
 
 /* ── Protocol TIMINGS — these are CONTRACT, not local tuning ──────────────────
    Every fulfiller must use the same four numbers, because they decide *cross-process
@@ -282,10 +286,11 @@ export const INBOX_CONTRACT = 3;
    Change these only in lockstep across every fulfiller, and update the inbox README so
    the next one inherits them. */
 export const TIMINGS = {
-  /** A `.holding` older than this may be adopted even if its claimer still lives. Must exceed
-   *  QUEUE_CEILING_MS (AI-205): a live holder legitimately waits that long for an idle target,
-   *  and adopting it earlier is the cross-surface double delivery. */
-  HOLD_STALE_MS: 24 * 60 * 60 * 1000 + 15 * 60 * 1000,
+  /** A `.holding` older than this may be adopted even if its claimer still lives. Must exceed the
+   *  WORST-CASE legitimate hold, QUEUE_CEILING_MS + MAX_HOLD_MS (a send typed at the ceiling is then
+   *  watched for verification): adopting a live hold earlier is the cross-surface double delivery.
+   *  24 h 45 m — a 15-minute margin past 24 h 30 m (review should-fix 7). */
+  HOLD_STALE_MS: 24 * 60 * 60 * 1000 + 45 * 60 * 1000,
   /** AI-205 — how long a `send` waits for a LIVE but busy target to reach its next idle. Was the
    *  30-min MAX_HOLD_MS, which killed coordinator messages to builders that stayed busy for an
    *  hour (5 in one day). Never typed into a busy session either way; this only bounds patience. */
@@ -326,6 +331,23 @@ export function queueTurn(me: QueuedSend, held: readonly QueuedSend[]): QueueTur
   const live = same.filter((h) => !(h.from && same.concat(me).some((o) => o.from === h.from && order(o, h) > 0)));
   const ahead = live.filter((h) => order(h, me) < 0).sort(order)[0];
   return ahead ? { do: 'wait', behind: ahead.key } : { do: 'go' };
+}
+
+/**
+ * AI-205 — WHEN A REQUEST FIRST QUEUED, stamped once and never moved. `_claim.at` is re-stamped
+ * whenever a surface adopts or re-claims a hold (an App restart, a sibling hand-back), so ordering
+ * by it let a stale message overtake its own correction: A at 10:00, correction B at 10:20, the App
+ * restarts at 10:30 and adopts A, A now looks newest, B is "superseded" and deleted, A is delivered.
+ * `_queuedAt` is set at the FIRST claim and kept through adoption and release; ordering, the age
+ * stamp and the 24 h ceiling all read it.
+ */
+export function withQueuedAt(body: Record<string, unknown>, nowMs: number): Record<string, unknown> {
+  if (typeof body._queuedAt !== 'number' || !(body._queuedAt > 0)) body._queuedAt = nowMs;
+  return body;
+}
+export function queuedAtOf(body: Record<string, unknown> | undefined, fallbackMs: number): number {
+  const q = body?._queuedAt;
+  return typeof q === 'number' && q > 0 ? q : fallbackMs;
 }
 
 /** AI-205 — a message that waited is typed with its age, so the receiver knows it is not fresh.

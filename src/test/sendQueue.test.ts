@@ -194,7 +194,7 @@ test('the four protocol timings are pinned — they are contract, not tuning', (
   // The App measured the failure: Glass at 45 min vs App at 15 gave a 30-minute window
   // where each side's ownership belief was correct and BOTH delivered. Changing any of
   // these requires changing every fulfiller in lockstep + the inbox README.
-  assert.equal(TIMINGS.HOLD_STALE_MS, 24 * 60 * 60 * 1000 + 15 * 60 * 1000);   // AI-205: > QUEUE_CEILING_MS
+  assert.equal(TIMINGS.HOLD_STALE_MS, 24 * 60 * 60 * 1000 + 45 * 60 * 1000);   // > QUEUE_CEILING_MS + MAX_HOLD_MS
   assert.equal(TIMINGS.MAX_HOLD_MS, 30 * 60 * 1000);
   assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.QUEUE_CEILING_MS, 'a live holder waiting for an idle target must never be adoptable');
   assert.equal(TIMINGS.RETIRE_TTL_MS, 10 * 60 * 1000);

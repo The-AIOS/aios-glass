@@ -291,7 +291,7 @@ export async function runRitualPicker(): Promise<void> {
 // ── Always-new actions ────────────────────────────────────────────────────
 
 /** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
-export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string; bus?: boolean }): Promise<void> {
+export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string; bus?: boolean; effort?: string; advisorModel?: string }): Promise<void> {
   // Icon comes from the agent's own context (declared frontmatter `icon:`, else
   // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
   // a graph, etc. Builder keeps a distinct amber tab.
@@ -304,7 +304,14 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   // concrete --model wins over --tier (matches the shell wrapper's own precedence).
   let flag = '';
   if (opts?.model && /^[A-Za-z0-9.\-]+$/.test(opts.model)) { flag = `--model ${opts.model} `; }
-  else if (opts?.tier === 'mechanical' || opts?.tier === 'judgment') { flag = `--tier ${opts.tier} `; }
+  /* Every rung the wrapper knows. This listed only mechanical and judgment, so a request for
+     `scale`, `fast` or `frontier` was SILENTLY dropped and the worker ran on the default model. */
+  else if (opts?.tier && /^(frontier|judgment|scale|fast|mechanical)$/.test(opts.tier)) { flag = `--tier ${opts.tier} `; }
+  /* Contract 4 through the wrapper's own flags (canonical v0.8.9): it writes the advisor settings
+     to a unique file and appends the consult instruction. The advisor arrives as a MODEL ID,
+     resolved from the contract's table, so the wrapper never maps `judgment` to "default". */
+  if (opts?.effort && /^(low|medium|high|xhigh|max)$/.test(opts.effort)) flag += `--effort ${opts.effort} `;
+  if (opts?.advisorModel && /^[A-Za-z0-9._[\]-]{1,80}$/.test(opts.advisorModel)) flag += `--advisor ${shellQuote(opts.advisorModel)} `;
   // Task transport hardening: launchSpawn TYPES the spawn command into a terminal
   // (runNew → sendText). A task with embedded newlines is typed as many Enter
   // presses, and a large body floods the integrated terminal — either can crash the

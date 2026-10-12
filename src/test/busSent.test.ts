@@ -11,7 +11,7 @@ test('Glass records send / spawn / resume text before it types, and only for the
   const runner = fs.readFileSync(path.join(ROOT, 'src', 'rituals', 'runner.ts'), 'utf8');
   assert.match(ext, /recordTyped\(text, name, 'send', sendFrom\);[^\n]*\n\s*await sendToSession\(name, text, decision\.pid\);/);
   assert.equal((ext.match(/bus: true/g) || []).length, 2, 'both bus spawn paths (spawn, resume-fallback) are marked');
-  assert.match(ext, /await launchResumeSession\(name, sid, prompt, true, contract4LaunchArgs\(\{ effort: c4\.effort, advisorModel \}\), from\);/);
+  assert.match(ext, /await launchResumeSession\(name, sid, prompt, true, settingsToFile\(contract4LaunchArgs\(\{ effort: c4\.effort, advisorModel \}\)\), from\);/, 'the advisor goes as a settings FILE');
   assert.match(runner, /if \(opts\?\.bus && inlineTask\) recordTyped\(inlineTask, name, 'spawn'\);\s*runNew\(/);
   assert.match(runner, /if \(bus && inline\) recordTyped\(inline, name, 'resume', from\);/);
 });
@@ -26,13 +26,17 @@ test('the Glass recorder writes what the App recorder writes (one format, two su
 test('AI-198: Glass dead-letters a contract-4 field it cannot honour, naming why', () => {
   const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
   assert.match(ext, /const c4 = contract4Fields\(req as Record<string, unknown>, action\);\s*if \(!c4\.accept\) \{/);
-  assert.match(ext, /effort\/advisor on a spawn needs the spawn wrapper from AIOS v0\.8\.9/, 'never a silent launch without the asked-for effort');
+  assert.match(ext, /const c4Launch = \{ effort: c4\.effort, advisorModel: advisorModelFor\(c4\.advisor, c4\.advisorRung\) \};/, 'a spawn honours effort/advisor, like the App (should-fix 9)');
+  const runner = fs.readFileSync(path.join(ROOT, 'src', 'rituals', 'runner.ts'), 'utf8');
+  assert.match(runner, /flag \+= `--effort \$\{opts\.effort\} `;/);
+  assert.match(runner, /flag \+= `--advisor \$\{shellQuote\(opts\.advisorModel\)\} `;/);
+  assert.match(runner, /\(frontier\|judgment\|scale\|fast\|mechanical\)/, 'every rung, not only mechanical/judgment');
   assert.equal((ext.match(/await deliverSend\(name, prompt, from(, held)?\);/g) || []).length, 2, 'send and live resume both carry from');
 });
 
 test('AI-205: Glass waits for the next idle, in order, superseding, aged — and verifies from the first type', () => {
   const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
-  assert.match(ext, /decideSend\(await find\(\), Date\.now\(\) - started, TIMINGS\.QUEUE_CEILING_MS\)/);
+  assert.match(ext, /decideSend\(await find\(\), Date\.now\(\) - myQueuedAt, TIMINGS\.QUEUE_CEILING_MS\)/, 'the ceiling runs from the FIRST queue time');
   assert.match(ext, /const turn = queueTurn\(\{ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt \}, heldSends\(\)\);/);
   assert.match(ext, /if \(!firstTypedAt\) text = stampAge\(deliverText\.text, Date\.now\(\) - myQueuedAt, sendFrom\);/);
   assert.match(ext, /heldMs: Date\.now\(\) - firstTypedAt,/);

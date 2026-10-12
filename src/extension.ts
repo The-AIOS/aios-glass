@@ -1,4 +1,5 @@
-import { queueTurn, stampAge, parseClaim as parseClaimQ, type QueuedSend } from './core/sendQueue';
+import { settingsToFile } from './bus/advisorFile';
+import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
@@ -837,6 +838,15 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '    { "action": "kill", "name": "designer" }',
       '',
+      '**Contract 4 — optional fields** (verbs unchanged; a contract-3 request behaves exactly as before):',
+      '',
+      '- `from` (send, resume) — the registry name of the session that wrote the request. A claim, never an identity: it is recorded with the delivery so the receiver can see who sent it, and an unusable value is ignored.',
+      '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
+      "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
+      '',
+      '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
+      '      { "action": "send", "name": "researcher", "from": "buddai", "prompt": "…" }',
+      '',
       '**resume** (contract 3) — reopen a session you already had, as the SAME someone:',
       '',
       '    { "action": "resume", "name": "designer", "prompt": "pick up the hero work" }',
@@ -876,7 +886,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '**Timings** — change only in lockstep across every fulfiller, and update this file:',
       '',
       '    QUEUE_CEILING_MS 24 h   how long a send waits for a LIVE busy target to reach its next idle',
-      '    HOLD_STALE_MS  24 h 15m a .holding older than this may be adopted even if its claimer lives (> QUEUE_CEILING_MS)',
+      '    HOLD_STALE_MS  24 h 45m a .holding older than this may be adopted even if its claimer lives (> QUEUE_CEILING_MS + MAX_HOLD_MS)',
       '    MAX_HOLD_MS    30 min   after the FIRST type: how long to watch for it to verify',
       '    RETIRE_TTL_MS  10 min   when any surface may retire a request addressed to an absent one',
       '    MAX_RELEASES   2        sibling-window handoffs before declaring it undeliverable',
@@ -1017,7 +1027,10 @@ export function activate(context: vscode.ExtensionContext): void {
         const b = JSON.parse(fs.readFileSync(path.join(spawnInboxDir, n), 'utf8')) as Record<string, unknown>;
         if (normalizeVerbQ(b.action) !== 'send' || typeof b.name !== 'string') continue;
         const claim = parseClaimQ(b._claim);
-        out.push({ key: n, target: b.name, from: cleanFrom(b.from), queuedAt: claim ? claim.at : fs.statSync(path.join(spawnInboxDir, n)).mtimeMs });
+        /* A hold whose holder is DEAD is not in line (review should-fix 8): it would block its
+           target until someone adopts it. The periodic sweep below adopts and delivers it. */
+        if (claim && !pidAlive(claim.pid)) continue;
+        out.push({ key: n, target: b.name, from: cleanFrom(b.from), queuedAt: queuedAtOf(b, claim ? claim.at : fs.statSync(path.join(spawnInboxDir, n)).mtimeMs) });
       } catch { /* mid-write or gone */ }
     }
     return out;
@@ -1055,7 +1068,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — verification budget AFTER the first type
     const myKey = heldPath ? path.basename(heldPath) : '';
     let myQueuedAt = started;
-    try { const c = heldPath ? parseClaimQ(JSON.parse(fs.readFileSync(heldPath, 'utf8'))._claim) : undefined; if (c) myQueuedAt = c.at; } catch { /* keep started */ }
+    try { if (heldPath) { const b = JSON.parse(fs.readFileSync(heldPath, 'utf8')); const c = parseClaimQ(b._claim); myQueuedAt = queuedAtOf(b, c ? c.at : started); } } catch { /* keep started */ }
     let announced = false;
     /* THE BASELINE IS CAPTURED ONCE, OUTSIDE THIS LOOP — ported from the App 2026-08-14.
        It used to be re-read at the top of every iteration, which made it useless for the one
@@ -1069,7 +1082,7 @@ export function activate(context: vscode.ExtensionContext): void {
     for (;;) {
       /* AI-205: a live but busy target is waited on until its next idle (QUEUE_CEILING_MS), not
          30 min; the never-type-into-busy rule is unchanged. */
-      const decision = decideSend(await find(), Date.now() - started, TIMINGS.QUEUE_CEILING_MS);
+      const decision = decideSend(await find(), Date.now() - myQueuedAt, TIMINGS.QUEUE_CEILING_MS);   // the ceiling runs from the FIRST queue time
       if (decision.do === 'undeliverable') {
         lastSendReason = decision.reason;
         log(`spawn-inbox: send → '${name}' NOT DELIVERED — ${decision.reason}`);
@@ -1219,6 +1232,11 @@ export function activate(context: vscode.ExtensionContext): void {
    *  `.undelivered` artifact carries who held it and when. */
   const stampClaim = (held: string): void => {
     const body = readJson(held) ?? {};
+    /* AI-205: when it FIRST queued — set once, kept through adoption and release (a re-stamped
+       claim time let a stale message overtake its own correction). An adopted hold's first
+       queue time is its previous claim's, when it has no _queuedAt of its own. */
+    const prev = parseClaimQ(body._claim);
+    withQueuedAt(body, prev ? prev.at : Date.now());
     body._claim = { surface: MY_SURFACE, pid: process.pid, at: Date.now() };
     try { fs.writeFileSync(held, JSON.stringify(body, null, 2), 'utf8'); } catch { /* keep the claim anyway */ }
   };
@@ -1341,10 +1359,9 @@ export function activate(context: vscode.ExtensionContext): void {
     /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
        its v0.8.9 (AI-175/176). Until then a spawn that asks for them is refused and says why —
        a worker started without the effort it was asked for is the quiet failure. */
-    if ((action === 'spawn' || (action === 'resume' && req.fallback === 'spawn')) && (c4.effort || c4.advisor)) {
-      releaseRequest(held, true, 'effort/advisor on a spawn needs the spawn wrapper from AIOS v0.8.9 (--effort / --advisor); run /aios:update, or resend without them');
-      return;
-    }
+    /* Contract 4 on a spawn goes through the wrapper's --effort / --advisor (canonical v0.8.9), the
+       same fields the App honours: both surfaces now launch the same worker for one request. */
+    const c4Launch = { effort: c4.effort, advisorModel: advisorModelFor(c4.advisor, c4.advisorRung) };
     try {
       if (action === 'kill') {
         // disposeAgentTerminal = the NON-interactive "kill now": dispose the worker's terminal
@@ -1397,7 +1414,7 @@ export function activate(context: vscode.ExtensionContext): void {
           if (c4.advisor) {
             advisorModel = advisorModelFor(c4.advisor, c4.advisorRung);   // the contract's rung table, never resolve-tier
           }
-          await launchResumeSession(name, sid, prompt, true, contract4LaunchArgs({ effort: c4.effort, advisorModel }), from);
+          await launchResumeSession(name, sid, prompt, true, settingsToFile(contract4LaunchArgs({ effort: c4.effort, advisorModel })), from);
           releaseRequest(held, false);
           return;
         }
@@ -1415,7 +1432,7 @@ export function activate(context: vscode.ExtensionContext): void {
         await launchSpawn(name, prompt, {
           model: typeof req.model === 'string' ? req.model : undefined,
           tier: typeof req.tier === 'string' ? req.tier : undefined,
-          bus: true,
+          bus: true, ...c4Launch,
         });
         releaseRequest(held, false);
       } else {
@@ -1432,7 +1449,7 @@ export function activate(context: vscode.ExtensionContext): void {
           releaseRequest(held, false); return;
         }
         log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${model ? ` [model ${model}]` : tier ? ` [tier ${tier}]` : ''}`);
-        await launchSpawn(name, task, { model, tier, bus: true });
+        await launchSpawn(name, task, { model, tier, bus: true, ...c4Launch });
         releaseRequest(held, false);
       }
     } catch (e) {
@@ -1475,6 +1492,15 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   } catch { /* empty/absent inbox */ }
+  /* Adoption also runs PERIODICALLY, not only at startup (review should-fix 8): a hold left by a
+     surface that died would otherwise block its target until the next restart. consumeSpawnRequest
+     applies canAdoptHold, so a live hold — ours or a sibling's — is never taken. */
+  const holdSweep = setInterval(() => {
+    try {
+      for (const f of fs.readdirSync(spawnInboxDir)) if (f.endsWith(HOLD_SUFFIX)) void consumeSpawnRequest(path.join(spawnInboxDir, f));
+    } catch { /* inbox gone */ }
+  }, 5 * 60 * 1000);
+  context.subscriptions.push({ dispose: () => clearInterval(holdSweep) });
   }   // end if (!busDisabled)
 
   // Always-visible reopen button — survives moving the view to the secondary
