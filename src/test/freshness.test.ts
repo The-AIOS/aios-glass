@@ -23,7 +23,7 @@ test('synced · BEHIND · TESTING by ref · TESTING by hash · unknown', () => {
   assert.deepEqual(freshness({ hash: 'aaaaaaa' }, R), { state: 'up-to-date' });
   assert.deepEqual(freshness({ hash: 'ddddddd' }, R), { state: 'available' }, 'behind main');
   assert.deepEqual(freshness({ hash: 'ddddddd', ref: 'release/2026-10-11' }, R), { state: 'testing', branch: 'release/2026-10-11' }, 'a ref= wins, whatever the hash');
-  assert.deepEqual(freshness({ hash: 'bbbbbbb' }, R), { state: 'testing', branch: 'release/2026-10-11' }, "Chuy's vault today: hash is that branch's tip");
+  assert.deepEqual(freshness({ hash: 'bbbbbbb' }, R), { state: 'testing', branch: 'release/2026-10-11' }, "an operator vault on a release branch: hash is that branch's tip");
   assert.deepEqual(freshness({ hash: 'aaaaaaa', ref: 'main' }, R), { state: 'up-to-date' }, 'ref= naming the default branch is just synced');
   assert.deepEqual(freshness({ hash: 'initial' }, R), { state: 'unknown' });
   assert.deepEqual(freshness({ hash: 'aaaaaaa' }, parseLsRemote('')), { state: 'unknown' }, 'no answer from the remote');

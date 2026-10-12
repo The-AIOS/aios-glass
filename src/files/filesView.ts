@@ -407,7 +407,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       }
       case 'setMaster': {
         // The master (global default): set it AND clear every per-folder override —
-        // "make them all sort this way" (Chuy). The webview then re-lists everything.
+        // "make them all sort this way" (operator request). The webview then re-lists everything.
         const mode = normalizeSortMode(msg.mode);
         await stateSet(MASTER_SORT_KEY, mode);
         await stateSet(FOLDER_SORT_KEY, {});

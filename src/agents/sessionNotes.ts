@@ -13,7 +13,7 @@ export { SessionNote, parseStoredNotes } from './sessionNotesParse';
  * A fourth hover button on a live session lets the HUMAN jot quick notes
  * attached to that session — "what did I want to do here next" — replacing the
  * physical desk full of post-its. Notes are session-scoped and **die at kill**
- * (Chuy's default). The buddai-suggested safety, confirmed here: rather than
+ * (the operator's default). The buddai-suggested safety, confirmed here: rather than
  * silently losing surviving notes when a session is killed, the kill-guard
  * HARVESTS them — into the session's Mode W close-session report if one exists,
  * else into today's daily note — so a reminder is never dropped on the floor.

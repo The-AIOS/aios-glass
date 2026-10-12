@@ -1276,7 +1276,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       if (undelivered) {
         const dead = undeliveredPathFor(held);
-        // Put the reason IN the file too: Chuy reads disk more often than an output
+        // Put the reason IN the file too: the operator reads disk more often than an output
         // channel, and a bare artifact with no explanation is only half-honest.
         // (Convention adopted from the AIOS App.)
         const body = readJson(held) ?? {};
