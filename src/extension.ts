@@ -1,7 +1,7 @@
 import { queueTurn, stampAge, parseClaim as parseClaimQ, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
-import { contract4Fields, contract4LaunchArgs } from './core/contract4';
+import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
 import { recordTyped } from './bus/busSent';
 import * as vscode from 'vscode';
 import * as path from 'path';
@@ -67,14 +67,6 @@ function noteWhen(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-/** AI-198 — a rung's model id via canonical hooks/resolve-tier ('' = inherit the default, or unavailable). */
-function resolveTierModel(rung: string): string {
-  const root = frameworkRoot();
-  if (!root) return '';
-  try {
-    return execFileSync('bash', [path.join(root, 'hooks', 'resolve-tier'), rung], { encoding: 'utf8', timeout: 4000 }).trim();
-  } catch { return ''; }
-}
 
 export function activate(context: vscode.ExtensionContext): void {
   // Banner so the diagnostics channel is never blank — an empty Output pane
@@ -1403,8 +1395,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (sid) {
           let advisorModel: string | undefined;
           if (c4.advisor) {
-            advisorModel = c4.advisorRung ? (resolveTierModel(c4.advisor) || '') : c4.advisor;
-            if (!advisorModel) { releaseRequest(held, true, `advisor rung '${c4.advisor}' resolves to the session default and names no model — pass a model id`); return; }
+            advisorModel = advisorModelFor(c4.advisor, c4.advisorRung);   // the contract's rung table, never resolve-tier
           }
           await launchResumeSession(name, sid, prompt, true, contract4LaunchArgs({ effort: c4.effort, advisorModel }), from);
           releaseRequest(held, false);

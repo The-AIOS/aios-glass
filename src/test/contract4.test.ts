@@ -12,9 +12,6 @@ import { busSentLine } from '../core/busLog';
 
 const FIX = path.join(__dirname, '..', '..', 'src', 'test', 'fixtures', 'inbox-contract-4.conformance.json');
 const fx = JSON.parse(fs.readFileSync(FIX, 'utf8')) as { contract: number; cases: { case: string; request: Record<string, unknown>; expect: Record<string, unknown> }[] };
-// A stub for hooks/resolve-tier: the fixture names a rung's model as "whatever resolve-tier says".
-const RESOLVED: Record<string, string> = { frontier: 'claude-fable-5-1', judgment: 'claude-opus-5-5', scale: 'claude-sonnet-5-5', fast: 'claude-haiku-5-5' };
-const resolve = (r: string) => RESOLVED[r];
 
 test('the fixture is contract 4 and has cases', () => {
   assert.equal(fx.contract, 4);
@@ -23,12 +20,12 @@ test('the fixture is contract 4 and has cases', () => {
 
 for (const c of fx.cases) {
   test(`conformance: ${c.case}`, () => {
-    const d = contract4Decide(c.request, resolve);
+    const d = contract4Decide(c.request);
     const e = c.expect;
     assert.equal(d.accept, e.accept);
     if (!d.accept) {
       assert.equal(d.field, e.dead_letter_field);
-      assert.equal(d.value, e.dead_letter_value);
+      if ('dead_letter_value' in e) assert.equal(d.value, e.dead_letter_value);
       return;
     }
     if (e.verb) assert.equal(d.verb, e.verb);
@@ -37,7 +34,6 @@ for (const c of fx.cases) {
     for (const a of (e.launch_args_absent as string[] | undefined) ?? []) assert.ok(!d.launchArgs.includes(a), `${a} absent`);
     const settings = d.launchArgs[d.launchArgs.indexOf('--settings') + 1];
     if (e.advisor_model) assert.equal(JSON.parse(settings).advisorModel, e.advisor_model);
-    if (e.advisor_model_from) assert.equal(JSON.parse(settings).advisorModel, resolve(String(e.advisor_model_from).split(' ').pop()!));
     if (e.record) {
       const prompt = String(c.request.prompt ?? c.request.task ?? 'x');
       const line = JSON.parse(busSentLine(prompt, d.record!.to, d.record!.action, d.record!.via, '', 2_000_000_000, d.record!.from)!);
@@ -47,8 +43,10 @@ for (const c of fx.cases) {
   });
 }
 
-test('a rung that resolves to the session default names no advisor — dead-lettered, never guessed', () => {
-  const d = contract4Decide({ name: 'w', task: 'x', advisor: 'judgment' }, (r) => (r === 'judgment' ? '' : RESOLVED[r]));
-  assert.equal(d.accept, false);
-  if (!d.accept) { assert.equal(d.field, 'advisor'); assert.match(d.reason, /names no model/); }
+test('advisor rungs come from the contract\'s own table — judgment is claude-opus-5-5, never empty', () => {
+  for (const [rung, model] of [['frontier', 'claude-fable-5-1'], ['judgment', 'claude-opus-5-5'], ['scale', 'claude-sonnet-5-5'], ['fast', 'claude-haiku-5-5']]) {
+    const d = contract4Decide({ name: 'w', task: 'x', advisor: rung });
+    assert.ok(d.accept, rung);
+    if (d.accept) assert.equal(JSON.parse(d.launchArgs[d.launchArgs.indexOf('--settings') + 1]).advisorModel, model);
+  }
 });
