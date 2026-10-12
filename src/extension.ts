@@ -1253,7 +1253,8 @@ export function activate(context: vscode.ExtensionContext): void {
    *  wrong window. Bounded by `_releases` so two windows can't ping-pong forever. */
   const releaseToSibling = (held: string): boolean => {
     const body = readJson(held) ?? {};
-    const releases = typeof body._releases === 'number' ? body._releases : 0;
+    /* Older Apps wrote `releases`; read both, the larger wins (the count only bounds a ping-pong). */
+    const releases = Math.max(typeof body._releases === 'number' ? body._releases : 0, typeof body.releases === 'number' ? body.releases : 0);
     if (!shouldReleaseForSibling(releases, MAX_RELEASES)) { return false; }
     const marked = withTried(body, fulfillerId(MY_SURFACE, process.pid));   // so I never re-claim my own release
     marked._releases = releases + 1;
