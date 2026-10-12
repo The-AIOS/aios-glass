@@ -1,5 +1,6 @@
 import { settingsToFile } from './bus/advisorFile';
 import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
+import { resolveSessionName, sessionKey } from './core/nameMatch';
 import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
@@ -1031,7 +1032,7 @@ export function activate(context: vscode.ExtensionContext): void {
         /* A hold whose holder is DEAD is not in line (review should-fix 8): it would block its
            target until someone adopts it. The periodic sweep below adopts and delivers it. */
         if (claim && !pidAlive(claim.pid)) continue;
-        out.push({ key: n, target: b.name, from: cleanFrom(b.from), queuedAt: queuedAtOf(b, claim ? claim.at : fs.statSync(path.join(spawnInboxDir, n)).mtimeMs) });
+        out.push({ key: n, target: sessionKey(b.name), from: cleanFrom(b.from), queuedAt: queuedAtOf(b, claim ? claim.at : fs.statSync(path.join(spawnInboxDir, n)).mtimeMs) });
       } catch { /* mid-write or gone */ }
     }
     return out;
@@ -1102,7 +1103,7 @@ export function activate(context: vscode.ExtensionContext): void {
       /* AI-205 — one at a time, oldest first, and a newer message from the same sender replaces
          an older one still waiting. Only before the first type: once typed, it is in flight. */
       if (!firstTypedAt && myKey) {
-        const turn = queueTurn({ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt }, heldSends());
+        const turn = queueTurn({ key: myKey, target: sessionKey(name), from: sendFrom, queuedAt: myQueuedAt }, heldSends());
         if (turn.do === 'superseded') {
           lastSupersededBy = turn.by;
           log(`spawn-inbox: send → '${name}' SUPERSEDED by a newer message from '${sendFrom}' (${turn.by}) — not delivering the older one`);
@@ -1116,7 +1117,7 @@ export function activate(context: vscode.ExtensionContext): void {
         /* Going out: retire every older message this one replaces NOW, rather than trusting each of
            them to notice later (0.11.0 test 6.4 — the older one checked after this was delivered and
            removed, found nothing newer, and went out too). */
-        for (const old of supersedes({ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt }, heldSends())) {
+        for (const old of supersedes({ key: myKey, target: sessionKey(name), from: sendFrom, queuedAt: myQueuedAt }, heldSends())) {
           archiveSuperseded(path.join(spawnInboxDir, old.key), myKey);
           log(`spawn-inbox: retired ${old.key} — superseded by ${myKey}`);
         }
@@ -1362,7 +1363,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try { req = JSON.parse(raw); } catch {
       releaseRequest(held, true, 'malformed JSON'); return;
     }
-    const name = String(req.name ?? '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let name = String(req.name ?? '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     /* Command bus verbs. An ABSENT action means spawn (back-compat with plain {name,task});
        a WRITTEN one must be a verb we implement.
          spawn  → launch a worker          · kill   → tear one down
@@ -1373,6 +1374,12 @@ export function activate(context: vscode.ExtensionContext): void {
     const written = (typeof req.action === 'string' ? req.action : '').trim().toLowerCase();
     const action = normalizeVerb(req.action);
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
+    /* A request addressing a LIVE session (send, kill, resume-to-live) reaches it whatever its name's
+       case: the real registry name is used from here on (shared core/nameMatch, app#58's idea). A
+       spawn creates the name, so it is left as written. */
+    if (action === 'send' || action === 'kill' || action === 'resume') {
+      name = resolveSessionName(name, (await listRunningAgents()).map((a) => a.name)) ?? name;
+    }
     if (action === 'unknown') {
       releaseRequest(held, true,
         `unknown action '${written}' — this surface implements spawn, kill, send and resume. `

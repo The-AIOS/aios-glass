@@ -37,7 +37,7 @@ test('AI-198: Glass dead-letters a contract-4 field it cannot honour, naming why
 test('AI-205: Glass waits for the next idle, in order, superseding, aged — and verifies from the first type', () => {
   const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
   assert.match(ext, /decideSend\(await find\(\), Date\.now\(\) - myQueuedAt, TIMINGS\.QUEUE_CEILING_MS\)/, 'the ceiling runs from the FIRST queue time');
-  assert.match(ext, /const turn = queueTurn\(\{ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt \}, heldSends\(\)\);/);
+  assert.match(ext, /const turn = queueTurn\(\{ key: myKey, target: sessionKey\(name\), from: sendFrom, queuedAt: myQueuedAt \}, heldSends\(\)\);/);
   assert.match(ext, /if \(!firstTypedAt\) text = stampAge\(deliverText\.text, Date\.now\(\) - myQueuedAt, sendFrom\);/);
   assert.match(ext, /heldMs: Date\.now\(\) - firstTypedAt,/);
   assert.match(ext, /else if \(outcome === 'superseded'\) \{ archiveSuperseded\(held\); \}/, 'a superseded message is archived with what replaced it — not dead-lettered, not silently deleted');
