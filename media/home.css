@@ -3,6 +3,10 @@
     --line:#262626; --ink:#fafafa; --muted:#c4c4c4; --subtle:#707070;
     --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.18); --accent-soft:#ffb3a8; --accent-line:rgba(255,93,77,.45);
     --ok:#5ad19a; --testing:#b58cf0;
+    /* App parity (review 15): coral as a BUTTON FILL and coral as TEXT are separate tokens, because
+       the bright --accent fails 4.5:1 in light for both. Dark passes as-is (dark text on coral is
+       6.9:1; coral text on near-black 6.5:1), so here they alias. */
+    --accent-fill:var(--accent); --accent-fill-hover:var(--accent-soft); --accent-ink:var(--accent);
     /* Glass cues, tokenized so the light theme can reground them: a top edge that
        catches light, the float-off-background depth, the text colour on a coral
        fill, and the neutral white-ward hover glow. In dark these are white-on-black;
@@ -23,6 +27,9 @@
     --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#5a5a62;
     --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.12); --accent-soft:#d6402c; --accent-line:rgba(214,64,44,.5);
     --ok:#1f9d57; --testing:#7c4fc4;
+    /* The App's values: white on #d63a2a is 4.67:1 (hover darker, 5.32:1 — never lighter); coral
+       text #c2342a passes on every light surface. The bright --accent stays for marks and rings. */
+    --accent-fill:#d63a2a; --accent-fill-hover:#c8331f; --accent-ink:#c2342a;
     --glass-top:rgba(255,255,255,.85); --glass-top-strong:rgba(255,255,255,1);
     --shadow-card:0 8px 22px -16px rgba(15,15,20,.22); --shadow-card-hover:0 12px 28px -14px rgba(15,15,20,.26);
     /* white text on the coral CTA in light — reads as a brighter, more "button"-like
@@ -49,7 +56,7 @@
   /* Quiet utilities — borderless until hover, so the strip recedes as chrome. */
   .cog{background:transparent; border:1px solid transparent; color:var(--subtle); border-radius:9px;
     width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,color .15s,background .15s}
-  .cog:hover{border-color:var(--line); background:var(--surface-2); color:var(--accent)}
+  .cog:hover{border-color:var(--line); background:var(--surface-2); color:var(--accent-ink)}
   /* Go-with-agents quick action — count badge in the corner; dims when nothing's pending. */
   .cog.goagents{position:relative}
   .cog.goagents.dim{opacity:.42}
@@ -79,7 +86,7 @@
   .status.testing .dot{background:var(--testing)}   /* ahead of main — not an update */
   .status.upd{cursor:pointer}
   .status.upd .dot{background:var(--accent)}
-  .status.upd .updtext{color:var(--accent)}
+  .status.upd .updtext{color:var(--accent-ink)}
   .status.upd:hover .updtext{text-decoration:underline}
   .cols{display:grid; grid-template-columns:1fr; gap:16px; align-items:start}
   @media(min-width:760px){ .cols{grid-template-columns:1fr 1fr} }
@@ -187,7 +194,7 @@
   .learnitem .ldate{flex:0 0 auto; font-size:10.5px; color:var(--muted); font-family:var(--mono)}
   .btn:hover{border-color:var(--accent-line); background:var(--surface-3)}
   .btn .k{color:var(--subtle); font-size:12px; margin-left:6px; font-family:var(--mono)}
-  .btn .val{float:right; color:var(--accent); font-family:var(--mono); font-size:12px}
+  .btn .val{float:right; color:var(--accent-ink); font-family:var(--mono); font-size:12px}
   .runlist{margin:2px 0 8px; padding:0 2px}
   .runitem{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink); padding:3px 6px; border-radius:6px; cursor:pointer}
   .runitem:hover{background:var(--surface-2)}
@@ -203,14 +210,14 @@
      pill's 32 at identical padding) and stretches to the pill-defined row:
      verified 0.0px deltas top+bottom in both modes. */
   .lhead-add{flex:0 0 auto; width:32px; margin:0; padding:0; align-self:stretch; background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center}
-  .lhead-add:hover{border-color:var(--accent-line); color:var(--accent)}
+  .lhead-add:hover{border-color:var(--accent-line); color:var(--accent-ink)}
   /* Row actions — icon-only, hidden at rest, revealed on hover. Tooltips (title)
      carry the meaning; close-session uses a door/exit icon so it reads clearly. */
   .runacts{margin-left:auto; flex:0 0 auto; display:none; align-items:center; gap:3px}
   .runitem:hover .runacts, .runitem:focus-within .runacts{display:flex}
   .runacts button{display:inline-flex; align-items:center; background:transparent; border:0; color:var(--subtle); padding:2px 3px; border-radius:4px; cursor:pointer}
   .runint:hover{color:#e0a13a; background:color-mix(in srgb, #e0a13a 18%, transparent)}
-  .runclose:hover{color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent)}
+  .runclose:hover{color:var(--accent-ink); background:color-mix(in srgb, var(--accent) 16%, transparent)}
   /* destructive — grey at rest (like its siblings), RED on hover. A deeper, truer
      red than the coral accent (#ff5d4d) so the hover never reads as "just accent". */
   .runkill:hover{color:#dc2626; background:color-mix(in srgb, #dc2626 22%, transparent)}
@@ -251,7 +258,7 @@
   .hallgood{margin:6px 0 0}
   .btn.accent{border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line)); background:color-mix(in srgb, var(--accent) 12%, var(--surface-2))}
   .btn.accent:hover{background:color-mix(in srgb, var(--accent) 20%, var(--surface-2))}
-  .btn.accent .val{color:var(--accent)}
+  .btn.accent .val{color:var(--accent-ink)}
   .btn.dim{opacity:.5}
   .launch{display:flex; gap:8px; margin-bottom:2px}
   /* Ask AIOS — the magic entry. NOT a second solid fill (it would fight Launch):
@@ -270,8 +277,8 @@
     box-shadow:0 0 14px color-mix(in srgb, var(--accent) 22%, transparent)}
   .launch .btn{margin-bottom:0; width:auto}
   .launch .primary{flex:1}
-  .btn.primary{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:500; text-align:center; padding:14px}
-  .btn.primary:hover{background:var(--accent-soft); border-color:var(--accent-soft);
+  .btn.primary{background:var(--accent-fill); color:var(--on-accent); border-color:var(--accent-fill); font-weight:500; text-align:center; padding:14px}
+  .btn.primary:hover{background:var(--accent-fill-hover); border-color:var(--accent-fill-hover);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent)}
   .btn.ghost{text-align:center; color:var(--muted)}
   .btn.ghost:hover{color:var(--ink); border-color:color-mix(in srgb, var(--ink) 22%, var(--line));
@@ -280,15 +287,15 @@
   .muted{color:var(--muted); font-size:13px; margin:8px 0 0}
   .badge{display:inline-block; font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--subtle)}
   .badge.ok{color:var(--ok); border-color:rgba(90,209,154,.4)}
-  .badge.upd{color:var(--accent); border-color:var(--accent-line)}
-  .badge.live{color:var(--accent); border-color:var(--accent-line)}
+  .badge.upd{color:var(--accent-ink); border-color:var(--accent-line)}
+  .badge.live{color:var(--accent-ink); border-color:var(--accent-line)}
   /* calendar */
   .calhead{display:flex; align-items:center; gap:4px; margin-bottom:12px}
   .calhead .label{flex:1; text-align:center; font-weight:600; font-size:1.0625rem; letter-spacing:-.01em}
   .vtoggle{background:var(--surface-2); border:1px solid var(--line); color:var(--subtle); font-size:11px; font-family:var(--mono); padding:2px 8px; border-radius:6px; cursor:pointer; margin-left:6px}
   .vtoggle:hover{color:var(--ink); border-color:var(--accent)}
   .nav{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;line-height:1; transition:border-color .15s,color .15s}
-  .nav:hover{border-color:var(--accent-line);color:var(--accent)}
+  .nav:hover{border-color:var(--accent-line);color:var(--accent-ink)}
   table{width:100%; border-collapse:collapse}
   th{font-size:11px; font-weight:600; color:var(--subtle); padding:6px 0; text-transform:uppercase; letter-spacing:.06em}
   td{text-align:center; padding:1px}
@@ -302,4 +309,4 @@
   .cell.today{border-color:var(--accent-line); background:var(--accent-glow)}
   .cell.day:not(.has) .num{color:var(--subtle); font-weight:400}
   .cell.day.has .num{color:var(--accent-soft); font-weight:500}
-  .cell.day.today .num{color:var(--accent); font-weight:600}
+  .cell.day.today .num{color:var(--accent-ink); font-weight:600}

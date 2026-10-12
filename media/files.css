@@ -6,7 +6,7 @@
   :root{
     --canvas:#0a0a0a; --surface-1:#111111; --surface-2:#181818;
     --line:#262626; --ink:#fafafa; --muted:#c4c4c4; --subtle:#707070;
-    --accent:#ff5d4d; --accent-line:rgba(255,93,77,.45);
+    --accent:#ff5d4d; --accent-line:rgba(255,93,77,.45); --accent-ink:var(--accent);
     --edge:inset 0 1px 0 rgba(255,255,255,.08);
     --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --mono:"JetBrains Mono","SF Mono",Menlo,Monaco,Consolas,monospace;
@@ -14,7 +14,7 @@
   body.light{
     --canvas:#f7f7f5; --surface-1:#ffffff; --surface-2:#eeeeec;
     --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#5a5a62;
-    --accent:#ff5d4d; --accent-line:rgba(214,64,44,.5);
+    --accent:#ff5d4d; --accent-line:rgba(214,64,44,.5); --accent-ink:#c2342a;
     --edge:inset 0 1px 0 rgba(255,255,255,.85);
   }
   *{box-sizing:border-box}
@@ -70,7 +70,7 @@
   .xadd{margin-left:auto; background:transparent; border:1px solid var(--line); color:var(--subtle); border-radius:6px;
     width:19px; height:19px; font-size:14px; cursor:pointer; padding:0; flex:0 0 auto;
     display:inline-flex; align-items:center; justify-content:center; line-height:0}
-  .xadd:hover{color:var(--accent); border-color:var(--accent-line)}
+  .xadd:hover{color:var(--accent-ink); border-color:var(--accent-line)}
   .xempty{color:var(--subtle); font-size:11px; line-height:1.45; padding:4px 14px 8px; opacity:.7}
 
   /* ── tree rows ── */
@@ -81,7 +81,7 @@
   .xrow.dir{color:var(--ink); font-weight:500}
   .xicon{display:inline-flex; align-items:center; justify-content:center; color:var(--subtle); width:15px; flex:0 0 auto}
   .xrow.dir .xicon{color:var(--subtle)}
-  .xrow.sel .xicon{color:var(--accent)}
+  .xrow.sel .xicon{color:var(--accent-ink)}
   .xname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0}
   .xpre{color:var(--subtle); opacity:.55; font-size:10.5px; font-family:var(--mono); margin-right:1px}
   /* hidden dotfiles (shown via "show hidden files") read greyed/secondary */
@@ -100,16 +100,16 @@
   /* workspace root rows carry a remove control (× on hover) */
   .xroot .xrm{flex:0 0 auto; color:var(--subtle); opacity:0; padding:0 4px; font-size:14px; line-height:1; border-radius:4px}
   .xroot:hover .xrm{opacity:.7}
-  .xroot .xrm:hover{opacity:1; color:var(--accent)}
+  .xroot .xrm:hover{opacity:1; color:var(--accent-ink)}
   /* AI-58: per-folder sort control — hover-reveal like ×; sits left of ×, pushed
      to the right edge by margin-left:auto. Stays faintly visible when the folder
      is on the non-default 'mtime' mode, so the current sort is discoverable. */
   .xsort{margin-left:auto; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
     color:var(--subtle); opacity:0; padding:0 3px; border-radius:4px; cursor:pointer}
   .xroot:hover .xsort, .xsect:hover .xsort, .xrow:hover .xsort{opacity:.7}
-  .xsort:hover{opacity:1; color:var(--accent)}
+  .xsort:hover{opacity:1; color:var(--accent-ink)}
   /* the currently-selected sort option in the menu reads accent */
-  .ctxitem.on{color:var(--accent); font-weight:600}
+  .ctxitem.on{color:var(--accent-ink); font-weight:600}
 
   /* ── right-click context menu ── */
   .ctx{position:fixed; z-index:50; min-width:176px; background:var(--surface-1); border:1px solid var(--line);
