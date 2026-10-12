@@ -1,4 +1,4 @@
-import { resolveGlassTheme } from './themeResolve';
+import { resolveGlassTheme, shouldSyncToWorkbench } from './themeResolve';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -276,7 +276,7 @@ export async function toggleTheme(mode: 'dark' | 'light'): Promise<void> {
 export async function syncGlassToWorkbench(): Promise<void> {
   const t = workbenchThemeName();
   const mode = t === AIOS_WORKBENCH_THEME.dark ? 'dark' : t === AIOS_WORKBENCH_THEME.light ? 'light' : undefined;
-  if (!mode || currentTheme() === mode) return;
+  if (!shouldSyncToWorkbench(themePref(), mode, currentTheme())) return;   // never overwrites `auto`
   await vscode.workspace.getConfiguration('aiosGlass').update('theme', mode, vscode.ConfigurationTarget.Global);
 }
 

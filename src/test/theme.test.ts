@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { resolveGlassTheme } from '../home/themeResolve';
+import { resolveGlassTheme, shouldSyncToWorkbench } from '../home/themeResolve';
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -33,4 +33,13 @@ test('both Glass webviews repaint when the editor theme changes', () => {
   const files = fs.readFileSync(path.join(ROOT, 'src', 'files', 'filesView.ts'), 'utf8');
   assert.match(ext, /onDidChangeActiveColorTheme\(\(\) => \{ if \(themePref\(\) === 'auto'\) HomeViewProvider\.current\?\.refresh\(\); \}\)/);
   assert.match(files, /onDidChangeActiveColorTheme\(\(\) => this\.post\(\{ type: 'theme', theme: currentTheme\(\) \}\)\)/);
+});
+
+test('review nit: an editor theme change never overwrites auto, whatever order the events arrive in', () => {
+  // The stale read: colorTheme is already AIOS Light, activeColorTheme still resolves dark.
+  assert.equal(shouldSyncToWorkbench('auto', 'light', 'dark'), false, 'auto stays auto');
+  assert.equal(shouldSyncToWorkbench(undefined, 'light', 'dark'), false, 'unset = auto');
+  assert.equal(shouldSyncToWorkbench('dark', 'light', 'dark'), true, 'an explicit pick follows the AIOS editor theme');
+  assert.equal(shouldSyncToWorkbench('light', 'light', 'light'), false, 'no-op write skipped');
+  assert.equal(shouldSyncToWorkbench('dark', undefined, 'dark'), false, 'a non-AIOS editor theme is never followed');
 });
