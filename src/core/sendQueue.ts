@@ -334,6 +334,19 @@ export function queueTurn(me: QueuedSend, held: readonly QueuedSend[]): QueueTur
 }
 
 /**
+ * The older holds `me` replaces (same target, same `from`, queued earlier). The NEWER message retires
+ * them itself, just before it types. Measured on aiostest (0.11.0 test 6.4): supersession used to be
+ * decided only by the OLDER message's own check, so when the newer one was delivered and removed
+ * first, the older one found nothing newer and was delivered too — a stale brief, after its own
+ * correction. Retiring them at the moment the replacement goes out makes it independent of timing.
+ */
+export function supersedes(me: QueuedSend, held: readonly QueuedSend[]): QueuedSend[] {
+  if (!me.from) return [];
+  const order = (a: QueuedSend, b: QueuedSend) => a.queuedAt - b.queuedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  return held.filter((h) => h.key !== me.key && h.target === me.target && h.from === me.from && order(h, me) < 0);
+}
+
+/**
  * AI-205 — WHEN A REQUEST FIRST QUEUED, stamped once and never moved. `_claim.at` is re-stamped
  * whenever a surface adopts or re-claims a hold (an App restart, a sibling hand-back), so ordering
  * by it let a stale message overtake its own correction: A at 10:00, correction B at 10:20, the App

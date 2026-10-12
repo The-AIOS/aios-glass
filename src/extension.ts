@@ -1,6 +1,6 @@
 import { settingsToFile } from './bus/advisorFile';
 import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
-import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, type QueuedSend } from './core/sendQueue';
+import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
@@ -1113,7 +1113,17 @@ export function activate(context: vscode.ExtensionContext): void {
           await sleep(2000);
           continue;
         }
+        /* Going out: retire every older message this one replaces NOW, rather than trusting each of
+           them to notice later (0.11.0 test 6.4 — the older one checked after this was delivered and
+           removed, found nothing newer, and went out too). */
+        for (const old of supersedes({ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt }, heldSends())) {
+          archiveSuperseded(path.join(spawnInboxDir, old.key), myKey);
+          log(`spawn-inbox: retired ${old.key} — superseded by ${myKey}`);
+        }
       }
+      /* A hold that vanished before its first type was retired by a newer message (above, on either
+         surface) — it must not be delivered. */
+      if (myKey && !firstTypedAt && heldPath && !fs.existsSync(heldPath)) return 'superseded';
       // deliver — but if the target's terminal isn't in THIS window, a sibling window may
       // hold it: report that distinctly so the caller can hand the request back instead of
       // condemning a message another window could have delivered.
@@ -1278,14 +1288,15 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   /* Review nit: a superseded message is ARCHIVED with what replaced it, never silently deleted —
      a deletion reads exactly like a delivery to the sender. Old records are pruned after a week. */
-  const archiveSuperseded = (held: string): void => {
+  const archiveSuperseded = (held: string, by?: string): void => {
+    if (!fs.existsSync(held)) return;   // already retired by the message that replaced it
     try {
       const dir = path.join(spawnInboxDir, '_archive');
       fs.mkdirSync(dir, { recursive: true });
       const dest = path.join(dir, supersededName(path.basename(held)));
-      fs.writeFileSync(dest, JSON.stringify(supersededBody(readJson(held) ?? {}, lastSupersededBy, MY_SURFACE, Date.now()), null, 2) + '\n');
+      fs.writeFileSync(dest, JSON.stringify(supersededBody(readJson(held) ?? {}, by ?? lastSupersededBy, MY_SURFACE, Date.now()), null, 2) + '\n');
       fs.unlinkSync(held);
-      log(`spawn-inbox: archived ${path.basename(dest)} — superseded by ${lastSupersededBy || 'a newer message'}`);
+      log(`spawn-inbox: archived ${path.basename(dest)} — superseded by ${by ?? (lastSupersededBy || 'a newer message')}`);
       for (const n of fs.readdirSync(dir)) {
         if (!n.endsWith(SUPERSEDED_SUFFIX)) continue;
         try { if (Date.now() - fs.statSync(path.join(dir, n)).mtimeMs > SUPERSEDED_KEEP_MS) fs.unlinkSync(path.join(dir, n)); } catch { /* gone */ }

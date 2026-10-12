@@ -1,5 +1,5 @@
 /**
- * AI-171 step 1 — "used: deep-research". Which skills and agents a session actually used, read from
+ * AI-171 step 1 — "used: deep-research". Which skills and agents a session used IN ITS LATEST TURN, read from
  * its transcript, so the session row can show it: the cheapest way to teach an operator that the
  * skills and agents exist is to show them working on their own request. Shared core (both surfaces).
  *
@@ -12,8 +12,26 @@ export interface ToolUsage { skills: string[]; agents: string[] }
 /** Generic workers say nothing about a capability the operator could learn to ask for. */
 const GENERIC_AGENTS = new Set(['general-purpose', 'claude', 'fork']);
 
+/** A record that is the operator (or the bus) asking something new — not a tool result, not a meta
+ *  or sidechain record. Starts a new turn. */
+function isNewPrompt(rec: { type?: string; isMeta?: boolean; isSidechain?: boolean; message?: { role?: string; content?: unknown } }): boolean {
+  if (rec.isMeta || rec.isSidechain) return false;
+  if (rec.type !== 'user' && rec.message?.role !== 'user') return false;
+  const c = rec.message?.content;
+  if (typeof c === 'string') return c.trim() !== '';
+  return Array.isArray(c) && c.some((b) => (b as { type?: string })?.type === 'text') && !c.some((b) => (b as { type?: string })?.type === 'tool_result');
+}
+
+/* THE LATEST TURN, not the session's history (operator test: "used skill never leaves"). The chip
+   answers "what did it use for what I just asked?" — so a new prompt clears it, and a turn that used
+   nothing shows nothing. Incremental callers keep `into` across chunks, so the reset carries over. */
 export function usageIn(jsonl: string, into: ToolUsage = { skills: [], agents: [] }): ToolUsage {
   for (const line of String(jsonl ?? '').split('\n')) {
+    if (line.includes('"user"') && !line.includes('"tool_result"') && !line.includes('"tool_use"')) {
+      let rec: Parameters<typeof isNewPrompt>[0] | undefined;
+      try { rec = JSON.parse(line); } catch { /* torn */ }
+      if (rec && isNewPrompt(rec)) { into.skills.length = 0; into.agents.length = 0; continue; }
+    }
     if (!line.includes('"tool_use"') || !(line.includes('"name":"Skill"') || line.includes('"name":"Agent"'))) continue;
     let rec: { message?: { content?: unknown } };
     try { rec = JSON.parse(line); } catch { continue; }

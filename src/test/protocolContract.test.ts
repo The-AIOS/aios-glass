@@ -534,7 +534,7 @@ test('PROTOCOL: presence ownership is byte-identical across both surfaces', () =
    was simply more informative on one side), but harmless-by-luck is not a property you can keep.
    The file could not be pinned before because MY_SURFACE lived in it — the one value that MUST
    differ per surface. It now lives beside each surface's own code, and the rest is pinned whole. */
-const SENDQUEUE_SHA = '3d1c4e2cef811062';
+const SENDQUEUE_SHA = '18f81689beeae4a6';
 
 test('PROTOCOL: the bus decisions are byte-identical across both fulfillers', () => {
   const src = fs.readFileSync('src/core/sendQueue.ts', 'utf8');

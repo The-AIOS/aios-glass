@@ -335,3 +335,23 @@ test('should-fix 11: a resume to a LIVE session is a queued delivery — it wait
   assert.equal(queueTurn11(held[1], held).do, 'wait', 'the send waits behind the resume');
   assert.equal(queueTurn11(held[0], held).do, 'go', 'the resume goes first');
 });
+
+import { supersedes as supersedes64, queueTurn as queueTurn64 } from '../core/sendQueue';
+test('operator test 6.4: a correction retires the older message itself, whatever order the checks run in', () => {
+  // The run that failed: an older RESUME (prompt) and a newer SEND, same sender, same busy target.
+  const older = { key: 'q-resume.json.holding', target: 'stamp-target', from: 'bus-tester', queuedAt: 1000 };
+  const newer = { key: 'q-send.json.holding', target: 'stamp-target', from: 'bus-tester', queuedAt: 21000 };
+  const inbox = new Set([older.key, newer.key]);
+  const held = () => [older, newer].filter((h) => inbox.has(h.key));
+  // The target goes idle and the NEWER checks first (the order that broke it).
+  assert.equal(queueTurn64(newer, held()).do, 'go', 'the correction goes');
+  for (const o of supersedes64(newer, held())) inbox.delete(o.key);   // retired before it types
+  assert.equal(inbox.has(older.key), false, 'the older message is gone before the correction is typed');
+  inbox.delete(newer.key);                                            // delivered, verified, removed
+  // The older one's own check now runs: its file is gone, so it is never delivered (both surfaces
+  // test existence before their first type). Before the fix it saw no newer message and went out.
+  assert.equal(inbox.has(older.key), false);
+  assert.deepEqual(supersedes64({ ...newer, from: undefined }, [older, newer]), [], 'without a sender nothing is superseded');
+  assert.deepEqual(supersedes64(newer, [{ ...older, from: 'someone-else' }]), [], 'another sender\'s message is never retired');
+  assert.deepEqual(supersedes64(older, [older, newer]), [], 'an older message never retires a newer one');
+});
