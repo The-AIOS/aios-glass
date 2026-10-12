@@ -27,9 +27,10 @@
     --line:#e3e3dd; --ink:#0c0c0d; --muted:#52525b; --subtle:#5a5a62;
     --accent:#ff5d4d; --accent-glow:rgba(255,93,77,.12); --accent-soft:#d6402c; --accent-line:rgba(214,64,44,.5);
     --ok:#1f9d57; --testing:#7c4fc4;
-    /* The App's values: white on #d63a2a is 4.67:1 (hover darker, 5.32:1 — never lighter); coral
-       text #c2342a passes on every light surface. The bright --accent stays for marks and rings. */
-    --accent-fill:#d63a2a; --accent-fill-hover:#c8331f; --accent-ink:#c2342a;
+    /* Operator decision (0.11.0, after seeing it): the brand coral, as in 0.5.10. A darker fill and
+       ink were tried because the bright coral MEASURES below 4.5:1 in light — a computed finding,
+       not a reported one — and read as off-brand. The tokens stay, matching the App. */
+    --accent-fill:var(--accent); --accent-fill-hover:var(--accent-soft); --accent-ink:var(--accent);
     --glass-top:rgba(255,255,255,.85); --glass-top-strong:rgba(255,255,255,1);
     --shadow-card:0 8px 22px -16px rgba(15,15,20,.22); --shadow-card-hover:0 12px 28px -14px rgba(15,15,20,.26);
     /* white text on the coral CTA in light — reads as a brighter, more "button"-like
