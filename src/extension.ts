@@ -1,4 +1,5 @@
 import { settingsToFile } from './bus/advisorFile';
+import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
 import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
@@ -894,7 +895,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       "**A slash command is typed ONCE, never re-typed.** Retry only pays when a verification miss is EVIDENCE of a failed send, and for a command the CLI handles client-side it is not: measured 2026-08-14, `/help` was delivered (the operator watched the menu appear) while the transcript recorded **zero** user turns containing the marker, so verification failed for a delivery that had plainly succeeded and the command was typed **three times**. The class is not uniform — `/config` *does* write a `<command-name>` record, `/help` does not, and nothing outside the CLI can tell which — so the rule is per-shape: any prompt matching `/^\\s*\\/[^\\s\\/]/` gets one attempt and is then WAITED on for the full hold budget. Waiting still catches a command that verifies late; re-typing catches neither and shows the operator a duplicate. Consequence accepted deliberately: a plain-text prompt that begins with `/` (a file path) also gets one attempt, so if it were dropped it dead-letters loudly instead of retrying — the safe direction.",
       '',
-      '**A busy session is waited on, in order (AI-205).** A `send` is never typed into a busy session; it waits for the next idle, however long (up to 24 h), and is typed with its age — `[queued 47 min ago by <from>]` — when it waited over 2 min (never on a slash command). Several sends to one session go oldest first, and a newer send from the same `from` replaces an older one still waiting.',
+      '**A busy session is waited on, in order (AI-205).** A `send` is never typed into a busy session; it waits for the next idle, however long (up to 24 h), and is typed with its age — `[queued 47 min ago by <from>]` — when it waited over 2 min (never on a slash command). Several sends to one session go oldest first, and a newer send from the same `from` replaces an older one still waiting. The replaced one is not deleted: it is moved to `_archive/<name>.json.superseded`, naming what replaced it (kept 7 days).',
       '',
       "**Spawn where you already live.** An unaddressed request goes to whichever surface wins the race, so `spawn` could open your worker in the *other* product — measured 2026-08-14: a request written from an IDE session was fulfilled by the App, and the session appeared in a pane instead of the IDE terminal the requester meant. For `send`/`kill` a mis-race self-corrects (the wrong surface hands it back), but a spawned session lands where it lands.",
       '',
@@ -1041,6 +1042,7 @@ export function activate(context: vscode.ExtensionContext): void {
      A dead letter is read by a human hours later and its reason IS the payload; a reason that
      describes the wrong failure sends them hunting for a delivery that never happened. */
   let lastSendReason = '';
+  let lastSupersededBy = '';
   /* `releases` was a parameter here purely to feed decideAfterVerifyMiss. That branch is gone
      (an already-typed message must never be handed on), so the parameter is gone too — a
      parameter nothing reads is a claim that something does. The sibling handoff still exists,
@@ -1102,6 +1104,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!firstTypedAt && myKey) {
         const turn = queueTurn({ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt }, heldSends());
         if (turn.do === 'superseded') {
+          lastSupersededBy = turn.by;
           log(`spawn-inbox: send → '${name}' SUPERSEDED by a newer message from '${sendFrom}' (${turn.by}) — not delivering the older one`);
           return 'superseded';
         }
@@ -1273,6 +1276,22 @@ export function activate(context: vscode.ExtensionContext): void {
       return true;
     } catch { return false; }
   };
+  /* Review nit: a superseded message is ARCHIVED with what replaced it, never silently deleted —
+     a deletion reads exactly like a delivery to the sender. Old records are pruned after a week. */
+  const archiveSuperseded = (held: string): void => {
+    try {
+      const dir = path.join(spawnInboxDir, '_archive');
+      fs.mkdirSync(dir, { recursive: true });
+      const dest = path.join(dir, supersededName(path.basename(held)));
+      fs.writeFileSync(dest, JSON.stringify(supersededBody(readJson(held) ?? {}, lastSupersededBy, MY_SURFACE, Date.now()), null, 2) + '\n');
+      fs.unlinkSync(held);
+      log(`spawn-inbox: archived ${path.basename(dest)} — superseded by ${lastSupersededBy || 'a newer message'}`);
+      for (const n of fs.readdirSync(dir)) {
+        if (!n.endsWith(SUPERSEDED_SUFFIX)) continue;
+        try { if (Date.now() - fs.statSync(path.join(dir, n)).mtimeMs > SUPERSEDED_KEEP_MS) fs.unlinkSync(path.join(dir, n)); } catch { /* gone */ }
+      }
+    } catch { try { fs.unlinkSync(held); } catch { /* already gone */ } }
+  };
   const releaseRequest = (held: string, undelivered: boolean, why?: string): void => {
     try {
       if (undelivered) {
@@ -1386,7 +1405,8 @@ export function activate(context: vscode.ExtensionContext): void {
         })();
         const spent = raw;
         const outcome = await deliverSend(name, prompt, from, held);
-        if (outcome === 'verified' || outcome === 'superseded') { releaseRequest(held, false); }
+        if (outcome === 'verified') { releaseRequest(held, false); }
+        else if (outcome === 'superseded') { archiveSuperseded(held); }
         else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
           releaseRequest(held, true, outcome === 'no-terminal'
@@ -1406,7 +1426,8 @@ export function activate(context: vscode.ExtensionContext): void {
           /* Through the queue, like a send (review should-fix 11): passing the held file is what
              makes it wait its turn, be superseded by a newer correction, and carry its age. */
           const outcome = await deliverSend(name, prompt, from, held);
-          if (outcome === 'verified' || outcome === 'superseded') { releaseRequest(held, false); }
+          if (outcome === 'verified') { releaseRequest(held, false); }
+          else if (outcome === 'superseded') { archiveSuperseded(held); }
           else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back */ }
           else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
           return;

@@ -40,6 +40,6 @@ test('AI-205: Glass waits for the next idle, in order, superseding, aged — and
   assert.match(ext, /const turn = queueTurn\(\{ key: myKey, target: name, from: sendFrom, queuedAt: myQueuedAt \}, heldSends\(\)\);/);
   assert.match(ext, /if \(!firstTypedAt\) text = stampAge\(deliverText\.text, Date\.now\(\) - myQueuedAt, sendFrom\);/);
   assert.match(ext, /heldMs: Date\.now\(\) - firstTypedAt,/);
-  assert.match(ext, /if \(outcome === 'verified' \|\| outcome === 'superseded'\) \{ releaseRequest\(held, false\); \}/, 'a superseded message is retired quietly, not dead-lettered');
+  assert.match(ext, /else if \(outcome === 'superseded'\) \{ archiveSuperseded\(held\); \}/, 'a superseded message is archived with what replaced it — not dead-lettered, not silently deleted');
   assert.match(ext, /QUEUE_CEILING_MS 24 h/, 'the README timings say so');
 });
