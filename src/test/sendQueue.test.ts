@@ -321,3 +321,17 @@ test('AI-170: a plain message still verifies by user turns only, and a command i
   const custom = [user('<command-name>/aios:today</command-name>', '2026-10-11T00:00:05Z')].join('\n');
   assert.equal(countDeliveries(custom, '/aios:today', '/aios:today', t0), 1, 'a custom command lands as a user turn: max(), not sum');
 });
+
+import { isQueuedDelivery, queueTurn as queueTurn11 } from '../core/sendQueue';
+test('should-fix 11: a resume to a LIVE session is a queued delivery — it waits its turn and is waited on', () => {
+  assert.equal(isQueuedDelivery('send', { name: 'w' }), true);
+  assert.equal(isQueuedDelivery('resume', { name: 'w', prompt: 'carry on' }), true, 'a resume with a prompt delivers like a send');
+  assert.equal(isQueuedDelivery('resume', { name: 'w' }), false, 'a resume with nothing to say types nothing');
+  assert.equal(isQueuedDelivery('resume', { name: 'w', prompt: '   ' }), false);
+  assert.equal(isQueuedDelivery('spawn', { name: 'w', task: 'x' }), false);
+  assert.equal(isQueuedDelivery('send', {}), false, 'no target, no line');
+  // An older resume-with-prompt to w is ahead of a newer send to w from someone else.
+  const held = [{ key: 'r.json.holding', target: 'w', from: 'buddai', queuedAt: 1000 }, { key: 's.json.holding', target: 'w', from: 'canonical', queuedAt: 2000 }];
+  assert.equal(queueTurn11(held[1], held).do, 'wait', 'the send waits behind the resume');
+  assert.equal(queueTurn11(held[0], held).do, 'go', 'the resume goes first');
+});

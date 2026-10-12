@@ -350,6 +350,15 @@ export function queuedAtOf(body: Record<string, unknown> | undefined, fallbackMs
   return typeof q === 'number' && q > 0 ? q : fallbackMs;
 }
 
+/** Review should-fix 11 — which holds are IN LINE for a target. A `send`, and a `resume` that
+ *  carries a prompt: when its target is already live, resume delivers that prompt exactly like a
+ *  send, so it must wait its turn and be waited on. Takes the verb already normalized. */
+export function isQueuedDelivery(verb: string, body: Record<string, unknown>): boolean {
+  if (typeof body.name !== 'string' || !body.name) return false;
+  if (verb === 'send') return true;
+  return verb === 'resume' && typeof body.prompt === 'string' && body.prompt.trim() !== '';
+}
+
 /** AI-205 — a message that waited is typed with its age, so the receiver knows it is not fresh.
  *  Not for a slash command, which a prefix would turn into plain text. */
 export const AGE_STAMP_AFTER_MS = 2 * 60 * 1000;

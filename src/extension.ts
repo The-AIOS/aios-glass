@@ -1,5 +1,5 @@
 import { settingsToFile } from './bus/advisorFile';
-import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, type QueuedSend } from './core/sendQueue';
+import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
@@ -1025,7 +1025,7 @@ export function activate(context: vscode.ExtensionContext): void {
     for (const n of names) {
       try {
         const b = JSON.parse(fs.readFileSync(path.join(spawnInboxDir, n), 'utf8')) as Record<string, unknown>;
-        if (normalizeVerbQ(b.action) !== 'send' || typeof b.name !== 'string') continue;
+        if (!isQueuedDelivery(normalizeVerbQ(b.action), b) || typeof b.name !== 'string') continue;   // sends + resume-to-live (should-fix 11)
         const claim = parseClaimQ(b._claim);
         /* A hold whose holder is DEAD is not in line (review should-fix 8): it would block its
            target until someone adopts it. The periodic sweep below adopts and delivers it. */
@@ -1402,8 +1402,10 @@ export function activate(context: vscode.ExtensionContext): void {
           await revealAgentTerminal(name, live.pid);
           log(`spawn-inbox: resume '${name}' — already running, revealing and delivering${c4.effort || c4.advisor ? ' (effort/advisor NOT applied: a running session cannot change them)' : ''}`);
           if (!prompt) { releaseRequest(held, false); return; }
-          const outcome = await deliverSend(name, prompt, from);
-          if (outcome === 'verified') { releaseRequest(held, false); }
+          /* Through the queue, like a send (review should-fix 11): passing the held file is what
+             makes it wait its turn, be superseded by a newer correction, and carry its age. */
+          const outcome = await deliverSend(name, prompt, from, held);
+          if (outcome === 'verified' || outcome === 'superseded') { releaseRequest(held, false); }
           else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back */ }
           else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
           return;
