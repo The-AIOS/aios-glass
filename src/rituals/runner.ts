@@ -436,7 +436,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
  * tmp+rename, so concurrent writers can only lose a little incremental work, never corrupt it.
  */
 const resumeIndex = new ResumeIndex(
-  path.join(os.homedir(), '.claude', 'projects'),
+  path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects'),   // review 18: honour CLAUDE_CONFIG_DIR
   path.join(os.homedir(), '.aios', 'resume-index.json'),
 );
 export function resumeIdFor(name: string, excludeSessionId?: string): Promise<string | undefined> {

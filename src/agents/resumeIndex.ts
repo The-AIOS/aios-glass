@@ -35,6 +35,8 @@ const CHUNK = 1 << 20;
 const POOL = 8;
 /** Persist progress this often during a long cold build, so a quit does not cost the work. */
 const SAVE_EVERY = 500;
+/** Stats in flight at once while listing — parallel, but bounded so a huge tree cannot exhaust fds. */
+const STAT_BATCH = 64;
 
 export interface IndexEntry {
   sessionId: string;
@@ -121,19 +123,24 @@ export class ResumeIndex {
   private async listing(): Promise<{ items: { f: string; mtimeMs: number; size: number }[]; unreadable: Set<string> | 'all' }> {
     const out: { f: string; mtimeMs: number; size: number }[] = [];
     const unreadable = new Set<string>();
-    let dirs: string[] = [];
-    try { dirs = await fs.promises.readdir(this.base); } catch { return { items: out, unreadable: 'all' }; }
+    /* Review should-fix 18: a lookup used to stat every transcript ONE AT A TIME — thousands of
+       serial round-trips before a resume could answer. Entries now come with their type (no stat to
+       tell a folder from a file), and the stats run in parallel batches. */
+    let dirs: fs.Dirent[] = [];
+    try { dirs = await fs.promises.readdir(this.base, { withFileTypes: true }); } catch { return { items: out, unreadable: 'all' }; }
+    const files: string[] = [];
     for (const d of dirs) {
-      let entries: string[] = [];
-      try { entries = await fs.promises.readdir(path.join(this.base, d)); } catch { unreadable.add(path.join(this.base, d)); continue; }
-      for (const e of entries) {
-        if (!e.endsWith('.jsonl')) continue;
-        const f = path.join(this.base, d, e);
-        try {
-          const st = await fs.promises.stat(f);
-          out.push({ f, mtimeMs: st.mtimeMs, size: st.size });
-        } catch { /* vanished between readdir and stat */ }
-      }
+      if (!d.isDirectory()) continue;
+      let entries: fs.Dirent[] = [];
+      try { entries = await fs.promises.readdir(path.join(this.base, d.name), { withFileTypes: true }); } catch { unreadable.add(path.join(this.base, d.name)); continue; }
+      for (const e of entries) if (e.isFile() && e.name.endsWith('.jsonl')) files.push(path.join(this.base, d.name, e.name));
+    }
+    for (let i = 0; i < files.length; i += STAT_BATCH) {
+      const batch = await Promise.all(files.slice(i, i + STAT_BATCH).map(async (f) => {
+        try { const st = await fs.promises.stat(f); return { f, mtimeMs: st.mtimeMs, size: st.size }; }
+        catch { return undefined; /* vanished between readdir and stat */ }
+      }));
+      for (const it of batch) if (it) out.push(it);
     }
     return { items: out.sort((a, b) => b.mtimeMs - a.mtimeMs), unreadable };
   }
