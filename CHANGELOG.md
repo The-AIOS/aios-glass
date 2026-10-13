@@ -13,13 +13,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Theme `auto`, now the default.** The Home and Files panels follow the editor's light or dark theme, live as it changes (⌘K⌘T, or the OS through `window.autoDetectColorScheme`). Before, VS Code's stock Light Modern showed a dark Home panel. Picking with the sun/moon still stores your choice.
 - **Every bus message carries its provenance.** Before typing a `send`, a bus `spawn`'s first prompt or a bus `resume`, Glass records the text's fingerprint in `~/.aios/bus-sent.jsonl`, in canonical `bus_log.py`'s format, so the provenance hook labels it as delivered rather than typed. The fingerprint is ported from `bus_log.py` and pinned by test vectors generated from it.
-- **Inbox contract 4 (Glass half).** `from` (send/resume) is recorded with the delivery; a resume accepts `effort` and `advisor`; an invalid field is dead-lettered naming it. A spawn asking for effort or an advisor is refused with a reason until the `spawn` wrapper gains those flags (AIOS v0.8.9), so a worker never starts without what it was asked for. Canonical's conformance fixture passes case by case.
+- **Inbox contract 4 (Glass half).** `from` (send/resume) is recorded with the delivery; a spawn or resume honours `effort` and `advisor` (through the `spawn` wrapper's `--effort` / `--advisor`, AIOS v0.8.9, with the advisor passed as a settings file); an invalid field is dead-lettered naming it. Canonical's conformance fixture passes case by case.
 
 - **A message to a busy session waits for it.** A `send` to a live but busy session now waits for its next idle (up to 24 h) instead of dying at 30 min; messages to one session go oldest first, a newer one from the same `from` replaces an older one still waiting, and a late one is typed with its age. Shared core with the App, with a conformance fixture both run.
 - **`resume` finds a named session of any age.** Glass uses the App's index of every transcript (one file, hash-pinned in both repos) instead of the 60 newest.
-- **Session rows say which skills and agents a session used** ("· used: deep-research +2"; every name on hover).
+- **Session rows say which skills and agents a session used in its latest turn** ("· used: deep-research +2"; every name on hover; a new prompt clears it).
+- **A message reaches a session whatever its name's case** (`Market-desk` from `market-desk`): an exact match wins, else the one live session with the same handle; ambiguous or shell-unsafe names are refused. (Idea from aios-app#58.)
+- **A superseded message leaves a record** in `_archive/<name>.json.superseded`, naming what replaced it, instead of vanishing.
+- **Spanish and Portuguese** for the update badge (al día · actualización disponible · probando) and the "used" chip.
 
 ### Fixed
+- **A correction can no longer be followed by the message it replaced.** The newer message now retires the older one before it is typed (found on a real install: both were delivered when the newer went first). Queue order also survives an adoption after a restart (`_queuedAt`), and a resume to a live session waits in the same queue.
+- **An editor theme change never overwrites `auto`** (the event order could pin it to dark or light).
+- **The skills/agents reader no longer blocks the extension host** (async, bounded per tick, pruned).
 - **A `/remote-control` send no longer ends as a false dead letter.** A built-in slash command writes a `local_command` record, never a user turn, so it could not verify and was reported as undelivered after 30 minutes. It now verifies by the record it really writes.
 
 ## [0.5.10] — 2026-09-25
