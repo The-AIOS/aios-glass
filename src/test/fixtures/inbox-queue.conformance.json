@@ -1,0 +1,201 @@
+{
+ "contract": 4,
+ "amendment": "AI-205 \u2014 a send waits for its target's next idle, in order, newer-from-same-sender supersedes, aged",
+ "status": "proposed to canonical; run by both surfaces",
+ "cases": [
+  {
+   "case": "a live busy target is held past 30 min (the old death)",
+   "decideSend": {
+    "target": {
+     "name": "aios-app",
+     "status": "busy",
+     "pid": 1
+    },
+    "heldMs": 18000000
+   },
+   "expect": "hold"
+  },
+  {
+   "case": "a gone target is undeliverable at once",
+   "decideSend": {
+    "target": null,
+    "heldMs": 1000
+   },
+   "expect": "undeliverable"
+  },
+  {
+   "case": "past the 24 h ceiling it is finally undeliverable",
+   "decideSend": {
+    "target": {
+     "name": "aios-app",
+     "status": "busy",
+     "pid": 1
+    },
+    "heldMs": 90000000
+   },
+   "expect": "undeliverable"
+  },
+  {
+   "case": "oldest goes first",
+   "queue": {
+    "me": {
+     "key": "b",
+     "target": "w",
+     "queuedAt": 2000
+    },
+    "held": [
+     {
+      "key": "a",
+      "target": "w",
+      "queuedAt": 1000
+     }
+    ]
+   },
+   "expect": {
+    "do": "wait",
+    "behind": "a"
+   }
+  },
+  {
+   "case": "another target does not block",
+   "queue": {
+    "me": {
+     "key": "b",
+     "target": "w",
+     "queuedAt": 2000
+    },
+    "held": [
+     {
+      "key": "a",
+      "target": "other",
+      "queuedAt": 1000
+     }
+    ]
+   },
+   "expect": {
+    "do": "go"
+   }
+  },
+  {
+   "case": "a newer message from the same sender supersedes an older one",
+   "queue": {
+    "me": {
+     "key": "a",
+     "target": "w",
+     "from": "buddai",
+     "queuedAt": 1000
+    },
+    "held": [
+     {
+      "key": "b",
+      "target": "w",
+      "from": "buddai",
+      "queuedAt": 2000
+     }
+    ]
+   },
+   "expect": {
+    "do": "superseded",
+    "by": "b"
+   }
+  },
+  {
+   "case": "the superseding one does not wait behind the one it replaces",
+   "queue": {
+    "me": {
+     "key": "b",
+     "target": "w",
+     "from": "buddai",
+     "queuedAt": 2000
+    },
+    "held": [
+     {
+      "key": "a",
+      "target": "w",
+      "from": "buddai",
+      "queuedAt": 1000
+     }
+    ]
+   },
+   "expect": {
+    "do": "go"
+   }
+  },
+  {
+   "case": "different senders keep order, nothing superseded",
+   "queue": {
+    "me": {
+     "key": "b",
+     "target": "w",
+     "from": "x",
+     "queuedAt": 2000
+    },
+    "held": [
+     {
+      "key": "a",
+      "target": "w",
+      "from": "y",
+      "queuedAt": 1000
+     }
+    ]
+   },
+   "expect": {
+    "do": "wait",
+    "behind": "a"
+   }
+  },
+  {
+   "case": "no from, no supersession",
+   "queue": {
+    "me": {
+     "key": "a",
+     "target": "w",
+     "queuedAt": 1000
+    },
+    "held": [
+     {
+      "key": "b",
+      "target": "w",
+      "queuedAt": 2000
+     }
+    ]
+   },
+   "expect": {
+    "do": "go"
+   }
+  },
+  {
+   "case": "a message that waited 47 min is stamped with its age and sender",
+   "stamp": {
+    "text": "review the deck",
+    "waitedMs": 2820000,
+    "from": "buddai"
+   },
+   "expect": "[queued 47 min ago by buddai] review the deck"
+  },
+  {
+   "case": "a fresh message is not stamped",
+   "stamp": {
+    "text": "review the deck",
+    "waitedMs": 30000
+   },
+   "expect": "review the deck"
+  },
+  {
+   "case": "a slash command is never stamped",
+   "stamp": {
+    "text": "/remote-control",
+    "waitedMs": 10800000
+   },
+   "expect": "/remote-control"
+  },
+  {
+   "case": "hours read as hours",
+   "stamp": {
+    "text": "go",
+    "waitedMs": 10800000
+   },
+   "expect": "[queued 3 h ago] go"
+  }
+ ]
+}

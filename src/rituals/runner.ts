@@ -1,3 +1,4 @@
+import { ResumeIndex } from '../agents/resumeIndex';
 import * as vscode from 'vscode';
 import { AiosCommand, discoverCommands, expandHome, resolveCommandsDir } from '../aios/commands';
 import * as path from 'path';
@@ -6,6 +7,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
+import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
@@ -289,7 +291,7 @@ export async function runRitualPicker(): Promise<void> {
 // ── Always-new actions ────────────────────────────────────────────────────
 
 /** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
-export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string }): Promise<void> {
+export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string; bus?: boolean; effort?: string; advisorModel?: string }): Promise<void> {
   // Icon comes from the agent's own context (declared frontmatter `icon:`, else
   // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
   // a graph, etc. Builder keeps a distinct amber tab.
@@ -302,7 +304,14 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   // concrete --model wins over --tier (matches the shell wrapper's own precedence).
   let flag = '';
   if (opts?.model && /^[A-Za-z0-9.\-]+$/.test(opts.model)) { flag = `--model ${opts.model} `; }
-  else if (opts?.tier === 'mechanical' || opts?.tier === 'judgment') { flag = `--tier ${opts.tier} `; }
+  /* Every rung the wrapper knows. This listed only mechanical and judgment, so a request for
+     `scale`, `fast` or `frontier` was SILENTLY dropped and the worker ran on the default model. */
+  else if (opts?.tier && /^(frontier|judgment|scale|fast|mechanical)$/.test(opts.tier)) { flag = `--tier ${opts.tier} `; }
+  /* Contract 4 through the wrapper's own flags (canonical v0.8.9): it writes the advisor settings
+     to a unique file and appends the consult instruction. The advisor arrives as a MODEL ID,
+     resolved from the contract's table, so the wrapper never maps `judgment` to "default". */
+  if (opts?.effort && /^(low|medium|high|xhigh|max)$/.test(opts.effort)) flag += `--effort ${opts.effort} `;
+  if (opts?.advisorModel && /^[A-Za-z0-9._[\]-]{1,80}$/.test(opts.advisorModel)) flag += `--advisor ${shellQuote(opts.advisorModel)} `;
   // Task transport hardening: launchSpawn TYPES the spawn command into a terminal
   // (runNew → sendText). A task with embedded newlines is typed as many Enter
   // presses, and a large body floods the integrated terminal — either can crash the
@@ -331,6 +340,8 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       return;
     }
   }
+  // AI-172: a bus spawn's first prompt is bus-typed — record exactly what the worker receives.
+  if (opts?.bus && inlineTask) recordTyped(inlineTask, name, 'spawn');
   runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color });
 }
 
@@ -384,7 +395,7 @@ export async function launchPrimary(name: string): Promise<void> {
  * NO `--name`, NO `--model`. A resume inherits both from the session it reopens; passing either
  * would re-name or re-pin the very identity the verb exists to preserve.
  */
-export async function launchResumeSession(name: string, sessionId: string, prompt?: string): Promise<void> {
+export async function launchResumeSession(name: string, sessionId: string, prompt?: string, bus = false, extraArgs: string[] = [], from?: string): Promise<void> {
   const agent = discoverAgents().find((a) => a.name === name);
   const icon = iconForAgent(agent ?? { name });
   /* Same task-transport hardening as launchSpawn, for the same reason: this TYPES the command
@@ -409,44 +420,31 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   }
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
-  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${inline ? ` ${shellQuote(inline)}` : ''}`,
+  if (bus && inline) recordTyped(inline, name, 'resume', from);   // AI-172
+  const extra = extraArgs.map((a) => ` ${shellQuote(a)}`).join('');   // contract 4: --effort / --settings
+  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${extra}${inline ? ` ${shellQuote(inline)}` : ''}`,
     { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
 
 /**
- * Which session does a name resume to? Scans transcripts newest-first and stops at the first
- * match. The RULE is pure and shared with the App (core/resumeTarget); only the reading is here.
- *
- * BOUNDED ON PURPOSE — transcripts are large and there can be hundreds; the bus must not stall
- * reading history. A name older than the scan window is reported as "nothing to resume" rather
- * than found slowly.
+ * AI-204 — which session does a name resume to? Through a persisted, incremental index of EVERY
+ * transcript (agents/resumeIndex — byte-identical to the App's, pinned by hash in both repos),
+ * never the 60 newest: a workforce night pushed named sessions out of that window and a resume
+ * dead-lettered with "no transcript found" while 69 records carried the name. "Latest name wins"
+ * is unchanged (core/resumeTarget). Both surfaces share ~/.aios/resume-index.json; saves are
+ * tmp+rename, so concurrent writers can only lose a little incremental work, never corrupt it.
  */
-export const MAX_RESUME_SCAN = 60;
-export function resumeIdFor(name: string, excludeSessionId?: string): string | undefined {
-  const base = path.join(os.homedir(), '.claude', 'projects');
-  const files: { f: string; mtimeMs: number }[] = [];
-  try {
-    for (const d of fs.readdirSync(base)) {
-      let entries: string[] = [];
-      try { entries = fs.readdirSync(path.join(base, d)); } catch { continue; }
-      for (const e of entries) {
-        if (!e.endsWith('.jsonl')) continue;
-        const full = path.join(base, d, e);
-        try { files.push({ f: full, mtimeMs: fs.statSync(full).mtimeMs }); } catch { /* vanished */ }
-      }
-    }
-  } catch { return undefined; }
-  for (const { f, mtimeMs } of files.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, MAX_RESUME_SCAN)) {
-    let text = '';
-    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
-    const hit = pickResume(name, [{
-      sessionId: path.basename(f, '.jsonl'), mtimeMs, latestName: latestAgentName(text),
-    }], excludeSessionId);
-    if (hit) return hit;
-  }
-  return undefined;
+const resumeIndex = new ResumeIndex(
+  path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects'),   // review 18: honour CLAUDE_CONFIG_DIR
+  path.join(os.homedir(), '.aios', 'resume-index.json'),
+);
+export function resumeIdFor(name: string, excludeSessionId?: string): Promise<string | undefined> {
+  return resumeIndex.lookup(name, excludeSessionId).catch(() => undefined);
 }
+/** Build the index in the background at activation, so the first resume does not pay for it. */
+export function warmResumeIndex(): void { void resumeIndex.refresh().catch(() => undefined); }
+
 
 /**
  * Resume picker. The operator picks the session INSIDE Claude's TUI, so Glass

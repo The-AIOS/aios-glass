@@ -1,9 +1,17 @@
+import { settingsToFile } from './bus/advisorFile';
+import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
+import { resolveSessionName, sessionKey } from './core/nameMatch';
+import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
+import { cleanFrom } from './core/contract4';
+import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
+import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
+import { recordTyped } from './bus/busSent';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, MAX_RESUME_SCAN, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { normalizeVerb } from './core/busVerbs';
 import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
@@ -22,13 +30,13 @@ import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
 import { companyAction, collaborateAction } from './spaces/spacesActions';
 import { openConfigMenu } from './home/configMenu';
-import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench } from './home/config';
+import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench, themePref } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents, listOperatorSessions } from './agents/running';
 import { createAttentionBar } from './agents/attentionBar';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
-  TIMINGS, countUserTurnsContaining, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
+  TIMINGS, countDeliveries, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
   triedBy, withTried, fulfillerId, processTreeRoot, type Surface } from './core/sendQueue';
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
@@ -61,6 +69,7 @@ function noteWhen(ts: number): string {
   if (hrs < 24) return `${hrs}h`;
   return new Date(ts).toLocaleDateString();
 }
+
 
 export function activate(context: vscode.ExtensionContext): void {
   // Banner so the diagnostics channel is never blank — an empty Output pane
@@ -624,7 +633,10 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory') || e.affectsConfiguration('aiosGlass.showWeekNumbers')) HomeViewProvider.current?.refresh();
       // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
       if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
-    })
+    }),
+    /* AI-190: with the theme on `auto`, an editor theme change (⌘K⌘T, or the OS flipping it
+       through window.autoDetectColorScheme) repaints Glass live. */
+    vscode.window.onDidChangeActiveColorTheme(() => { if (themePref() === 'auto') HomeViewProvider.current?.refresh(); })
   );
 
   // ── Spawn-inbox command bus: let AGENTS drive Glass without tripping Claude's auto-mode classifier ──
@@ -828,6 +840,15 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '    { "action": "kill", "name": "designer" }',
       '',
+      '**Contract 4 — optional fields** (verbs unchanged; a contract-3 request behaves exactly as before):',
+      '',
+      '- `from` (send, resume) — the registry name of the session that wrote the request. A claim, never an identity: it is recorded with the delivery so the receiver can see who sent it, and an unusable value is ignored.',
+      '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
+      "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
+      '',
+      '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
+      '      { "action": "send", "name": "researcher", "from": "buddai", "prompt": "…" }',
+      '',
       '**resume** (contract 3) — reopen a session you already had, as the SAME someone:',
       '',
       '    { "action": "resume", "name": "designer", "prompt": "pick up the hero work" }',
@@ -835,7 +856,8 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `spawn` gives you a fresh **something**; `resume` gives you back the same **someone** — its memory of the work, the corrections it absorbed, the shape of the thing you were building. Reach for it whenever a closed session has context worth more than a clean start.',
       '- The name is resolved from the transcripts on disk (`~/.claude/projects/*/*.jsonl`), not the live session registry — the registry only holds RUNNING sessions, and a closed one is the only kind this verb is for. A session that renamed itself resolves by its **latest** name.',
       '- **Already running?** It is revealed and your `prompt` is delivered into it, exactly as `send` would. Resuming a live session would give one identity two processes.',
-      '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Only the newest sessions are scanned, so a very old name reports the miss rather than being found slowly. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
+      '- **Any age.** A name is found however old its session is: an index of every transcript, not a count of the newest ones. If a session was renamed, its latest name is the one that counts.',
+      '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
       '',
       '      { "action": "resume", "name": "designer", "prompt": "…", "fallback": "spawn" }',
       '',
@@ -865,13 +887,16 @@ export function activate(context: vscode.ExtensionContext): void {
       '',
       '**Timings** — change only in lockstep across every fulfiller, and update this file:',
       '',
-      '    HOLD_STALE_MS  45 min   a .holding older than this may be adopted even if its claimer lives',
-      '    MAX_HOLD_MS    30 min   how long to wait for a target before giving up (< HOLD_STALE_MS)',
+      '    QUEUE_CEILING_MS 24 h   how long a send waits for a LIVE busy target to reach its next idle',
+      '    HOLD_STALE_MS  24 h 45m a .holding older than this may be adopted even if its claimer lives (> QUEUE_CEILING_MS + MAX_HOLD_MS)',
+      '    MAX_HOLD_MS    30 min   after the FIRST type: how long to watch for it to verify',
       '    RETIRE_TTL_MS  10 min   when any surface may retire a request addressed to an absent one',
       '    MAX_RELEASES   2        sibling-window handoffs before declaring it undeliverable',
       '    MAX_DELIVERY_ATTEMPTS 3 times the SAME text may be typed — 1 for a slash command (below)',
       '',
       "**A slash command is typed ONCE, never re-typed.** Retry only pays when a verification miss is EVIDENCE of a failed send, and for a command the CLI handles client-side it is not: measured 2026-08-14, `/help` was delivered (the operator watched the menu appear) while the transcript recorded **zero** user turns containing the marker, so verification failed for a delivery that had plainly succeeded and the command was typed **three times**. The class is not uniform — `/config` *does* write a `<command-name>` record, `/help` does not, and nothing outside the CLI can tell which — so the rule is per-shape: any prompt matching `/^\\s*\\/[^\\s\\/]/` gets one attempt and is then WAITED on for the full hold budget. Waiting still catches a command that verifies late; re-typing catches neither and shows the operator a duplicate. Consequence accepted deliberately: a plain-text prompt that begins with `/` (a file path) also gets one attempt, so if it were dropped it dead-letters loudly instead of retrying — the safe direction.",
+      '',
+      '**A busy session is waited on, in order (AI-205).** A `send` is never typed into a busy session; it waits for the next idle, however long (up to 24 h), and is typed with its age — `[queued 47 min ago by <from>]` — when it waited over 2 min (never on a slash command). Several sends to one session go oldest first, and a newer send from the same `from` replaces an older one still waiting. The replaced one is not deleted: it is moved to `_archive/<name>.json.superseded`, naming what replaced it (kept 7 days).',
       '',
       "**Spawn where you already live.** An unaddressed request goes to whichever surface wins the race, so `spawn` could open your worker in the *other* product — measured 2026-08-14: a request written from an IDE session was fulfilled by the App, and the session appeared in a pane instead of the IDE terminal the requester meant. For `send`/`kill` a mis-race self-corrects (the wrong surface hands it back), but a spawned session lands where it lands.",
       '',
@@ -992,18 +1017,38 @@ export function activate(context: vscode.ExtensionContext): void {
   /* 'release' is DISTINCT from 'undeliverable'. Collapsing them is the bug this fixes: a
      handoff budget running out means "no sibling left to try", never "this message cannot be
      delivered". See decideAfterVerifyMiss in core/sendQueue. */
-  type SendOutcome = 'verified' | 'no-terminal' | 'release' | 'undeliverable';
+  type SendOutcome = 'verified' | 'no-terminal' | 'release' | 'undeliverable' | 'superseded';
+  /** AI-205 — every send currently held by any surface, as the queue sees it (both surfaces'
+   *  `.holding` files: claim time orders them, `from` decides supersession). */
+  const heldSends = (): QueuedSend[] => {
+    const out: QueuedSend[] = [];
+    let names: string[] = [];
+    try { names = fs.readdirSync(spawnInboxDir).filter((n) => n.endsWith('.json.holding')); } catch { return out; }
+    for (const n of names) {
+      try {
+        const b = JSON.parse(fs.readFileSync(path.join(spawnInboxDir, n), 'utf8')) as Record<string, unknown>;
+        if (!isQueuedDelivery(normalizeVerbQ(b.action), b) || typeof b.name !== 'string') continue;   // sends + resume-to-live (should-fix 11)
+        const claim = parseClaimQ(b._claim);
+        /* A hold whose holder is DEAD is not in line (review should-fix 8): it would block its
+           target until someone adopts it. The periodic sweep below adopts and delivers it. */
+        if (claim && !pidAlive(claim.pid)) continue;
+        out.push({ key: n, target: sessionKey(b.name), from: cleanFrom(b.from), queuedAt: queuedAtOf(b, claim ? claim.at : fs.statSync(path.join(spawnInboxDir, n)).mtimeMs) });
+      } catch { /* mid-write or gone */ }
+    }
+    return out;
+  };
   /* The REASON travels with the outcome. It used to be discarded and the caller wrote a
      generic "delivery not verified" into every dead letter — so a send to a session that never
      existed (nothing sent, nothing to verify) read identically to one that was typed and lost.
      A dead letter is read by a human hours later and its reason IS the payload; a reason that
      describes the wrong failure sends them hunting for a delivery that never happened. */
   let lastSendReason = '';
+  let lastSupersededBy = '';
   /* `releases` was a parameter here purely to feed decideAfterVerifyMiss. That branch is gone
      (an already-typed message must never be handed on), so the parameter is gone too — a
      parameter nothing reads is a claim that something does. The sibling handoff still exists,
      bounded by `_releases` on the request file, on the 'no-terminal' path. */
-  const deliverSend = async (name: string, prompt: string): Promise<SendOutcome> => {
+  const deliverSend = async (name: string, prompt: string, sendFrom?: string, heldPath?: string): Promise<SendOutcome> => {
     const find = async () => (await listRunningAgents()).find((a) => a.name === name);
     const started = Date.now();
     let attempts = 0;   // how many times we have actually TYPED into the target
@@ -1019,8 +1064,14 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.window.showWarningMessage(`AIOS Glass: refusing to send ${byteLength(prompt)} bytes to “${name}” — over the inline limit and the payload file could not be written. Nothing was delivered.`);
       return 'undeliverable';
     }
-    const text = deliverText.text;
-    const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — see TIMINGS
+    /* AI-205: the text is fixed at the FIRST type, not here — a message that queued gets its age
+       stamped on, and everything downstream (needle, baseline, provenance) must see that text. */
+    let text = deliverText.text;
+    let firstTypedAt = 0;
+    const MAX_HOLD_MS = TIMINGS.MAX_HOLD_MS;   // protocol value — verification budget AFTER the first type
+    const myKey = heldPath ? path.basename(heldPath) : '';
+    let myQueuedAt = started;
+    try { if (heldPath) { const b = JSON.parse(fs.readFileSync(heldPath, 'utf8')); const c = parseClaimQ(b._claim); myQueuedAt = queuedAtOf(b, c ? c.at : started); } } catch { /* keep started */ }
     let announced = false;
     /* THE BASELINE IS CAPTURED ONCE, OUTSIDE THIS LOOP — ported from the App 2026-08-14.
        It used to be re-read at the top of every iteration, which made it useless for the one
@@ -1032,7 +1083,9 @@ export function activate(context: vscode.ExtensionContext): void {
        A baseline that moves cannot detect the thing it is a baseline for. */
     let baseline: number | undefined;
     for (;;) {
-      const decision = decideSend(await find(), Date.now() - started, MAX_HOLD_MS);
+      /* AI-205: a live but busy target is waited on until its next idle (QUEUE_CEILING_MS), not
+         30 min; the never-type-into-busy rule is unchanged. */
+      const decision = decideSend(await find(), Date.now() - myQueuedAt, TIMINGS.QUEUE_CEILING_MS);   // the ceiling runs from the FIRST queue time
       if (decision.do === 'undeliverable') {
         lastSendReason = decision.reason;
         log(`spawn-inbox: send → '${name}' NOT DELIVERED — ${decision.reason}`);
@@ -1047,6 +1100,31 @@ export function activate(context: vscode.ExtensionContext): void {
         await sleep(2000);
         continue;
       }
+      /* AI-205 — one at a time, oldest first, and a newer message from the same sender replaces
+         an older one still waiting. Only before the first type: once typed, it is in flight. */
+      if (!firstTypedAt && myKey) {
+        const turn = queueTurn({ key: myKey, target: sessionKey(name), from: sendFrom, queuedAt: myQueuedAt }, heldSends());
+        if (turn.do === 'superseded') {
+          lastSupersededBy = turn.by;
+          log(`spawn-inbox: send → '${name}' SUPERSEDED by a newer message from '${sendFrom}' (${turn.by}) — not delivering the older one`);
+          return 'superseded';
+        }
+        if (turn.do === 'wait') {
+          if (!announced) { announced = true; log(`spawn-inbox: send → '${name}' queued behind ${turn.behind}`); }
+          await sleep(2000);
+          continue;
+        }
+        /* Going out: retire every older message this one replaces NOW, rather than trusting each of
+           them to notice later (0.11.0 test 6.4 — the older one checked after this was delivered and
+           removed, found nothing newer, and went out too). */
+        for (const old of supersedes({ key: myKey, target: sessionKey(name), from: sendFrom, queuedAt: myQueuedAt }, heldSends())) {
+          archiveSuperseded(path.join(spawnInboxDir, old.key), myKey);
+          log(`spawn-inbox: retired ${old.key} — superseded by ${myKey}`);
+        }
+      }
+      /* A hold that vanished before its first type was retired by a newer message (above, on either
+         surface) — it must not be delivered. */
+      if (myKey && !firstTypedAt && heldPath && !fs.existsSync(heldPath)) return 'superseded';
       // deliver — but if the target's terminal isn't in THIS window, a sibling window may
       // hold it: report that distinctly so the caller can hand the request back instead of
       // condemning a message another window could have delivered.
@@ -1065,20 +1143,21 @@ export function activate(context: vscode.ExtensionContext): void {
         log(`spawn-inbox: send → '${name}' — no transcript to verify against, refusing to claim delivery: UNVERIFIED`);
         return 'undeliverable';
       }
+      if (!firstTypedAt) text = stampAge(deliverText.text, Date.now() - myQueuedAt, sendFrom);   // AI-205
       const needleFor = safeNeedle(text);
       /* `started`, not the per-attempt clock: a bound that moves with each retry would reset the
          count mid-flight, which is the same failure as a moving baseline. See countUserTurns-
          Containing for why an unbounded count made a slash-command send unverifiable. */
       if (baseline === undefined) {
-        try { baseline = countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needleFor, started); } catch { baseline = 0; }
+        try { baseline = countDeliveries(fs.readFileSync(tx, 'utf8'), text, needleFor, started); } catch { baseline = 0; }
       }
       const before = baseline ?? 0;
       /* The cap must gate the SEND. A 'wait' verdict continues this loop, so enforcing the
          limit only in the after-a-miss decision left the message being re-typed every cycle
          for the whole hold budget — the cap existed and capped nothing. */
       if (attempts >= maxAttemptsFor(text)) {
-        if (Date.now() - started >= MAX_HOLD_MS) {
-          lastSendReason = `sent ${attempts}x over ${Math.round((Date.now() - started) / 60000)} min without it ever appearing in the target transcript`;
+        if (Date.now() - firstTypedAt >= MAX_HOLD_MS) {
+          lastSendReason = `sent ${attempts}x over ${Math.round((Date.now() - firstTypedAt) / 60000)} min without it ever appearing in the target transcript`;
           log(`spawn-inbox: send → '${name}' ${lastSendReason} — giving up`);
           return 'undeliverable';
         }
@@ -1086,13 +1165,15 @@ export function activate(context: vscode.ExtensionContext): void {
         continue;   // keep watching for a late arrival; never type again
       }
       attempts++;
+      if (!firstTypedAt) firstTypedAt = Date.now();
+      recordTyped(text, name, 'send', sendFrom);   // AI-172: before typing, so the label can never lose the race
       await sendToSession(name, text, decision.pid);
       const needle = safeNeedle(text);
       const deadline = Date.now() + 20000;
       while (Date.now() < deadline) {
         await sleep(1500);
         try {
-          const verdict = verifyVerdict(before, countUserTurnsContaining(fs.readFileSync(tx, 'utf8'), needle, started));
+          const verdict = verifyVerdict(before, countDeliveries(fs.readFileSync(tx, 'utf8'), text, needle, started));
           if (verdict === 'duplicate') {
             // Never smooth this over: a double delivery is contract 2's worst outcome
             // because it produces WRONG output, not missing output.
@@ -1118,7 +1199,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const verdict = decideAfterVerifyMiss({
         targetAlive: !!after,
         targetBusy: !!after && !isDeliverable(after.status),
-        heldMs: Date.now() - started,
+        heldMs: Date.now() - firstTypedAt,   // AI-205: verification budget runs from the first type
         attempts,
         maxAttempts: maxAttemptsFor(text),
       });
@@ -1165,6 +1246,11 @@ export function activate(context: vscode.ExtensionContext): void {
    *  `.undelivered` artifact carries who held it and when. */
   const stampClaim = (held: string): void => {
     const body = readJson(held) ?? {};
+    /* AI-205: when it FIRST queued — set once, kept through adoption and release (a re-stamped
+       claim time let a stale message overtake its own correction). An adopted hold's first
+       queue time is its previous claim's, when it has no _queuedAt of its own. */
+    const prev = parseClaimQ(body._claim);
+    withQueuedAt(body, prev ? prev.at : Date.now());
     body._claim = { surface: MY_SURFACE, pid: process.pid, at: Date.now() };
     try { fs.writeFileSync(held, JSON.stringify(body, null, 2), 'utf8'); } catch { /* keep the claim anyway */ }
   };
@@ -1181,7 +1267,8 @@ export function activate(context: vscode.ExtensionContext): void {
    *  wrong window. Bounded by `_releases` so two windows can't ping-pong forever. */
   const releaseToSibling = (held: string): boolean => {
     const body = readJson(held) ?? {};
-    const releases = typeof body._releases === 'number' ? body._releases : 0;
+    /* Older Apps wrote `releases`; read both, the larger wins (the count only bounds a ping-pong). */
+    const releases = Math.max(typeof body._releases === 'number' ? body._releases : 0, typeof body.releases === 'number' ? body.releases : 0);
     if (!shouldReleaseForSibling(releases, MAX_RELEASES)) { return false; }
     const marked = withTried(body, fulfillerId(MY_SURFACE, process.pid));   // so I never re-claim my own release
     marked._releases = releases + 1;
@@ -1200,11 +1287,28 @@ export function activate(context: vscode.ExtensionContext): void {
       return true;
     } catch { return false; }
   };
+  /* Review nit: a superseded message is ARCHIVED with what replaced it, never silently deleted —
+     a deletion reads exactly like a delivery to the sender. Old records are pruned after a week. */
+  const archiveSuperseded = (held: string, by?: string): void => {
+    if (!fs.existsSync(held)) return;   // already retired by the message that replaced it
+    try {
+      const dir = path.join(spawnInboxDir, '_archive');
+      fs.mkdirSync(dir, { recursive: true });
+      const dest = path.join(dir, supersededName(path.basename(held)));
+      fs.writeFileSync(dest, JSON.stringify(supersededBody(readJson(held) ?? {}, by ?? lastSupersededBy, MY_SURFACE, Date.now()), null, 2) + '\n');
+      fs.unlinkSync(held);
+      log(`spawn-inbox: archived ${path.basename(dest)} — superseded by ${by ?? (lastSupersededBy || 'a newer message')}`);
+      for (const n of fs.readdirSync(dir)) {
+        if (!n.endsWith(SUPERSEDED_SUFFIX)) continue;
+        try { if (Date.now() - fs.statSync(path.join(dir, n)).mtimeMs > SUPERSEDED_KEEP_MS) fs.unlinkSync(path.join(dir, n)); } catch { /* gone */ }
+      }
+    } catch { try { fs.unlinkSync(held); } catch { /* already gone */ } }
+  };
   const releaseRequest = (held: string, undelivered: boolean, why?: string): void => {
     try {
       if (undelivered) {
         const dead = undeliveredPathFor(held);
-        // Put the reason IN the file too: Chuy reads disk more often than an output
+        // Put the reason IN the file too: the operator reads disk more often than an output
         // channel, and a bare artifact with no explanation is only half-honest.
         // (Convention adopted from the AIOS App.)
         const body = readJson(held) ?? {};
@@ -1259,7 +1363,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try { req = JSON.parse(raw); } catch {
       releaseRequest(held, true, 'malformed JSON'); return;
     }
-    const name = String(req.name ?? '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let name = String(req.name ?? '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     /* Command bus verbs. An ABSENT action means spawn (back-compat with plain {name,task});
        a WRITTEN one must be a verb we implement.
          spawn  → launch a worker          · kill   → tear one down
@@ -1270,12 +1374,32 @@ export function activate(context: vscode.ExtensionContext): void {
     const written = (typeof req.action === 'string' ? req.action : '').trim().toLowerCase();
     const action = normalizeVerb(req.action);
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
+    /* A request addressing a LIVE session (send, kill, resume-to-live) reaches it whatever its name's
+       case: the real registry name is used from here on (shared core/nameMatch, app#58's idea). A
+       spawn creates the name, so it is left as written. */
+    if (action === 'send' || action === 'kill' || action === 'resume') {
+      name = resolveSessionName(name, (await listRunningAgents()).map((a) => a.name)) ?? name;
+    }
     if (action === 'unknown') {
       releaseRequest(held, true,
         `unknown action '${written}' — this surface implements spawn, kill, send and resume. `
         + 'Omit "action" entirely for a plain spawn.');
       return;
     }
+    /* AI-198 — contract 4. The shared core decides (same function and conformance fixture as the
+       App). A field that cannot be honoured is dead-lettered naming it, never silently dropped. */
+    const c4 = contract4Fields(req as Record<string, unknown>, action);
+    if (!c4.accept) {
+      releaseRequest(held, true, `${c4.field} '${c4.value}' is not valid — ${c4.field === 'effort' ? 'use one of low, medium, high, xhigh, max' : 'use a rung or a model id'}`);
+      return;
+    }
+    const from = c4.from;
+    /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
+       its v0.8.9 (AI-175/176). Until then a spawn that asks for them is refused and says why —
+       a worker started without the effort it was asked for is the quiet failure. */
+    /* Contract 4 on a spawn goes through the wrapper's --effort / --advisor (canonical v0.8.9), the
+       same fields the App honours: both surfaces now launch the same worker for one request. */
+    const c4Launch = { effort: c4.effort, advisorModel: advisorModelFor(c4.advisor, c4.advisorRung) };
     try {
       if (action === 'kill') {
         // disposeAgentTerminal = the NON-interactive "kill now": dispose the worker's terminal
@@ -1298,8 +1422,9 @@ export function activate(context: vscode.ExtensionContext): void {
           catch { return 0; }
         })();
         const spent = raw;
-        const outcome = await deliverSend(name, prompt);
+        const outcome = await deliverSend(name, prompt, from, held);
         if (outcome === 'verified') { releaseRequest(held, false); }
+        else if (outcome === 'superseded') { archiveSuperseded(held); }
         else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
           releaseRequest(held, true, outcome === 'no-terminal'
@@ -1314,17 +1439,24 @@ export function activate(context: vscode.ExtensionContext): void {
         const live = (await listRunningAgents()).find((a) => a.name === name);
         if (live) {
           await revealAgentTerminal(name, live.pid);
-          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering`);
+          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering${c4.effort || c4.advisor ? ' (effort/advisor NOT applied: a running session cannot change them)' : ''}`);
           if (!prompt) { releaseRequest(held, false); return; }
-          const outcome = await deliverSend(name, prompt);
+          /* Through the queue, like a send (review should-fix 11): passing the held file is what
+             makes it wait its turn, be superseded by a newer correction, and carry its age. */
+          const outcome = await deliverSend(name, prompt, from, held);
           if (outcome === 'verified') { releaseRequest(held, false); }
+          else if (outcome === 'superseded') { archiveSuperseded(held); }
           else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back */ }
           else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
           return;
         }
-        const sid = resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
+        const sid = await resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
         if (sid) {
-          await launchResumeSession(name, sid, prompt);
+          let advisorModel: string | undefined;
+          if (c4.advisor) {
+            advisorModel = advisorModelFor(c4.advisor, c4.advisorRung);   // the contract's rung table, never resolve-tier
+          }
+          await launchResumeSession(name, sid, prompt, true, settingsToFile(contract4LaunchArgs({ effort: c4.effort, advisorModel })), from);
           releaseRequest(held, false);
           return;
         }
@@ -1334,14 +1466,15 @@ export function activate(context: vscode.ExtensionContext): void {
         if (req.fallback !== 'spawn') {
           releaseRequest(held, true,
             `resume '${name}': no transcript found for that name — nothing to resume `
-            + `(it may never have run, or its history is older than the ${MAX_RESUME_SCAN} most `
-            + 'recent sessions). Pass "fallback":"spawn" to start a fresh one instead.');
+            + '(it may never have run under that name, or it was renamed since). '
+            + 'Pass "fallback":"spawn" to start a fresh one instead.');
           return;
         }
         log(`spawn-inbox: resume '${name}' — no transcript; falling back to spawn as asked`);
         await launchSpawn(name, prompt, {
           model: typeof req.model === 'string' ? req.model : undefined,
           tier: typeof req.tier === 'string' ? req.tier : undefined,
+          bus: true, ...c4Launch,
         });
         releaseRequest(held, false);
       } else {
@@ -1358,7 +1491,7 @@ export function activate(context: vscode.ExtensionContext): void {
           releaseRequest(held, false); return;
         }
         log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${model ? ` [model ${model}]` : tier ? ` [tier ${tier}]` : ''}`);
-        await launchSpawn(name, task, { model, tier });
+        await launchSpawn(name, task, { model, tier, bus: true, ...c4Launch });
         releaseRequest(held, false);
       }
     } catch (e) {
@@ -1371,6 +1504,7 @@ export function activate(context: vscode.ExtensionContext): void {
      the always-visible reopen button and more, so disabling the bus must not disable Glass.
      The guard therefore scopes the bus setup and leaves the rest of activation intact. */
   const busDisabled = process.env.AIOS_BUS_DISABLED === '1';
+  if (!process.env.AIOS_BUS_DISABLED) warmResumeIndex();   // AI-204: built in the background, before the first resume
   if (busDisabled) log('spawn-inbox: DISABLED by AIOS_BUS_DISABLED=1 — not watching, not draining, not surfacing dead letters');
   if (!busDisabled) {
   const spawnInboxWatcher = vscode.workspace.createFileSystemWatcher(
@@ -1400,6 +1534,15 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   } catch { /* empty/absent inbox */ }
+  /* Adoption also runs PERIODICALLY, not only at startup (review should-fix 8): a hold left by a
+     surface that died would otherwise block its target until the next restart. consumeSpawnRequest
+     applies canAdoptHold, so a live hold — ours or a sibling's — is never taken. */
+  const holdSweep = setInterval(() => {
+    try {
+      for (const f of fs.readdirSync(spawnInboxDir)) if (f.endsWith(HOLD_SUFFIX)) void consumeSpawnRequest(path.join(spawnInboxDir, f));
+    } catch { /* inbox gone */ }
+  }, 5 * 60 * 1000);
+  context.subscriptions.push({ dispose: () => clearInterval(holdSweep) });
   }   // end if (!busDisabled)
 
   // Always-visible reopen button — survives moving the view to the secondary

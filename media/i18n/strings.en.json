@@ -155,5 +155,15 @@
   "files.sub.external": "external",
   "files.addFolder": "Add a folder to your workspace",
   "files.removeFolder": "Remove from workspace",
-  "files.empty": "Add a folder (a repo, a Drive folder) to navigate it here."
+  "files.empty": "Add a folder (a repo, a Drive folder) to navigate it here.",
+
+  "running.used": "used",
+  "running.usedTip": "This session used: ",
+  "topbar.update.upToDate": "up to date",
+  "topbar.update.upToDate.title": "Up to date",
+  "topbar.update.available": "update available",
+  "topbar.update.available.title": "Updates available — click to run /aios:update",
+  "topbar.update.testing": "testing",
+  "topbar.update.testing.title": "Testing {branch}, ahead of main — no update is offered while you test",
+  "topbar.update.unknown.title": "Status unknown"
 }

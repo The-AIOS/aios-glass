@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.11] — 2026-10-11
+
+> **Glass follows your editor's colours, and the bus is honest in both directions.** Ships alongside the AIOS App's v0.11.0; every change to the shared bus is identical on both surfaces.
+
+### Added
+- **Theme `auto`, now the default.** The Home and Files panels follow the editor's light or dark theme, live as it changes (⌘K⌘T, or the OS through `window.autoDetectColorScheme`). Before, VS Code's stock Light Modern showed a dark Home panel. Picking with the sun/moon still stores your choice.
+- **Every bus message carries its provenance.** Before typing a `send`, a bus `spawn`'s first prompt or a bus `resume`, Glass records the text's fingerprint in `~/.aios/bus-sent.jsonl`, in canonical `bus_log.py`'s format, so the provenance hook labels it as delivered rather than typed. The fingerprint is ported from `bus_log.py` and pinned by test vectors generated from it.
+- **Inbox contract 4 (Glass half).** `from` (send/resume) is recorded with the delivery; a resume accepts `effort` and `advisor`; an invalid field is dead-lettered naming it. A spawn asking for effort or an advisor is refused with a reason until the `spawn` wrapper gains those flags (AIOS v0.8.9), so a worker never starts without what it was asked for. Canonical's conformance fixture passes case by case.
+
+- **A message to a busy session waits for it.** A `send` to a live but busy session now waits for its next idle (up to 24 h) instead of dying at 30 min; messages to one session go oldest first, a newer one from the same `from` replaces an older one still waiting, and a late one is typed with its age. Shared core with the App, with a conformance fixture both run.
+- **`resume` finds a named session of any age.** Glass uses the App's index of every transcript (one file, hash-pinned in both repos) instead of the 60 newest.
+- **Session rows say which skills and agents a session used** ("· used: deep-research +2"; every name on hover).
+
+### Fixed
+- **A `/remote-control` send no longer ends as a false dead letter.** A built-in slash command writes a `local_command` record, never a user turn, so it could not verify and was reported as undelivered after 30 minutes. It now verifies by the record it really writes.
+
 ## [0.5.10] — 2026-09-25
 
 > **No more phantom sessions.** Ships alongside the AIOS App's v0.10.0, with the identical rule.

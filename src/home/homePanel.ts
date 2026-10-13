@@ -1,7 +1,11 @@
+import { usageChip, type ToolUsage } from '../core/toolUse';
+import { UsageReader } from '../core/usageReader';
+import { fsUsageIo } from './usageIo';
 import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { execFileSync } from 'child_process';
 import { swallow } from '../log';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
@@ -16,7 +20,7 @@ import { countAgentSuggestions } from '../tasks/goWithAgents';
 import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
-import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates } from '../spaces/spaces';
+import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates, testingBranch } from '../spaces/spaces';
 import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory, showWeekNumbers } from './config';
 import { getFilesVisible } from '../files/filesState';
 import { effectiveLocale, webviewCatalog } from '../i18n';
@@ -201,13 +205,18 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     }, 120);
   }
 
+  /** AI-171 — what each session used. The shared reader (core/usageReader) reads ASYNC, bounded per
+   *  tick, prunes ended sessions and byte-splits at newlines (review should-fix 17). */
+  private usage = new UsageReader(fsUsageIo);
+  private usageFor(sessionId: string): ToolUsage | undefined { return this.usage.get(sessionId); }
+
   /** Re-pull live state: counts, running sessions, and the update-status badge. */
   private recheck(): void {
     if (!this.view) return;
     this.postState();
     void this.refreshRunning();
     void this.postTerminals();
-    void checkForUpdates().then((state) => this.post({ type: 'updateStatus', state, framework: readFrameworkStatus() ?? null }));
+    void checkForUpdates().then((state) => this.post({ type: 'updateStatus', state, framework: readFrameworkStatus() ?? null, branch: state === 'testing' ? testingBranch() : '' }));
   }
 
   private async onMessage(msg: any): Promise<void> {
@@ -316,11 +325,15 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     const mem = showMemory() ? sessionMemoryMB(running.map((a) => a.pid)) : new Map<number, number>();
     // AI-18 post-it counts, joined onto each session.
     const notes = sessionNoteCounts();
+    this.usage.prune(running.map((a) => a.sessionId));   // the cache follows the running list
     const rows = running.map((a) => {
+      const u = this.usageFor(a.sessionId);
       return {
         name: a.name, pid: a.pid, status: a.status,
         proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
         notes: notes[a.name] || 0,
+        // AI-171 step 1 — the skills and agents this session used (shared core/toolUse).
+        used: u ? usageChip(u) : '', usedNames: u ? [...u.skills, ...u.agents].join(', ') : '',
       };
     });
     this.post({ type: 'running', running: rows, quota });

@@ -194,8 +194,9 @@ test('the four protocol timings are pinned — they are contract, not tuning', (
   // The App measured the failure: Glass at 45 min vs App at 15 gave a 30-minute window
   // where each side's ownership belief was correct and BOTH delivered. Changing any of
   // these requires changing every fulfiller in lockstep + the inbox README.
-  assert.equal(TIMINGS.HOLD_STALE_MS, 45 * 60 * 1000);
+  assert.equal(TIMINGS.HOLD_STALE_MS, 24 * 60 * 60 * 1000 + 45 * 60 * 1000);   // > QUEUE_CEILING_MS + MAX_HOLD_MS
   assert.equal(TIMINGS.MAX_HOLD_MS, 30 * 60 * 1000);
+  assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.QUEUE_CEILING_MS, 'a live holder waiting for an idle target must never be adoptable');
   assert.equal(TIMINGS.RETIRE_TTL_MS, 10 * 60 * 1000);
   assert.equal(TIMINGS.MAX_RELEASES, 2);
   assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.MAX_HOLD_MS,
@@ -290,4 +291,67 @@ test('KNOWN LIMIT: an invocation inside our own hold window is still indistingui
   const someoneElse = cmdTurn('/config', '2026-08-14T18:00:03.000Z');
   assert.equal(countUserTurnsContaining(someoneElse, '/config', claimedAt), 1,
     'still counted — documented, bounded to the hold window, and the reason release was removed');
+});
+
+/* AI-170 — a built-in slash command verifies by its local_command record (real format, 2.1.288). */
+import { slashCommandOf, countLocalCommands, countDeliveries } from '../core/sendQueue';
+
+test('AI-170: /remote-control verifies by the local_command record it really writes', () => {
+  const rc = (ts: string, args = '') => JSON.stringify({ parentUuid: 'p', isSidechain: false, type: 'system', subtype: 'local_command',
+    content: `<command-name>/remote-control</command-name>\n            <command-message>remote-control</command-message>\n            <command-args>${args}</command-args>`,
+    level: 'info', timestamp: ts, uuid: 'u', sessionId: 's' });
+  const claimed = Date.parse('2026-10-03T01:38:30.000Z');
+  const before = [rc('2026-10-02T09:00:00.000Z')].join('\n');                       // an older re-attach: not ours
+  const after = [before, rc('2026-10-03T01:38:34.559Z', 'aios-canonical')].join('\n');
+  assert.equal(slashCommandOf('/remote-control'), '/remote-control');
+  assert.equal(slashCommandOf('/rename new-name'), '/rename');
+  assert.equal(slashCommandOf('hello /remote-control'), null);
+  assert.equal(countLocalCommands(after, '/remote-control', claimed), 1);
+  const b = countDeliveries(before, '/remote-control', '/remote-control', claimed);
+  const a = countDeliveries(after, '/remote-control', '/remote-control', claimed);
+  assert.equal(verifyVerdict(b, a), 'verified', 'a re-attach that happened is a delivery, not a dead letter');
+  assert.equal(countLocalCommands(rc('2026-10-03T01:38:34Z').replace('"system"', '"user"'), '/remote-control'), 0, 'only system/local_command records count');
+});
+
+test('AI-170: a plain message still verifies by user turns only, and a command is never counted twice', () => {
+  const user = (text: string, ts: string) => JSON.stringify({ type: 'user', message: { role: 'user', content: text }, timestamp: ts });
+  const t0 = Date.parse('2026-10-11T00:00:00Z');
+  const tx = user('hello from the bus, a long enough marker', '2026-10-11T00:00:05Z');
+  assert.equal(countDeliveries(tx, 'hello from the bus, a long enough marker', 'hello from the bus, a long', t0), 1);
+  const custom = [user('<command-name>/aios:today</command-name>', '2026-10-11T00:00:05Z')].join('\n');
+  assert.equal(countDeliveries(custom, '/aios:today', '/aios:today', t0), 1, 'a custom command lands as a user turn: max(), not sum');
+});
+
+import { isQueuedDelivery, queueTurn as queueTurn11 } from '../core/sendQueue';
+test('should-fix 11: a resume to a LIVE session is a queued delivery — it waits its turn and is waited on', () => {
+  assert.equal(isQueuedDelivery('send', { name: 'w' }), true);
+  assert.equal(isQueuedDelivery('resume', { name: 'w', prompt: 'carry on' }), true, 'a resume with a prompt delivers like a send');
+  assert.equal(isQueuedDelivery('resume', { name: 'w' }), false, 'a resume with nothing to say types nothing');
+  assert.equal(isQueuedDelivery('resume', { name: 'w', prompt: '   ' }), false);
+  assert.equal(isQueuedDelivery('spawn', { name: 'w', task: 'x' }), false);
+  assert.equal(isQueuedDelivery('send', {}), false, 'no target, no line');
+  // An older resume-with-prompt to w is ahead of a newer send to w from someone else.
+  const held = [{ key: 'r.json.holding', target: 'w', from: 'buddai', queuedAt: 1000 }, { key: 's.json.holding', target: 'w', from: 'canonical', queuedAt: 2000 }];
+  assert.equal(queueTurn11(held[1], held).do, 'wait', 'the send waits behind the resume');
+  assert.equal(queueTurn11(held[0], held).do, 'go', 'the resume goes first');
+});
+
+import { supersedes as supersedes64, queueTurn as queueTurn64 } from '../core/sendQueue';
+test('operator test 6.4: a correction retires the older message itself, whatever order the checks run in', () => {
+  // The run that failed: an older RESUME (prompt) and a newer SEND, same sender, same busy target.
+  const older = { key: 'q-resume.json.holding', target: 'stamp-target', from: 'bus-tester', queuedAt: 1000 };
+  const newer = { key: 'q-send.json.holding', target: 'stamp-target', from: 'bus-tester', queuedAt: 21000 };
+  const inbox = new Set([older.key, newer.key]);
+  const held = () => [older, newer].filter((h) => inbox.has(h.key));
+  // The target goes idle and the NEWER checks first (the order that broke it).
+  assert.equal(queueTurn64(newer, held()).do, 'go', 'the correction goes');
+  for (const o of supersedes64(newer, held())) inbox.delete(o.key);   // retired before it types
+  assert.equal(inbox.has(older.key), false, 'the older message is gone before the correction is typed');
+  inbox.delete(newer.key);                                            // delivered, verified, removed
+  // The older one's own check now runs: its file is gone, so it is never delivered (both surfaces
+  // test existence before their first type). Before the fix it saw no newer message and went out.
+  assert.equal(inbox.has(older.key), false);
+  assert.deepEqual(supersedes64({ ...newer, from: undefined }, [older, newer]), [], 'without a sender nothing is superseded');
+  assert.deepEqual(supersedes64(newer, [{ ...older, from: 'someone-else' }]), [], 'another sender\'s message is never retired');
+  assert.deepEqual(supersedes64(older, [older, newer]), [], 'an older message never retires a newer one');
 });

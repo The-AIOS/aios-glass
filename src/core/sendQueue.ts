@@ -197,6 +197,56 @@ export function countUserTurnsContaining(jsonl: string, needle: string, sinceMs?
   return n;
 }
 
+/**
+ * AI-170 — the slash command a delivered text IS, or null. `/remote-control`, `/rename x`,
+ * `/aios:today` → the command word; anything else → null.
+ */
+export function slashCommandOf(text: string): string | null {
+  const m = /^\s*(\/[A-Za-z0-9][\w:.-]*)(?:\s|$)/.exec(String(text ?? ''));
+  return m ? m[1] : null;
+}
+
+/**
+ * Count `system`/`local_command` records naming `command`, at or after `sinceMs`.
+ *
+ * A BUILT-IN slash command is handled inside Claude Code and never becomes a user turn. Measured
+ * on real transcripts: `/remote-control` writes `{"type":"system","subtype":"local_command",
+ * "content":"<command-name>/remote-control</command-name>…"}` and nothing else, so a send of it
+ * could never verify by user turns: every successful Remote Control re-attach sat `.holding`
+ * for the whole hold budget and ended as a false `.undelivered`, which /today then reported as
+ * work owed. Same time bound and same fail-closed rule as countUserTurnsContaining.
+ */
+export function countLocalCommands(jsonl: string, command: string, sinceMs?: number): number {
+  if (!command) return 0;
+  const tag = `<command-name>${command}</command-name>`;
+  let n = 0;
+  for (const line of jsonl.split('\n')) {
+    if (!line.includes(tag)) continue;
+    let rec: unknown;
+    try { rec = JSON.parse(line); } catch { continue; }
+    const r = rec as { type?: unknown; subtype?: unknown; content?: unknown };
+    if (r.type !== 'system' || r.subtype !== 'local_command' || typeof r.content !== 'string' || !r.content.includes(tag)) continue;
+    if (sinceMs !== undefined) {
+      const t = recordTimeMs(rec);
+      if (t === undefined || t < sinceMs) continue;
+    }
+    n++;
+  }
+  return n;
+}
+
+/**
+ * How many times `deliverText` has landed in this transcript since `sinceMs` — the number both
+ * fulfillers verify a `send` with. For a slash command, whichever record kind the command
+ * produces counts (a built-in writes `local_command`, a custom one a user turn); the larger is
+ * taken, never the sum, so one delivery is never read as two.
+ */
+export function countDeliveries(jsonl: string, deliverText: string, needle: string, sinceMs?: number): number {
+  const turns = countUserTurnsContaining(jsonl, needle, sinceMs);
+  const cmd = slashCommandOf(deliverText);
+  return cmd ? Math.max(turns, countLocalCommands(jsonl, cmd, sinceMs)) : turns;
+}
+
 /** Verdict for a verification poll, given the baseline taken BEFORE delivering. */
 export type VerifyVerdict = 'pending' | 'verified' | 'duplicate';
 
@@ -220,8 +270,12 @@ export function verifyVerdict(before: number, now: number): VerifyVerdict {
    lockstep, so the mixed window is a single update apart — and while it lasts, the README's
    contract stamp is how a reading agent can tell which rule the fulfiller on this machine
    follows, and `"surface"` is how it can insist on one. Still ADDITIVE for every contract-1/2
-   request: absent `action` means spawn, exactly as before. */
-export const INBOX_CONTRACT = 3;
+   request: absent `action` means spawn, exactly as before.
+   Contract 4 (canonical inbox-contract-4.md, App 0.11.0 / Glass 0.5.11) adds three OPTIONAL fields —
+   `from` (send/resume), `effort` and `advisor` (spawn/resume) — and the AI-205 queue amendment.
+   Stamped 4 only now that BOTH surfaces honour every field; an older surface reading a contract-4
+   README refuses to downgrade it (shouldWriteDoc). Additive: a contract-3 request is unchanged. */
+export const INBOX_CONTRACT = 4;
 
 /* ── Protocol TIMINGS — these are CONTRACT, not local tuning ──────────────────
    Every fulfiller must use the same four numbers, because they decide *cross-process
@@ -232,9 +286,18 @@ export const INBOX_CONTRACT = 3;
    Change these only in lockstep across every fulfiller, and update the inbox README so
    the next one inherits them. */
 export const TIMINGS = {
-  /** A `.holding` older than this may be adopted even if its claimer still lives. */
-  HOLD_STALE_MS: 45 * 60 * 1000,
-  /** How long a fulfiller waits for a target to become deliverable before giving up. */
+  /** A `.holding` older than this may be adopted even if its claimer still lives. Must exceed the
+   *  WORST-CASE legitimate hold, QUEUE_CEILING_MS + MAX_HOLD_MS (a send typed at the ceiling is then
+   *  watched for verification): adopting a live hold earlier is the cross-surface double delivery.
+   *  24 h 45 m — a 15-minute margin past 24 h 30 m (review should-fix 7). */
+  HOLD_STALE_MS: 24 * 60 * 60 * 1000 + 45 * 60 * 1000,
+  /** AI-205 — how long a `send` waits for a LIVE but busy target to reach its next idle. Was the
+   *  30-min MAX_HOLD_MS, which killed coordinator messages to builders that stayed busy for an
+   *  hour (5 in one day). Never typed into a busy session either way; this only bounds patience. */
+  QUEUE_CEILING_MS: 24 * 60 * 60 * 1000,
+  /** After the FIRST time a message is typed: how long to keep watching for it to verify.
+   *  Measured from the first type, not the claim — a message that queued for hours must still
+   *  get its full verification window. */
   MAX_HOLD_MS: 30 * 60 * 1000,
   /** A request addressed to a surface that never took it is retired after this. */
   RETIRE_TTL_MS: 10 * 60 * 1000,
@@ -246,6 +309,78 @@ export const TIMINGS = {
    *  failure: the fulfiller keeps waiting out MAX_HOLD_MS in silence. */
   MAX_DELIVERY_ATTEMPTS: 3,
 } as const;
+
+/**
+ * AI-205 — whose turn is it? Held `send`s to one target go out OLDEST FIRST (by claim time), and
+ * a newer message from the same sender (`from`, contract 4) SUPERSEDES an older one still waiting:
+ * a coordinator re-briefing a busy builder wants the latest brief read, not every draft in a row.
+ * Pure: the caller lists the held sends it can see (both surfaces' `.holding` files).
+ */
+export interface QueuedSend { key: string; target: string; from?: string; queuedAt: number }
+export type QueueTurn = { do: 'go' } | { do: 'wait'; behind: string } | { do: 'superseded'; by: string };
+
+export function queueTurn(me: QueuedSend, held: readonly QueuedSend[]): QueueTurn {
+  const same = held.filter((h) => h.key !== me.key && h.target === me.target);
+  const order = (a: QueuedSend, b: QueuedSend) => a.queuedAt - b.queuedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  if (me.from) {
+    const newer = same.filter((h) => h.from === me.from && order(h, me) > 0).sort(order).pop();
+    if (newer) return { do: 'superseded', by: newer.key };
+  }
+  /* An older entry only blocks if it is still going to be delivered — one that a newer message
+     from its own sender supersedes is about to retire, and must not hold the line. */
+  const live = same.filter((h) => !(h.from && same.concat(me).some((o) => o.from === h.from && order(o, h) > 0)));
+  const ahead = live.filter((h) => order(h, me) < 0).sort(order)[0];
+  return ahead ? { do: 'wait', behind: ahead.key } : { do: 'go' };
+}
+
+/**
+ * The older holds `me` replaces (same target, same `from`, queued earlier). The NEWER message retires
+ * them itself, just before it types. Measured on aiostest (0.11.0 test 6.4): supersession used to be
+ * decided only by the OLDER message's own check, so when the newer one was delivered and removed
+ * first, the older one found nothing newer and was delivered too — a stale brief, after its own
+ * correction. Retiring them at the moment the replacement goes out makes it independent of timing.
+ */
+export function supersedes(me: QueuedSend, held: readonly QueuedSend[]): QueuedSend[] {
+  if (!me.from) return [];
+  const order = (a: QueuedSend, b: QueuedSend) => a.queuedAt - b.queuedAt || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  return held.filter((h) => h.key !== me.key && h.target === me.target && h.from === me.from && order(h, me) < 0);
+}
+
+/**
+ * AI-205 — WHEN A REQUEST FIRST QUEUED, stamped once and never moved. `_claim.at` is re-stamped
+ * whenever a surface adopts or re-claims a hold (an App restart, a sibling hand-back), so ordering
+ * by it let a stale message overtake its own correction: A at 10:00, correction B at 10:20, the App
+ * restarts at 10:30 and adopts A, A now looks newest, B is "superseded" and deleted, A is delivered.
+ * `_queuedAt` is set at the FIRST claim and kept through adoption and release; ordering, the age
+ * stamp and the 24 h ceiling all read it.
+ */
+export function withQueuedAt(body: Record<string, unknown>, nowMs: number): Record<string, unknown> {
+  if (typeof body._queuedAt !== 'number' || !(body._queuedAt > 0)) body._queuedAt = nowMs;
+  return body;
+}
+export function queuedAtOf(body: Record<string, unknown> | undefined, fallbackMs: number): number {
+  const q = body?._queuedAt;
+  return typeof q === 'number' && q > 0 ? q : fallbackMs;
+}
+
+/** Review should-fix 11 — which holds are IN LINE for a target. A `send`, and a `resume` that
+ *  carries a prompt: when its target is already live, resume delivers that prompt exactly like a
+ *  send, so it must wait its turn and be waited on. Takes the verb already normalized. */
+export function isQueuedDelivery(verb: string, body: Record<string, unknown>): boolean {
+  if (typeof body.name !== 'string' || !body.name) return false;
+  if (verb === 'send') return true;
+  return verb === 'resume' && typeof body.prompt === 'string' && body.prompt.trim() !== '';
+}
+
+/** AI-205 — a message that waited is typed with its age, so the receiver knows it is not fresh.
+ *  Not for a slash command, which a prefix would turn into plain text. */
+export const AGE_STAMP_AFTER_MS = 2 * 60 * 1000;
+export function stampAge(text: string, waitedMs: number, from?: string): string {
+  if (waitedMs < AGE_STAMP_AFTER_MS || /^\s*\//.test(text)) return text;
+  const min = Math.round(waitedMs / 60000);
+  const age = min >= 120 ? `${Math.round(min / 60)} h` : `${min} min`;
+  return `[queued ${age} ago${from ? ` by ${from}` : ''}] ${text}`;
+}
 
 /** Which fulfiller a request is addressed to. Absent → any (contract-1 behaviour). */
 export type Surface = 'glass' | 'app';

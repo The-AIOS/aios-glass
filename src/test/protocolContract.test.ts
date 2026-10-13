@@ -27,7 +27,7 @@ import { TIMINGS, decideAfterVerifyMiss, maxAttemptsFor, claimVerdict, triedBy, 
  * identical edit in the other repo, recompute, update PROTOCOL_TIMINGS_SHA in BOTH, and update
  * the inbox README's invariants section. All in the same push, or a live fleet runs split-brain.
  */
-const PROTOCOL_TIMINGS_SHA = 'ee54bd44cff806e1';
+const PROTOCOL_TIMINGS_SHA = '7f13d4b877332f7f';
 
 function timingsBlock(): string {
   const src = fs.readFileSync('src/core/sendQueue.ts', 'utf8');
@@ -44,8 +44,11 @@ test('PROTOCOL: the TIMINGS block is byte-identical across both fulfillers', () 
 
 test('PROTOCOL: the values themselves are the agreed ones', () => {
   // Belt and braces: the hash catches edits, these catch a hash updated without thought.
-  assert.equal(TIMINGS.HOLD_STALE_MS, 45 * 60 * 1000);
+  assert.equal(TIMINGS.QUEUE_CEILING_MS, 24 * 60 * 60 * 1000, 'AI-205: a busy target is waited on until its next idle');
+  assert.equal(TIMINGS.HOLD_STALE_MS, 24 * 60 * 60 * 1000 + 45 * 60 * 1000);
+  assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.QUEUE_CEILING_MS + TIMINGS.MAX_HOLD_MS, 'stale must exceed the WORST-CASE legitimate hold: queued to the ceiling, then watched for verification (should-fix 7)');
   assert.equal(TIMINGS.MAX_HOLD_MS, 30 * 60 * 1000);
+  assert.ok(TIMINGS.HOLD_STALE_MS > TIMINGS.QUEUE_CEILING_MS, 'a LIVE holder waiting for an idle target must never look stale to a sibling');
   assert.equal(TIMINGS.RETIRE_TTL_MS, 10 * 60 * 1000);
   assert.equal(TIMINGS.MAX_RELEASES, 2);
   assert.equal(TIMINGS.MAX_DELIVERY_ATTEMPTS, 3);
@@ -531,7 +534,7 @@ test('PROTOCOL: presence ownership is byte-identical across both surfaces', () =
    was simply more informative on one side), but harmless-by-luck is not a property you can keep.
    The file could not be pinned before because MY_SURFACE lived in it — the one value that MUST
    differ per surface. It now lives beside each surface's own code, and the rest is pinned whole. */
-const SENDQUEUE_SHA = '50da2e0aecfa2cd8';
+const SENDQUEUE_SHA = '18f81689beeae4a6';
 
 test('PROTOCOL: the bus decisions are byte-identical across both fulfillers', () => {
   const src = fs.readFileSync('src/core/sendQueue.ts', 'utf8');
@@ -609,4 +612,13 @@ test('PROTOCOL: this surface refuses an unknown verb before launching anything',
   const launch = body.indexOf(LAUNCH);
   assert.ok(launch > 0, 'the launcher must be called from the dispatcher — this guard proves nothing otherwise');
   assert.ok(refusal < launch, 'the refusal must come before any launcher runs');
+});
+
+/* AI-204 — the resume index is ONE file in two repos (Glass agents/resumeIndex.ts, App
+   main/resumeIndex.ts). Pinned whole, like sendQueue: an edit on one side alone goes red. */
+const RESUME_INDEX_SHA = '674f54a7f91a1435';
+test('PROTOCOL: the resume index is byte-identical across both fulfillers', () => {
+  const src = fs.readFileSync('src/agents/resumeIndex.ts', 'utf8');
+  assert.equal(crypto.createHash('sha256').update(src).digest('hex').slice(0, 16), RESUME_INDEX_SHA,
+    'resumeIndex.ts changed: make the same edit in the sibling repo and update RESUME_INDEX_SHA in BOTH.');
 });

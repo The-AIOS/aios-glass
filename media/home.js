@@ -385,6 +385,8 @@
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + titleAttr + '">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + noteBadge
+            // AI-171 step 1 — skills/agents this session used; hover names them all.
+            + (a.used ? '<span class="rused" title="' + (NLS('running.usedTip', 'This session used: ') + String(a.usedNames || '')).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"> · ' + NLS('running.used', 'used') + ': ' + String(a.used).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>' : '')
             + (mem ? '<span class="rmem">' + mem + '</span>' : '')
             + '<span class="runacts">'
             // AI-18: the 4th (first-listed) hover button — attach a post-it to this session.
@@ -464,9 +466,11 @@
       const b = document.getElementById('updBadge');
       const txt = document.getElementById('updText');
       const fw = (msg.framework && msg.framework.hash) ? (' · ' + msg.framework.hash) : '';
-      if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = 'up to date'; b.title = 'Up to date' + fw; }
-      else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = 'update available'; b.title = 'Updates available — click to run /aios:update' + fw; }
-      else { b.className = 'status'; txt.textContent = ''; b.title = 'Status unknown' + fw; }
+      /* `title` is a PROPERTY, so it takes plain text: HTML-escaping here showed a literal `&lt;`. */
+      if (msg.state === 'up-to-date'){ b.className = 'status ok'; txt.textContent = NLS('topbar.update.upToDate', 'up to date'); b.title = NLS('topbar.update.upToDate.title', 'Up to date') + fw; }
+      else if (msg.state === 'testing'){ b.className = 'status testing'; txt.textContent = NLS('topbar.update.testing', 'testing'); b.title = NLS('topbar.update.testing.title', 'Testing {branch}, ahead of main — no update is offered while you test').replace('{branch}', String(msg.branch || '')) + fw; }   // never 'upd': a click must not run /aios:update
+      else if (msg.state === 'available'){ b.className = 'status upd'; txt.textContent = NLS('topbar.update.available', 'update available'); b.title = NLS('topbar.update.available.title', 'Updates available — click to run /aios:update') + fw; }
+      else { b.className = 'status'; txt.textContent = ''; b.title = NLS('topbar.update.unknown.title', 'Status unknown') + fw; }
     } else if (msg.type === 'month'){ renderMonth(msg.data); }
     else if (msg.type === 'calendarDirty'){ if (cur.year) vscode.postMessage({ type: 'navMonth', year: cur.year, month: cur.month }); }
     else if (msg.type === 'toggleAllCards'){ toggleAllCards(); }
