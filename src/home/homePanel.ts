@@ -13,7 +13,8 @@ import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude }
 import { discoverAgents } from '../agents/agents';
 import { listOperatorSessions } from '../agents/running';
 import { sessionNoteCounts } from '../agents/sessionNotes';
-import { computeHealth } from './health';
+import { computeHealth, routineJobs, healthHelpBrief } from './health';
+import { launchHealthHelp } from '../rituals/runner';
 import { discoverSkills } from '../capabilities/capabilities';
 import { discoverCommands } from '../aios/commands';
 import { countAgentSuggestions } from '../tasks/goWithAgents';
@@ -230,6 +231,9 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       case 'recheck':
         this.recheck();
         return;
+      case 'healthHelp':
+        launchHealthHelp(healthHelpBrief());   // built here from fresh reads, never from webview text
+        return;
       case 'setTheme':
         // The webview applied it optimistically; persist to the shared setting so
         // the Files explorer (and the next open) match. toggleTheme adds the smart
@@ -383,7 +387,8 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       nudge: showNudges() ? nudgeState(now.getHours(), now.getDay(), this.lastRunningCount) : null,
       outputs: recentOutputs(6).map((o) => ({ name: o.name, group: o.group, path: o.path })),
       reports: recentReports(5).map((r) => ({ name: r.name, path: r.path })),
-      health: computeHealth() // AI-18 setup/health card
+      health: computeHealth(), // AI-18 setup/health card
+      jobs: routineJobs()      // #27 scheduled jobs (canonical's status files)
     });
   }
 

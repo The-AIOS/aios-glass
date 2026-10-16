@@ -4,6 +4,7 @@ import * as path from 'path';
 import { resolveCommandsDir } from '../aios/commands';
 import { vaultRoot } from './vault';
 import { currentAnthropicAccount } from './config';
+import { routineRows, routineNeedsAttention, type RoutineRow } from '../core/routineHealth';
 
 /**
  * AI-18 — health / setup card.
@@ -63,4 +64,33 @@ export function computeHealth(): HealthCheck[] {
     : { id: 'skills', label: 'Skills & commands', ok: false, detail: 'not registered — run `bash skills/setup.sh`' });
 
   return checks;
+}
+
+/** #27 — scheduled jobs from canonical's status files ($AIOS_HEALTH_DIR or ~/.aios/health), the
+ *  App's reader and rules (shared core). No directory → no rows. */
+export function routineJobs(now = Date.now()): RoutineRow[] {
+  const dir = process.env.AIOS_HEALTH_DIR || path.join(os.homedir(), '.aios', 'health');
+  let names: string[] = [];
+  try { names = fs.readdirSync(dir); } catch { return []; }
+  return routineRows(names.filter((f) => f.endsWith('.json') && !f.startsWith('.')).map((file) => {
+    let text = '';
+    try { text = fs.readFileSync(path.join(dir, file), 'utf8'); } catch { text = '\u0000unreadable'; }
+    return { file, text };
+  }), now);
+}
+
+/** The brief for "Let Claude help": exactly what is not green, and the rules the helper works by. */
+export function healthHelpBrief(checks = computeHealth(), jobs = routineJobs()): string {
+  const iso = (ms?: number) => (ms ? new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z') : '?');
+  const jobLine = (j: RoutineRow) => j.status === 'overdue'
+    ? (j.state === 'pending' ? `installed, no completed run yet (expected by ${iso(j.validUntil)})` : `no result since ${iso(j.writtenAt)}${j.detail ? ` — last detail: ${j.detail}` : ''}`)
+    : j.status === 'unreadable' ? `unreadable status file (${j.why})` : `${j.status}${j.detail ? `: ${j.detail}` : ''} (${iso(j.writtenAt)})`;
+  const lines = [
+    ...checks.filter((c) => !c.ok).map((c) => `- ${c.label}: ${c.detail}`),
+    ...jobs.filter(routineNeedsAttention).map((j) => `- scheduled job "${j.name}": ${jobLine(j)} (status file: ~/.aios/health/${j.name}.json)`),
+  ];
+  return 'Help me fix my AIOS health. These items in the AIOS Glass Health card are not green:\n' + lines.join('\n') + '\n\n'
+    + 'For each one: find the cause, explain it in plain words, and propose the fix. Ask me before you run any command or change anything. '
+    + 'Scheduled jobs write their status with hooks/aios-health.py at the end of each run; a job is fixed when its NEXT run writes a fresh "ok", so tell me how to trigger it or when it is due — never edit or delete a status file to make it look green. '
+    + 'When you are done, tell me to re-check the Health card.';
 }

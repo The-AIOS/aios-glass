@@ -1,6 +1,5 @@
 {
   "_note": "Webview UI strings for the Home panel. Keys are referenced from media/home.html via data-i18n / data-i18n-title and from media/home.js via NLS(key). English is the default and also the literal fallback baked into home.html — if a key is missing here, the in-HTML English text stands.",
-
   "topbar.update.checking": "checking…",
   "topbar.files.title": "Browse files — open / hide the AIOS Files explorer",
   "topbar.theme.title": "Switch between dark and light",
@@ -9,14 +8,11 @@
   "topbar.manual.title": "Open the AIOS operating manual (the-aios.com) in your browser",
   "topbar.add.title": "Create a custom agent · skill · plugin",
   "topbar.settings.title": "Config — account · model · mode · theme",
-
   "nudge.dismiss.title": "Dismiss for now",
-
   "launch.primary": "Launch",
   "launch.resume": "Resume",
   "ask.label": "✨ Ask AIOS anything you need",
   "ask.title": "Type what you need — Claude matches your ask to the right context & tools in your AIOS — and puts them to work",
-
   "card.daily.title": "Daily",
   "card.daily.sub": "discipline compounds",
   "daily.planDay": "Plan my day",
@@ -25,7 +21,6 @@
   "daily.goWithAgents": "🤖 Go with agents",
   "daily.goWithAgents.k": "multi spawn",
   "daily.goWithAgents.title": "Spawn the agents your latest daily note suggests under “Agents can handle” — one terminal each",
-
   "card.calendar.title": "Calendar",
   "calendar.prev": "Previous",
   "calendar.next": "Next",
@@ -33,7 +28,6 @@
   "calendar.week": "Week",
   "calendar.month": "Month",
   "calendar.hint": "Click to read · ⌘-click to edit.",
-
   "card.quick.title": "Quick",
   "quick.frequent": "Frequent tasks",
   "quick.frequent.k": "add your own",
@@ -53,7 +47,6 @@
   "quick.spawn": "Spawn a session",
   "quick.spawn.k": "name · task",
   "quick.spawn.title": "Spawn a session you name (e.g. feat-checkout) — or leave the name blank for a random handle — with an optional task",
-
   "card.running.title": "Running",
   "running.sessions": "Sessions",
   "running.sessions.add.title": "Spawn a session — name it (or blank for a random handle), optional task",
@@ -65,7 +58,6 @@
   "running.toggle.title": "Show / hide your live Claude sessions",
   "running.terms.toggle.title": "Show / hide open terminals",
   "running.quotaWarn.title": "Swap to your other account — silent, in-place (statusline shows it)",
-
   "card.workspaces.title": "Workspaces",
   "workspaces.browseFiles": "📁 Browse files",
   "workspaces.browseFiles.k": "finder view",
@@ -79,35 +71,29 @@
   "workspaces.projects": "Projects",
   "workspaces.projects.k": "your work",
   "workspaces.projects.title": "Your project notes (top-level)",
-
   "card.customize.title": "Customize",
   "card.customize.sub": "personalizations",
   "customize.intent.k": "autonomy · trust",
   "customize.user.k": "identity · settings",
   "customize.hint": "Ask Claude to update them for you.",
-
   "card.context.title": "Context",
   "card.context.sub": "about you",
   "context.declared": "Declared",
   "context.declared.k": "you stated",
   "context.observed": "Observed",
   "context.observed.k": "claude learned",
-
   "card.learned.title": "Learned",
   "card.learned.sub": "lately",
   "learned.hint": "Your second brain, getting smarter — click to read.",
-
   "card.shipped.title": "Shipped",
   "card.shipped.sub": "recently",
   "shipped.hint": "Click to read · ⌘-click for source.",
-
   "card.reports.title": "Reports",
   "card.reports.sub": "recent · create new",
   "reports.generate": "Generate a report",
   "reports.generate.k": "type · period",
   "reports.generate.title": "Generate a report — pick type (role / weekly / status / custom) + period",
   "reports.hint": "Click to read · ⌘-click for source.",
-
   "shortcuts.toggle": "⌨ Key shortcuts",
   "shortcuts.then": "then a key",
   "sc.ask": "ask aios",
@@ -132,12 +118,10 @@
   "sc.frequent": "frequent tasks",
   "sc.palette": "palette",
   "sc.moveCard": "move selected card",
-
   "card.setup.title": "Health",
   "setup.allGood": "Everything's wired.",
   "setup.fix.setPath": "Set path",
   "setup.fix.login": "Sign in",
-
   "files.find": "Find…",
   "files.clear": "Clear",
   "files.ctx.terminalHere": "Open terminal here",
@@ -156,7 +140,6 @@
   "files.addFolder": "Add a folder to your workspace",
   "files.removeFolder": "Remove from workspace",
   "files.empty": "Add a folder (a repo, a Drive folder) to navigate it here.",
-
   "running.used": "used",
   "running.usedTip": "This session used: ",
   "topbar.update.upToDate": "up to date",
@@ -165,5 +148,15 @@
   "topbar.update.available.title": "Updates available — click to run /aios:update",
   "topbar.update.testing": "testing",
   "topbar.update.testing.title": "Testing {branch}, ahead of main — no update is offered while you test",
-  "topbar.update.unknown.title": "Status unknown"
+  "topbar.update.unknown.title": "Status unknown",
+  "health.askClaude": "Let Claude help with these",
+  "health.askClaudeHint": "Opens a session that looks into what is not green, explains it and proposes fixes — it asks before every command",
+  "health.jobTip": "A scheduled job — it reports its result after each run",
+  "health.job.ok": "ok · {time}",
+  "health.job.waiting": "waiting for its first run (due {time})",
+  "health.job.warn": "warning{detail} · {time}",
+  "health.job.fail": "failed{detail} · {time}",
+  "health.job.neverRan": "installed, no completed run yet (expected by {time})",
+  "health.job.overdue": "no result since {time}",
+  "health.job.unreadable": "unreadable status file ({why})"
 }

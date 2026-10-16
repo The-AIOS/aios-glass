@@ -752,6 +752,23 @@ export async function askAios(intent: string): Promise<void> {
 }
 
 /**
+ * "Let Claude help" on the Health card (App parity, 0.12.0): a health-help session briefed with
+ * what is not green, in `default` permission mode so it asks before every command. The brief is a
+ * private run file (privateRun), never typed. Refuses, and says why, if that file cannot be written.
+ */
+export function launchHealthHelp(brief: string): void {
+  let file: string;
+  try { file = writePrivateFile(runDir(), 'aios-task-health-help.md', brief); }
+  catch (e) {
+    void vscode.window.showErrorMessage(`AIOS Glass: could not write the help brief safely, so nothing was started: ${(e as Error).message}`);
+    return;
+  }
+  const prompt = `Read ${file} and follow the instructions inside.`;
+  try { runNew(`${claudeBin()} --permission-mode default --name health-help ${shellQuote(prompt)}`, { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
+  catch (e) { swallow('launchHealthHelp → runNew', e); }
+}
+
+/**
  * QuickPick wrapper with the "Ask AIOS" fallback: whatever's typed becomes an
  * alwaysShow ask-item, so a search that matches nothing still resolves — Claude
  * picks the action by MEANING instead of the picker's lexical fuzzy match.

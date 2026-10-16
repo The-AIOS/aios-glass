@@ -257,6 +257,7 @@
   document.getElementById('quotaWarn').addEventListener('click', () => { const to = document.getElementById('quotaWarn').getAttribute('data-to'); if (to) run('aios.swapTo', to); });
   // AI-18: health-card fix-its route to the commands Glass already ships.
   document.getElementById('healthList').addEventListener('click', (ev) => {
+    if (ev.target.closest('#healthHelp')) { vscode.postMessage({ type: 'healthHelp' }); return; }
     const b = ev.target.closest('.hfix'); if (!b) return;
     const fix = b.getAttribute('data-fix');
     if (fix === 'setPath') run('aios.setFrameworkPath');
@@ -349,8 +350,34 @@
             : '';
           return '<div class="hcheck ' + (h.ok ? 'ok' : 'warn') + '"><span class="hdot"></span><span class="hlabel">' + label + '</span><span class="hdetail">' + detail + '</span>' + fix + '</div>';
         }).join('');
-        const allGood = health.length && health.every((h) => h.ok);
-        hl.innerHTML = rows + (allGood ? '<p class="muted hallgood">' + NLS('setup.allGood', "Everything's wired.") + '</p>' : '');
+        /* #27 — scheduled jobs (canonical's status files), the App's rules: same row shape, the
+           detail on hover for every row (operator, 0.12.0: the colour and "Let Claude help" are what a
+           non-technical operator acts on; the detail is extra). */
+        const jobs = msg.jobs || [];
+        const loc = (window.__lang === 'es') ? 'es-MX' : (window.__lang === 'pt-br') ? 'pt-BR' : 'en-US';
+        const when = (ms) => ms ? new Date(ms).toLocaleString(loc, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '?';
+        const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => (o[k] != null ? o[k] : ''));
+        const jobText = (x) => {
+          const d = x.detail ? ': ' + x.detail : '';
+          if (x.status === 'ok') return fill(NLS('health.job.ok', 'ok · {time}'), { time: when(x.writtenAt) });
+          if (x.status === 'waiting') return fill(NLS('health.job.waiting', 'waiting for its first run (due {time})'), { time: when(x.validUntil) });
+          if (x.status === 'warn') return fill(NLS('health.job.warn', 'warning{detail} · {time}'), { detail: d, time: when(x.writtenAt) });
+          if (x.status === 'fail') return fill(NLS('health.job.fail', 'failed{detail} · {time}'), { detail: d, time: when(x.writtenAt) });
+          if (x.status === 'overdue') return x.state === 'pending'
+            ? fill(NLS('health.job.neverRan', 'installed, no completed run yet (expected by {time})'), { time: when(x.validUntil) })
+            : fill(NLS('health.job.overdue', 'no result since {time}'), { time: when(x.writtenAt) });
+          return fill(NLS('health.job.unreadable', 'unreadable status file ({why})'), { why: x.why || '' });
+        };
+        const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+        const jobRows = jobs.map((x) => {
+          const cls = x.status === 'ok' ? 'ok' : x.status === 'waiting' ? 'mute' : x.status === 'fail' ? 'err' : 'warn';
+          const t = jobText(x);
+          return '<div class="hcheck ' + cls + '" title="' + esc(t + (x.detail && x.status === 'overdue' ? '\n' + x.detail : '')) + '"><span class="hdot"></span><span class="hlabel" title="' + esc(NLS('health.jobTip', 'A scheduled job — it reports its result after each run')) + '">' + esc(x.name) + '</span><span class="hdetail">' + esc(t) + '</span></div>';
+        }).join('');
+        const notGreen = health.some((h) => !h.ok) || jobs.some((x) => x.status !== 'ok' && x.status !== 'waiting');
+        const helpBtn = notGreen ? '<button class="hhelp" id="healthHelp" title="' + esc(NLS('health.askClaudeHint', 'Opens a session that looks into what is not green, explains it and proposes fixes — it asks before every command')) + '">' + esc(NLS('health.askClaude', 'Let Claude help with these')) + '</button>' : '';
+        const allGood = health.length && !notGreen;
+        hl.innerHTML = rows + jobRows + helpBtn + (allGood ? '<p class="muted hallgood">' + NLS('setup.allGood', "Everything's wired.") + '</p>' : '');
       }
     } else if (msg.type === 'running'){
       const raw = msg.running || [];

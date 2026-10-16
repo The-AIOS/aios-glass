@@ -1,6 +1,5 @@
 {
   "_note": "Spanish (neutral LATAM, forma tú). Webview Home panel strings.",
-
   "topbar.update.checking": "comprobando…",
   "topbar.files.title": "Explorar archivos — abre / oculta el explorador de Archivos AIOS",
   "topbar.theme.title": "Cambiar entre claro y oscuro",
@@ -9,14 +8,11 @@
   "topbar.manual.title": "Abre el manual operativo de AIOS (the-aios.com) en tu navegador",
   "topbar.add.title": "Crear un agente · skill · plugin personalizado",
   "topbar.settings.title": "Configuración — cuenta · modelo · modo · tema",
-
   "nudge.dismiss.title": "Descartar por ahora",
-
   "launch.primary": "Iniciar",
   "launch.resume": "Reanudar",
   "ask.label": "✨ Pídele a AIOS lo que necesites",
   "ask.title": "Escribe lo que necesitas — Claude conecta tu petición con el contexto y las herramientas adecuadas de tu AIOS — y las pone a trabajar",
-
   "card.daily.title": "Diario",
   "card.daily.sub": "la disciplina se acumula",
   "daily.planDay": "Planear mi día",
@@ -25,7 +21,6 @@
   "daily.goWithAgents": "🤖 Ir con agentes",
   "daily.goWithAgents.k": "lanzar varios",
   "daily.goWithAgents.title": "Lanza los agentes que sugiere tu nota diaria más reciente en “Agents can handle” — una terminal por cada uno",
-
   "card.calendar.title": "Calendario",
   "calendar.prev": "Anterior",
   "calendar.next": "Siguiente",
@@ -33,7 +28,6 @@
   "calendar.week": "Semana",
   "calendar.month": "Mes",
   "calendar.hint": "Clic para leer · ⌘-clic para editar.",
-
   "card.quick.title": "Acceso rápido",
   "quick.frequent": "Tareas frecuentes",
   "quick.frequent.k": "agrega las tuyas",
@@ -53,7 +47,6 @@
   "quick.spawn": "Lanzar una sesión",
   "quick.spawn.k": "nombre · tarea",
   "quick.spawn.title": "Lanza una sesión con el nombre que elijas (p. ej. feat-checkout) — o déjalo en blanco para un identificador aleatorio — con una tarea opcional",
-
   "card.running.title": "En curso",
   "running.sessions": "Sesiones",
   "running.sessions.add.title": "Lanzar una sesión — ponle nombre (o déjalo en blanco para uno aleatorio), tarea opcional",
@@ -65,7 +58,6 @@
   "running.toggle.title": "Mostrar / ocultar tus sesiones activas de Claude",
   "running.terms.toggle.title": "Mostrar / ocultar las terminales abiertas",
   "running.quotaWarn.title": "Cambia a tu otra cuenta — silencioso, en el lugar (la barra de estado lo muestra)",
-
   "card.workspaces.title": "Espacios de trabajo",
   "workspaces.browseFiles": "📁 Explorar archivos",
   "workspaces.browseFiles.k": "vista finder",
@@ -79,35 +71,29 @@
   "workspaces.projects": "Proyectos",
   "workspaces.projects.k": "tu trabajo",
   "workspaces.projects.title": "Tus notas de proyecto (nivel superior)",
-
   "card.customize.title": "Personalizar",
   "card.customize.sub": "personalizaciones",
   "customize.intent.k": "autonomía · confianza",
   "customize.user.k": "identidad · ajustes",
   "customize.hint": "Pídele a Claude que las actualice por ti.",
-
   "card.context.title": "Contexto",
   "card.context.sub": "sobre ti",
   "context.declared": "Declarado",
   "context.declared.k": "lo que dijiste",
   "context.observed": "Observado",
   "context.observed.k": "lo que aprendió claude",
-
   "card.learned.title": "Aprendido",
   "card.learned.sub": "últimamente",
   "learned.hint": "Tu segundo cerebro, cada vez más inteligente — clic para leer.",
-
   "card.shipped.title": "Entregado",
   "card.shipped.sub": "recientemente",
   "shipped.hint": "Clic para leer · ⌘-clic para ver la fuente.",
-
   "card.reports.title": "Reportes",
   "card.reports.sub": "recientes · crear nuevo",
   "reports.generate": "Generar un reporte",
   "reports.generate.k": "tipo · periodo",
   "reports.generate.title": "Genera un reporte — elige tipo (rol / semanal / estado / personalizado) + periodo",
   "reports.hint": "Clic para leer · ⌘-clic para ver la fuente.",
-
   "shortcuts.toggle": "⌨ Atajos",
   "shortcuts.then": "luego una tecla",
   "sc.ask": "preguntar a aios",
@@ -132,12 +118,10 @@
   "sc.frequent": "tareas frecuentes",
   "sc.palette": "paleta",
   "sc.moveCard": "mover tarjeta seleccionada",
-
   "card.setup.title": "Salud",
   "setup.allGood": "Todo está conectado.",
   "setup.fix.setPath": "Definir ruta",
   "setup.fix.login": "Iniciar sesión",
-
   "files.find": "Buscar…",
   "files.clear": "Limpiar",
   "files.ctx.terminalHere": "Abrir terminal aquí",
@@ -153,7 +137,6 @@
   "files.addFolder": "Agregar una carpeta a tu espacio de trabajo",
   "files.removeFolder": "Quitar del espacio de trabajo",
   "files.empty": "Agrega una carpeta (un repo, una carpeta de Drive) para navegarla aquí.",
-
   "running.used": "usó",
   "running.usedTip": "Esta sesión usó: ",
   "topbar.update.upToDate": "al día",
@@ -162,5 +145,15 @@
   "topbar.update.available.title": "Hay actualizaciones — haz clic para ejecutar /aios:update",
   "topbar.update.testing": "probando",
   "topbar.update.testing.title": "Probando {branch}, adelante de main — no se ofrecen actualizaciones mientras pruebas",
-  "topbar.update.unknown.title": "Estado desconocido"
+  "topbar.update.unknown.title": "Estado desconocido",
+  "health.askClaude": "Que Claude te ayude con esto",
+  "health.askClaudeHint": "Abre una sesión que revisa lo que no está en verde, lo explica y propone cómo arreglarlo; pregunta antes de cada comando",
+  "health.jobTip": "Una tarea programada: reporta su resultado después de cada ejecución",
+  "health.job.ok": "bien · {time}",
+  "health.job.waiting": "esperando su primera ejecución (antes de {time})",
+  "health.job.warn": "advertencia{detail} · {time}",
+  "health.job.fail": "falló{detail} · {time}",
+  "health.job.neverRan": "instalada, sin ninguna ejecución completa (se esperaba antes de {time})",
+  "health.job.overdue": "sin resultado desde {time}",
+  "health.job.unreadable": "archivo de estado ilegible ({why})"
 }
