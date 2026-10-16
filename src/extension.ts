@@ -682,12 +682,17 @@ export function activate(context: vscode.ExtensionContext): void {
      about messages, and retiring a request never delivered it. So a verified-FAILED send looked
      exactly like a success to whoever sent it: one sat on disk for twenty minutes and was found
      only because somebody happened to list the directory for an unrelated reason.
-     Surfaced on activation and every five minutes — in the IDE, where the operator is. */
+     Surfaced on activation and every five minutes — in the IDE, where the operator is.
+     ONCE per dead letter (app#65): the sweep used to re-log every file and re-show the warning
+     every five minutes for as long as it sat on disk, which reads as a nag and buries the next
+     one. A file already announced this session is skipped; a new one is announced. */
+  const announcedDeadLetters = new Set<string>();
   const surfaceDeadLetters = (): void => {
     let files: string[] = [];
-    try { files = fs.readdirSync(spawnInboxDir).filter((f) => f.endsWith('.undelivered')); }
+    try { files = fs.readdirSync(spawnInboxDir).filter((f) => f.endsWith('.undelivered') && !announcedDeadLetters.has(f)); }
     catch { return; }
     if (!files.length) return;
+    for (const f of files) announcedDeadLetters.add(f);
     for (const f of files) {
       let to = '?', why = 'unrecorded';
       try {
