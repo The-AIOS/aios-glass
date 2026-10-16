@@ -15,6 +15,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **A name you say wins.** "run a session named rumi …" opens `rumi` (also *llamada*, *chamada*, *namens*); a name already running gets `-2`.
 
+### Security
+- **Task and prompt files are private.** A spawn's or resume's long task was written to a fixed name in the temp directory, which on Linux is the shared `/tmp`: another local user could plant the file, or a symlink at its path. They now go to `~/.aios/run` (private, ownership-checked, written fresh; never a fallback to `/tmp`), matching canonical v0.8.12. Windows keeps its per-user temp directory.
+
 ### Fixed
 - **Session names keep their letters.** Accents are folded instead of dropped: `für` becomes `fuer`, `canción` becomes `cancion`; filler words in Spanish, Portuguese and German are dropped like English ones ("Prepara el reporte semanal" → `ask-prepara-reporte-semanal`). (aios-app#66)
 - **A dead letter is announced once.** The five-minute sweep re-logged every undelivered message and re-showed the warning for as long as it sat on disk; each is now reported once per session. (aios-app#65)
