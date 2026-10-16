@@ -13,7 +13,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Ask AIOS picks today's session when you name a daily identity.** A USER.md identity whose name carries a date pattern (`atlas-TT-MM-JJ`, `daily-DD-MM-YY`) is used when the intent names it: "start atlas" opens `atlas-16-10-26`. Plain identities (`buddai`) are never auto-picked, since the intent is usually about the live session of that name, and a name already running is never reused. (aios-app#66)
 
-- **A name you say for the session wins.** "run a session named rumi …" opens `rumi` (likewise "una sesión llamada…", "uma sessão chamada…", "eine Sitzung namens…"). The phrase counts only after a session word, so "prepara la llamada con Cavimex" (a phone call) or "the doc called Q3 plan" never names a session; a name already running gets `-2`.
+- **A name you say for the session wins.** "run a session named rumi …" opens `rumi` (likewise "una sesión llamada…", "uma sessão chamada…", "eine Sitzung namens…"). The phrase counts only after a session word, so "prepara la llamada con Acme" (a phone call) or "the doc called Q3 plan" never names a session; a name already running gets `-2`.
 
 - **The Health card lists your scheduled jobs** from canonical v0.8.12's status files (`~/.aios/health/`), with the App's rules: a job past its deadline reads "no result since …", one never completed says so, a broken file is shown. When anything is not green, **Let Claude help with these** opens a `health-help` session briefed with what is wrong; it asks before every command and never edits a status file to look green. Every row's detail now shows on hover, so the card reads as a list of names and colours. (aios-app#27)
 
