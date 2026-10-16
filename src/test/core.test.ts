@@ -47,7 +47,7 @@ test('parseFrontmatter: no frontmatter → empty', () => {
 // ── slug ─────────────────────────────────────────────────────────────────────
 
 test('slug: symbols collapse, edges trim, empty falls back', () => {
-  assert.equal(slug('Review Diego’s PRs!'), 'review-diego-s-prs');
+  assert.equal(slug('Review Marta’s PRs!'), 'review-marta-s-prs');
   assert.equal(slug('  Monday Kickoff — plan  '), 'monday-kickoff-plan');
   assert.equal(slug('???'), 'task');
 });
