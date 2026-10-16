@@ -13,8 +13,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Ask AIOS picks today's session when you name a daily identity.** A USER.md identity whose name carries a date pattern (`atlas-TT-MM-JJ`, `daily-DD-MM-YY`) is used when the intent names it: "start atlas" opens `atlas-16-10-26`. Plain identities (`buddai`) are never auto-picked, since the intent is usually about the live session of that name, and a name already running is never reused. (aios-app#66)
 
+- **A name you say wins.** "run a session named rumi …" opens `rumi` (also *llamada*, *chamada*, *namens*); a name already running gets `-2`.
+
 ### Fixed
-- **Session names keep their letters.** Accents are folded instead of dropped: `für` becomes `fuer`, `canción` becomes `cancion`. (aios-app#66)
+- **Session names keep their letters.** Accents are folded instead of dropped: `für` becomes `fuer`, `canción` becomes `cancion`; filler words in Spanish, Portuguese and German are dropped like English ones ("Prepara el reporte semanal" → `ask-prepara-reporte-semanal`). (aios-app#66)
 - **A dead letter is announced once.** The five-minute sweep re-logged every undelivered message and re-showed the warning for as long as it sat on disk; each is now reported once per session. (aios-app#65)
 
 ## [0.5.11] — 2026-10-11
