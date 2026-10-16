@@ -11,7 +11,7 @@ import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
-import { askSessionName } from '../core/taskModel';
+import { askSessionName, identityNamesIn } from '../core/sessionName';
 import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
@@ -730,15 +730,23 @@ export async function launchPrompt(text: string): Promise<void> {
  * named from the intent (e.g. `ask-social-media`) so the Running list reads
  * what it's about.
  */
-export function askAios(intent: string): void {
+export async function askAios(intent: string): Promise<void> {
   const t = intent.trim();
   if (!t) return;
-  const name = askSessionName(t);
+  /* app#66: a dated USER.md identity the intent names ("start atlas" → atlas-16-10-26), letters
+     folded rather than dropped, and never the name of a session already running. */
+  let identities: Set<string> = new Set();
+  try { const root = frameworkRoot(); if (root) identities = identityNamesIn(fs.readFileSync(path.join(root, 'USER.md'), 'utf8')); } catch { /* no USER.md */ }
+  const live = (await listRunningAgents().catch(() => [])).map((a) => a.name);
+  const name = askSessionName(t, { identities, live });
   const prompt =
     `Find the right AIOS action for this intent and run it: "${t}". ` +
     `Search my agents, /aios: commands, skills, and frequent tasks; pick the best match, ` +
     `tell me in one line which you chose and why, then execute it. If nothing fits, say so and suggest the 2-3 closest options.`;
-  runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' });
+  /* Async now (it reads the registry), so a throw would surface as an unhandled rejection in callers
+     that used to catch it synchronously — contain it here instead. */
+  try { runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' }); }
+  catch (e) { swallow('askAios → runNew', e); }
 }
 
 /**
