@@ -13,7 +13,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **Ask AIOS picks today's session when you name a daily identity.** A USER.md identity whose name carries a date pattern (`atlas-TT-MM-JJ`, `daily-DD-MM-YY`) is used when the intent names it: "start atlas" opens `atlas-16-10-26`. Plain identities (`buddai`) are never auto-picked, since the intent is usually about the live session of that name, and a name already running is never reused. (aios-app#66)
 
-- **A name you say wins.** "run a session named rumi …" opens `rumi` (also *llamada*, *chamada*, *namens*); a name already running gets `-2`.
+- **A name you say for the session wins.** "run a session named rumi …" opens `rumi` (likewise "una sesión llamada…", "uma sessão chamada…", "eine Sitzung namens…"). The phrase counts only after a session word, so "prepara la llamada con Cavimex" (a phone call) or "the doc called Q3 plan" never names a session; a name already running gets `-2`.
 
 ### Security
 - **Task and prompt files are private.** A spawn's or resume's long task was written to a fixed name in the temp directory, which on Linux is the shared `/tmp`: another local user could plant the file, or a symlink at its path. They now go to `~/.aios/run` (private, ownership-checked, written fresh; never a fallback to `/tmp`), matching canonical v0.8.12. Windows keeps its per-user temp directory.
