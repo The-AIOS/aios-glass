@@ -253,6 +253,13 @@
   .hcheck .hlabel{flex:0 0 auto; color:var(--ink)}
   .hcheck .hdetail{flex:1; min-width:0; font-size:11px; color:var(--subtle); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .hcheck.warn .hdetail{color:#d9962a}
+  /* #27 + operator 0.12.0 (App parity): job rows share the shape; every row's detail shows on hover only. */
+  .hcheck.err .hdot{background:#f5564a}
+  .hcheck.mute .hdot{background:var(--subtle)}
+  .hcheck .hdetail{opacity:0; transition:opacity .12s}
+  .hcheck:hover .hdetail, .hcheck:focus-within .hdetail{opacity:1}
+  .hhelp{align-self:flex-start; margin-top:8px; background:transparent; border:1px solid var(--line); color:var(--accent-ink); border-radius:7px; padding:4px 10px; font:inherit; font-size:11.5px; cursor:pointer}
+  .hhelp:hover{border-color:var(--accent)}
   .hcheck .hfix{flex:0 0 auto; background:transparent; border:1px solid color-mix(in srgb, #f5a623 55%, var(--line)); color:#d9962a;
     border-radius:6px; padding:1px 8px; font-size:11px; font-family:var(--font); cursor:pointer}
   .hcheck .hfix:hover{background:color-mix(in srgb, #f5a623 18%, transparent); color:var(--ink)}

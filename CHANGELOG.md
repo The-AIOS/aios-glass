@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.12] — 2026-10-16
+
+> **Ask AIOS names a session for the identity you ask for, and the bus says each problem once.** Ships alongside the AIOS App's v0.12.0; the naming rule and the name matching are shared core, identical on both surfaces.
+
+### Added
+- **Ask AIOS picks today's session when you name a daily identity.** A USER.md identity whose name carries a date pattern (`atlas-TT-MM-JJ`, `daily-DD-MM-YY`) is used when the intent names it: "start atlas" opens `atlas-16-10-26`. Plain identities (`buddai`) are never auto-picked, since the intent is usually about the live session of that name, and a name already running is never reused. (aios-app#66)
+
+- **A name you say for the session wins.** "run a session named rumi …" opens `rumi` (likewise "una sesión llamada…", "uma sessão chamada…", "eine Sitzung namens…"). The phrase counts only after a session word, so "prepara la llamada con Cavimex" (a phone call) or "the doc called Q3 plan" never names a session; a name already running gets `-2`.
+
+- **The Health card lists your scheduled jobs** from canonical v0.8.12's status files (`~/.aios/health/`), with the App's rules: a job past its deadline reads "no result since …", one never completed says so, a broken file is shown. When anything is not green, **Let Claude help with these** opens a `health-help` session briefed with what is wrong; it asks before every command and never edits a status file to look green. Every row's detail now shows on hover, so the card reads as a list of names and colours. (aios-app#27)
+
+### Security
+- **Task and prompt files are private.** A spawn's or resume's long task was written to a fixed name in the temp directory, which on Linux is the shared `/tmp`: another local user could plant the file, or a symlink at its path. They now go to `~/.aios/run` (private, ownership-checked, written fresh; never a fallback to `/tmp`), matching canonical v0.8.12. Windows keeps its per-user temp directory.
+
+### Fixed
+- **Session names keep their letters.** Accents are folded instead of dropped: `für` becomes `fuer`, `canción` becomes `cancion`; filler words in Spanish, Portuguese and German are dropped like English ones ("Prepara el reporte semanal" → `ask-prepara-reporte-semanal`). (aios-app#66)
+- **A dead letter is announced once.** The five-minute sweep re-logged every undelivered message and re-showed the warning for as long as it sat on disk; each is now reported once per session. (aios-app#65)
+
 ## [0.5.11] — 2026-10-11
 
 > **Glass follows your editor's colours, and the bus is honest in both directions.** Ships alongside the AIOS App's v0.11.0; every change to the shared bus is identical on both surfaces.

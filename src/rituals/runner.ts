@@ -11,7 +11,8 @@ import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
-import { askSessionName } from '../core/taskModel';
+import { askSessionName, identityNamesIn } from '../core/sessionName';
+import { runDir, writePrivateFile } from '../bus/privateRun';
 import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
@@ -323,10 +324,11 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   let inlineTask = taskText;
   if (taskText && (/[\r\n]/.test(taskText) || taskText.length > 240)) {
     try {
-      const taskFile = path.join(os.tmpdir(), `aios-spawn-task-${name}.md`);
-      fs.writeFileSync(taskFile, taskText, 'utf8');
+      /* A private run file (privateRun: ~/.aios/run, never the shared /tmp on Linux), so no other
+         local user can plant the instructions a worker follows. A refusal lands in the catch below. */
+      const taskFile = writePrivateFile(runDir(), `aios-spawn-task-${name}.md`, taskText);
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
-    } catch {
+    } catch (e) {
       /* AI-66: this used to cut the task to 2000 chars and spawn anyway — a silent truncation that
          handed the worker a task ending mid-sentence and reported success. That is the exact
          shape of the incident this ticket exists for, sitting in the codebase as a "fallback".
@@ -336,7 +338,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
         `Its task is ${byteLength(taskText)} bytes and delivering a shortened version could drop ` +
         `instructions silently.`,
       );
-      log(`spawn '${name}': ABORTED — task file unwritable and truncating is not an option`);
+      log(`spawn '${name}': ABORTED — task file not written safely (${(e as Error).message}); truncating or inlining is not an option`);
       return;
     }
   }
@@ -405,10 +407,10 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   let inline = text;
   if (text && (/[\r\n]/.test(text) || text.length > 240)) {
     try {
-      const f = path.join(os.tmpdir(), `aios-resume-task-${name}.md`);
-      fs.writeFileSync(f, text, 'utf8');
+      const f = writePrivateFile(runDir(), `aios-resume-task-${name}.md`, text);   // private run file (privateRun)
       inline = `Read ${f} and follow the instructions inside.`;
-    } catch {
+    } catch (e) {
+      log(`resume '${name}': ABORTED — prompt file not written safely (${(e as Error).message})`);
       void vscode.window.showErrorMessage(
         `AIOS Glass: could not write the prompt file for “${name}”, so the session was NOT resumed. ` +
         `Its prompt is ${byteLength(text)} bytes and delivering a shortened version could drop ` +
@@ -730,15 +732,40 @@ export async function launchPrompt(text: string): Promise<void> {
  * named from the intent (e.g. `ask-social-media`) so the Running list reads
  * what it's about.
  */
-export function askAios(intent: string): void {
+export async function askAios(intent: string): Promise<void> {
   const t = intent.trim();
   if (!t) return;
-  const name = askSessionName(t);
+  /* app#66: a dated USER.md identity the intent names ("start atlas" → atlas-16-10-26), letters
+     folded rather than dropped, and never the name of a session already running. */
+  let identities: Set<string> = new Set();
+  try { const root = frameworkRoot(); if (root) identities = identityNamesIn(fs.readFileSync(path.join(root, 'USER.md'), 'utf8')); } catch { /* no USER.md */ }
+  const live = (await listRunningAgents().catch(() => [])).map((a) => a.name);
+  const name = askSessionName(t, { identities, live });
   const prompt =
     `Find the right AIOS action for this intent and run it: "${t}". ` +
     `Search my agents, /aios: commands, skills, and frequent tasks; pick the best match, ` +
     `tell me in one line which you chose and why, then execute it. If nothing fits, say so and suggest the 2-3 closest options.`;
-  runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' });
+  /* Async now (it reads the registry), so a throw would surface as an unhandled rejection in callers
+     that used to catch it synchronously — contain it here instead. */
+  try { runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' }); }
+  catch (e) { swallow('askAios → runNew', e); }
+}
+
+/**
+ * "Let Claude help" on the Health card (App parity, 0.12.0): a health-help session briefed with
+ * what is not green, in `default` permission mode so it asks before every command. The brief is a
+ * private run file (privateRun), never typed. Refuses, and says why, if that file cannot be written.
+ */
+export function launchHealthHelp(brief: string): void {
+  let file: string;
+  try { file = writePrivateFile(runDir(), 'aios-task-health-help.md', brief); }
+  catch (e) {
+    void vscode.window.showErrorMessage(`AIOS Glass: could not write the help brief safely, so nothing was started: ${(e as Error).message}`);
+    return;
+  }
+  const prompt = `Read ${file} and follow the instructions inside.`;
+  try { runNew(`${claudeBin()} --permission-mode default --name health-help ${shellQuote(prompt)}`, { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
+  catch (e) { swallow('launchHealthHelp → runNew', e); }
 }
 
 /**

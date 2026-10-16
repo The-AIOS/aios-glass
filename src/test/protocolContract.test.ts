@@ -622,3 +622,17 @@ test('PROTOCOL: the resume index is byte-identical across both fulfillers', () =
   assert.equal(crypto.createHash('sha256').update(src).digest('hex').slice(0, 16), RESUME_INDEX_SHA,
     'resumeIndex.ts changed: make the same edit in the sibling repo and update RESUME_INDEX_SHA in BOTH.');
 });
+
+const PRIVATE_RUN_SHA = '6383fdd3758496ab';
+test('PROTOCOL: private run files are written by byte-identical code in both surfaces', () => {
+  const src = fs.readFileSync('src/bus/privateRun.ts', 'utf8');
+  assert.equal(crypto.createHash('sha256').update(src).digest('hex').slice(0, 16), PRIVATE_RUN_SHA,
+    'privateRun.ts changed: make the same edit in the sibling repo and update PRIVATE_RUN_SHA in BOTH.');
+});
+
+const SESSION_NAME_SHA = '55005c27adc09b92';
+test('PROTOCOL: Ask AIOS names sessions with byte-identical code in both surfaces', () => {
+  const src = fs.readFileSync('src/core/sessionName.ts', 'utf8');
+  assert.equal(crypto.createHash('sha256').update(src).digest('hex').slice(0, 16), SESSION_NAME_SHA,
+    'sessionName.ts changed: edit it in Glass, run sync-core in the App, and update SESSION_NAME_SHA in BOTH.');
+});
