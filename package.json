@@ -473,13 +473,15 @@
             "auto",
             "en",
             "es",
-            "pt-br"
+            "pt-br",
+            "el"
           ],
           "enumDescriptions": [
             "Follow the IDE display language",
             "English",
             "Español (LATAM neutral)",
-            "Português (Brasil)"
+            "Português (Brasil)",
+            "Ελληνικά (Greek)"
           ],
           "default": "auto",
           "markdownDescription": "Language for the AIOS Glass Home panel. `auto` follows the IDE display language. Changing this re-renders the panel instantly. IDE command titles & native menus follow the IDE display language (Configure Display Language). Switch from the cog menu."

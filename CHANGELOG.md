@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Greek (Ελληνικά) interface language.** Greek catalogs for the Home panel (`media/i18n/strings.el.json`), host popups (`l10n/bundle.l10n.el.json`) and command titles (`package.nls.el.json`), plus `el` in the `aiosGlass.language` setting and the cog-menu switcher. `auto` picks Greek when the IDE display language is Greek. Translated from the English catalogs and reviewed by a native speaker.
+
 ## [0.5.12] — 2026-10-16
 
 > **Ask AIOS names a session for the identity you ask for, and the bus says each problem once.** Ships alongside the AIOS App's v0.12.0; the naming rule and the name matching are shared core, identical on both surfaces.
