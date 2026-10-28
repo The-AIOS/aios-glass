@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { recordedStart, sameProcessStart, processStartMs } from './procStart';
 
 export interface RunningAgent {
   pid: number;
@@ -45,8 +46,19 @@ export interface RunningAgent {
  * This replaces the old `ps -E` env scan: the registry is cleaner, gives live
  * status for free, and avoids reading the process environment (which carries
  * the operator's secrets). Best-effort; resolves [] on any failure.
+ *
+ * #78: a live pid is not enough — a stale entry whose pid the OS handed to another process looked
+ * live. An entry that records `procStart` counts only if the process holding the pid started then
+ * (see procStart.ts); without it, or when the start time cannot be read, signal 0 decides as before.
  */
-export function listRunningAgents(): Promise<RunningAgent[]> {
+export async function listRunningAgents(): Promise<RunningAgent[]> {
+  const candidates = await listRegistryEntries();
+  const keep = await Promise.all(candidates.map(async ({ agent, recorded }) =>
+    recorded === undefined || sameProcessStart(recorded, await processStartMs(agent.pid))));
+  return candidates.filter((_, i) => keep[i]).map((c) => c.agent);
+}
+
+function listRegistryEntries(): Promise<{ agent: RunningAgent; recorded: number | undefined }[]> {
   return new Promise((resolve) => {
     try {
       const dir = path.join(os.homedir(), '.claude', 'sessions');
@@ -57,7 +69,7 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
         return resolve([]); // no registry dir → nothing to report
       }
 
-      const out: RunningAgent[] = [];
+      const out: { agent: RunningAgent; recorded: number | undefined }[] = [];
       for (const f of files) {
         let d: any;
         try {
@@ -70,7 +82,7 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
         if (!isAlive(pid)) continue; // stale registry entry for a dead process
 
         const name = String(d?.name ?? '').trim() || '(unnamed)';
-        out.push({
+        out.push({ recorded: recordedStart(d ?? {}), agent: {
           pid,
           name,
           status: String(d?.status ?? '').trim(),
@@ -87,12 +99,12 @@ export function listRunningAgents(): Promise<RunningAgent[]> {
           ...(Number(d?.statusUpdatedAt) > 0 ? { statusUpdatedAt: Number(d.statusUpdatedAt) } : {}),
           kind: String(d?.kind ?? '').trim() || 'interactive',
           entrypoint: String(d?.entrypoint ?? '').trim(),
-        });
+        } });
       }
 
       // dedupe by pid (one file per pid, but be defensive)
       const seen = new Set<number>();
-      resolve(out.filter((a) => (seen.has(a.pid) ? false : (seen.add(a.pid), true))));
+      resolve(out.filter(({ agent: a }) => (seen.has(a.pid) ? false : (seen.add(a.pid), true))));
     } catch {
       resolve([]);
     }
