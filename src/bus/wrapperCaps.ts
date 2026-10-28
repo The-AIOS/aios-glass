@@ -40,16 +40,18 @@ export function blockAcceptsAddDir(block: string | undefined, shell: 'posix' | '
 
 /** The startup files the installer writes to: the one it picks for $SHELL, or both PowerShell profiles. */
 export function wrapperStartupFiles(platform: NodeJS.Platform, home: string, env: Record<string, string | undefined>): string[] {
+  /* The given platform's separators, whatever host computes the answer. */
+  const p = platform === 'win32' ? path.win32 : path.posix;
   if (platform === 'win32') {
-    const docs = [path.join(home, 'Documents')];
-    if (env.OneDrive) docs.push(path.join(env.OneDrive, 'Documents'));   // a redirected Documents folder
+    const docs = [p.join(home, 'Documents')];
+    if (env.OneDrive) docs.push(p.join(env.OneDrive, 'Documents'));   // a redirected Documents folder
     return docs.flatMap((d) => [
-      path.join(d, 'PowerShell', 'Microsoft.PowerShell_profile.ps1'),
-      path.join(d, 'WindowsPowerShell', 'Microsoft.PowerShell_profile.ps1'),
+      p.join(d, 'PowerShell', 'Microsoft.PowerShell_profile.ps1'),
+      p.join(d, 'WindowsPowerShell', 'Microsoft.PowerShell_profile.ps1'),
     ]);
   }
   // Same rule as install-wrappers.sh: bash → .bashrc, anything else → .zshrc.
-  return [path.join(home, path.basename(env.SHELL || '') === 'bash' ? '.bashrc' : '.zshrc')];
+  return [p.join(home, p.basename(env.SHELL || '') === 'bash' ? '.bashrc' : '.zshrc')];
 }
 
 /**

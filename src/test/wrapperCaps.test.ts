@@ -19,12 +19,12 @@ const DIR = '/Users/x/.aios/run/handoff-0123456789abcdef';
 const files = (m: Record<string, string>) => (f: string) => m[f];
 
 test('a v0.8.13 wrapper (zsh/bash) gets --add-dir, placed so its value is consumed before the name', () => {
-  const rc = path.join('/Users/x', '.zshrc');
+  const rc = path.posix.join('/Users/x', '.zshrc');
   assert.equal(addDirFlag(DIR, 'darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: SH_813 })), `--add-dir '${DIR}' `);
 });
 
 test('CONTROL: an older wrapper gets nothing — the flag would become the worker\'s name', () => {
-  const rc = path.join('/Users/x', '.zshrc');
+  const rc = path.posix.join('/Users/x', '.zshrc');
   assert.equal(addDirFlag(DIR, 'darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: SH_812 })), '');
   assert.equal(blockAcceptsAddDir(wrapperBlock(SH_812), 'posix'), false, 'a comment mentioning the flag is not support');
 });
@@ -36,8 +36,8 @@ test('doubt answers no: no startup file, no wrapper block, a quote in the folder
 });
 
 test('bash users are read from .bashrc, as the installer writes it', () => {
-  assert.deepEqual(wrapperStartupFiles('linux', '/home/x', { SHELL: '/bin/bash' }), [path.join('/home/x', '.bashrc')]);
-  assert.deepEqual(wrapperStartupFiles('darwin', '/Users/x', {}), [path.join('/Users/x', '.zshrc')]);
+  assert.deepEqual(wrapperStartupFiles('linux', '/home/x', { SHELL: '/bin/bash' }), [path.posix.join('/home/x', '.bashrc')]);
+  assert.deepEqual(wrapperStartupFiles('darwin', '/Users/x', {}), [path.posix.join('/Users/x', '.zshrc')]);
 });
 
 test('Windows: -AddDir only when EVERY profile that carries the wrapper supports it', () => {
