@@ -6,7 +6,10 @@ export { PROC_START_TOLERANCE_MS, parseLstartUtc, parseFiletime, recordedStart, 
 
 /* ── reading the actual start time (side effects; cached) ─────────────────────────────── */
 
-const CACHE_MS = 30_000;
+/* A pid's start time cannot change while that pid lives, so caching longer is never wrong in
+   the unsafe direction: a pid reused inside the window keeps its old answer, which is the old
+   behaviour. Windows gets 10 min because each probe launches PowerShell (slow to start). */
+const CACHE_MS = process.platform === 'win32' ? 10 * 60_000 : 30_000;
 const cache = new Map<number, { at: number; start: number | undefined }>();
 
 function run(cmd: string, args: string[], timeout: number): Promise<string | undefined> {
