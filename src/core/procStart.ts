@@ -45,9 +45,21 @@ export function parseFiletime(s: string | undefined): number | undefined {
 }
 
 /** The start time a registry entry records, epoch ms, or undefined when it records none we can read. */
-export function recordedStart(entry: { procStart?: unknown; procStartFt?: unknown }): number | undefined {
-  return parseLstartUtc(typeof entry.procStart === 'string' ? entry.procStart : undefined)
+/* A recorded start further than this from the entry's own `startedAt` is a reading we got wrong,
+   not a process that changed: the session starts seconds after its process. */
+export const STARTED_AT_PLAUSIBLE_MS = 10 * 60 * 1000;
+
+export function recordedStart(entry: { procStart?: unknown; procStartFt?: unknown; startedAt?: unknown }): number | undefined {
+  const t = parseLstartUtc(typeof entry.procStart === 'string' ? entry.procStart : undefined)
     ?? parseFiletime(typeof entry.procStartFt === 'string' ? entry.procStartFt : undefined);
+  /* SELF-CHECK AGAINST CLAUDE CODE'S OWN CLOCK. `procStartFt` (Windows) is compared only for
+     equality by Claude Code, so reading it as a FILETIME is an inference, never measured on
+     Windows. If that inference were wrong, every live Windows session would read as "a different
+     process" and vanish. `startedAt` is written by Claude Code in epoch ms beside it, so a reading
+     that disagrees with it by minutes is discarded and the old behaviour (signal 0) decides. */
+  const started = typeof entry.startedAt === 'number' && entry.startedAt > 0 ? entry.startedAt : undefined;
+  if (t !== undefined && started !== undefined && Math.abs(t - started) > STARTED_AT_PLAUSIBLE_MS) return undefined;
+  return t;
 }
 
 /**

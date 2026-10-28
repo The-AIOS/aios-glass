@@ -64,3 +64,14 @@ test('listRunningAgents drops an entry whose procStart does not match the live p
     assert.equal((await listRunningAgents()).length, 1, 'no procStart → signal 0 decides, as before');
   } finally { process.env.HOME = prev; }
 });
+
+test('a recorded start that disagrees with the entry\'s own startedAt is a misreading, never a reason to hide a session', async () => {
+  const { recordedStart: rs } = await import('../core/procStart');
+  const real = Date.UTC(2026, 9, 28, 1, 33, 15);
+  const ft = String((BigInt(real) + 11644473600000n) * 10000n);   // FILETIME for `real`
+  assert.equal(rs({ procStartFt: ft, startedAt: real + 3000 }), real, 'a FILETIME seconds before startedAt is trusted');
+  assert.equal(rs({ procStartFt: ft, startedAt: real + 3 * 3600 * 1000 }), undefined, 'hours off → our reading is wrong → unknown');
+  assert.equal(rs({ procStartFt: ft }), real, 'no startedAt → no check');
+  assert.equal(rs({ procStart: 'Wed Oct 28 01:33:15 2026', startedAt: real + 2000 }), real);
+  assert.equal(rs({ procStartFt: '1793154351000000000', startedAt: real }), undefined, 'the other Windows encoding stays unknown');
+});
