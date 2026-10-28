@@ -13,6 +13,7 @@ import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
 import { askSessionName, identityNamesIn } from '../core/sessionName';
 import { runDir, writePrivateFile } from '../bus/privateRun';
+import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
@@ -326,6 +327,9 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
     try {
       /* A private run file (privateRun: ~/.aios/run, never the shared /tmp on Linux), so no other
          local user can plant the instructions a worker follows. A refusal lands in the catch below. */
+      /* aios#231: no --add-dir here — canonical's `spawn` wrapper takes no passthrough flags (an
+         unknown flag becomes the worker's NAME). The wrapper writes its own task file to the same
+         ~/.aios/run, and canonical is adding the --add-dir grant on its side. */
       const taskFile = writePrivateFile(runDir(), `aios-spawn-task-${name}.md`, taskText);
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
     } catch (e) {
@@ -405,9 +409,11 @@ export async function launchResumeSession(name: string, sessionId: string, promp
      crash the host. Long prompts go through a file; refusing beats silently shortening. */
   const text = prompt?.trim() ?? '';
   let inline = text;
+  let taskFile: string | undefined;   // aios#231: its dir is granted with --add-dir
   if (text && (/[\r\n]/.test(text) || text.length > 240)) {
     try {
       const f = writePrivateFile(runDir(), `aios-resume-task-${name}.md`, text);   // private run file (privateRun)
+      taskFile = f;
       inline = `Read ${f} and follow the instructions inside.`;
     } catch (e) {
       log(`resume '${name}': ABORTED — prompt file not written safely (${(e as Error).message})`);
@@ -423,9 +429,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
   if (bus && inline) recordTyped(inline, name, 'resume', from);   // AI-172
-  const extra = extraArgs.map((a) => ` ${shellQuote(a)}`).join('');   // contract 4: --effort / --settings
-  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${extra}${inline ? ` ${shellQuote(inline)}` : ''}`,
-    { name, icon, color: 'terminal.ansiBlue' });
+  runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile), { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
 
@@ -764,7 +768,7 @@ export function launchHealthHelp(brief: string): void {
     return;
   }
   const prompt = `Read ${file} and follow the instructions inside.`;
-  try { runNew(`${claudeBin()} --permission-mode default --name health-help ${shellQuote(prompt)}`, { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
+  try { runNew(healthHelpCmd(claudeBin(), file, prompt), { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
   catch (e) { swallow('launchHealthHelp → runNew', e); }
 }
 
