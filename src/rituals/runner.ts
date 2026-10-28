@@ -13,6 +13,7 @@ import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
 import { askSessionName, identityNamesIn } from '../core/sessionName';
 import { writeHandoffFile } from '../bus/handoffDir';   // aios#231: one private folder per handed-over file
+import { addDirFlag } from '../bus/wrapperCaps';
 import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
@@ -327,11 +328,16 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
     try {
       /* A private run file (privateRun: ~/.aios/run, never the shared /tmp on Linux), so no other
          local user can plant the instructions a worker follows. A refusal lands in the catch below. */
-      /* aios#231: no --add-dir here — canonical's `spawn` wrapper takes no passthrough flags (an
-         unknown flag becomes the worker's NAME). The wrapper writes its own task file to the same
-         ~/.aios/run, and canonical is adding the --add-dir grant on its side. */
+      /* aios#231: the wrapper puts this line into ITS task file and grants only its own folder, so
+         this folder is granted too, with the wrapper's own flag (canonical v0.8.13). An older
+         wrapper takes an unknown flag as the worker's NAME, so wrapperCaps reads the installed
+         wrapper and answers '' when it cannot take the flag: then the command is today's. */
       const taskFile = writeHandoffFile(`aios-spawn-task-${name}.md`, taskText);
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
+      const grant = addDirFlag(path.dirname(taskFile), process.platform, os.homedir(), process.env,
+        (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return undefined; } });
+      if (grant) flag += grant;
+      else log(`spawn '${name}': the installed spawn wrapper takes no folder grant (canonical < v0.8.13); under blockReadsOutsideWorkingDirectories the worker cannot read ${taskFile}`);
     } catch (e) {
       /* AI-66: this used to cut the task to 2000 chars and spawn anyway — a silent truncation that
          handed the worker a task ending mid-sentence and reported success. That is the exact
