@@ -12,7 +12,7 @@ import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
 import { askSessionName, identityNamesIn } from '../core/sessionName';
-import { runDir, writePrivateFile } from '../bus/privateRun';
+import { writeHandoffFile } from '../bus/handoffDir';   // aios#231: one private folder per handed-over file
 import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
@@ -330,7 +330,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       /* aios#231: no --add-dir here — canonical's `spawn` wrapper takes no passthrough flags (an
          unknown flag becomes the worker's NAME). The wrapper writes its own task file to the same
          ~/.aios/run, and canonical is adding the --add-dir grant on its side. */
-      const taskFile = writePrivateFile(runDir(), `aios-spawn-task-${name}.md`, taskText);
+      const taskFile = writeHandoffFile(`aios-spawn-task-${name}.md`, taskText);
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
     } catch (e) {
       /* AI-66: this used to cut the task to 2000 chars and spawn anyway — a silent truncation that
@@ -412,7 +412,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   let taskFile: string | undefined;   // aios#231: its dir is granted with --add-dir
   if (text && (/[\r\n]/.test(text) || text.length > 240)) {
     try {
-      const f = writePrivateFile(runDir(), `aios-resume-task-${name}.md`, text);   // private run file (privateRun)
+      const f = writeHandoffFile(`aios-resume-task-${name}.md`, text);   // private run file (privateRun)
       taskFile = f;
       inline = `Read ${f} and follow the instructions inside.`;
     } catch (e) {
@@ -762,7 +762,7 @@ export async function askAios(intent: string): Promise<void> {
  */
 export function launchHealthHelp(brief: string): void {
   let file: string;
-  try { file = writePrivateFile(runDir(), 'aios-task-health-help.md', brief); }
+  try { file = writeHandoffFile('aios-task-health-help.md', brief); }
   catch (e) {
     void vscode.window.showErrorMessage(`AIOS Glass: could not write the help brief safely, so nothing was started: ${(e as Error).message}`);
     return;

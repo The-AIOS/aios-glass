@@ -1,4 +1,5 @@
 import { settingsToFile } from './bus/advisorFile';
+import { sweepHandoffDirs } from './bus/handoffDir';
 import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
 import { resolveSessionName, sessionKey } from './core/nameMatch';
 import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
@@ -74,6 +75,7 @@ function noteWhen(ts: number): string {
 
 
 export function activate(context: vscode.ExtensionContext): void {
+  sweepHandoffDirs();   // aios#231: handoff folders older than a day
   // Banner so the diagnostics channel is never blank — an empty Output pane
   // reads as "broken", not "healthy". Everything below the banner is a failure.
   initI18n(context.extensionUri); // host-string translator (popups follow aiosGlass.language)

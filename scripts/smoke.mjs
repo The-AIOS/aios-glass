@@ -78,11 +78,11 @@ function checkDeliveryRobustness() {
     fails.push('findAgentTerminal must resolve pid from listRunningAgents() when none is passed — else send/kill to a RESUMED session silently drops (tab-name match only finds Glass-created terminals).');
   }
   const spawn = body('launchSpawn');
-  /* 0.5.12: the hand-off file is a PRIVATE run file (writePrivateFile(runDir(), …) in ~/.aios/run),
+  /* 0.5.12: the hand-off file is a PRIVATE run file in ~/.aios/run; 0.5.13: in its own folder (writeHandoffFile),
      not os.tmpdir() — on Linux that is the shared /tmp, where another user can plant the task. The
      invariant is the hand-off itself, through the private writer, gated on a [\r\n] test. */
-  if (!spawn || !/writePrivateFile\(runDir\(\)/.test(spawn) || /tmpdir\s*\(/.test(spawn) || !spawn.includes('[\\r\\n]')) {
-    fails.push('launchSpawn must hand a multi-line/large task off via a PRIVATE run file (writePrivateFile(runDir(), …), never os.tmpdir(); gated on a [\\r\\n] test) instead of typing it — a multi-line task typed via sendText crashes the integrated terminal.');
+  if (!spawn || !/writeHandoffFile\(/.test(spawn) || /tmpdir\s*\(/.test(spawn) || !spawn.includes('[\\r\\n]')) {
+    fails.push('launchSpawn must hand a multi-line/large task off via a PRIVATE run file (writeHandoffFile(…): its own 0700 folder under ~/.aios/run), never os.tmpdir(); gated on a [\\r\\n] test) instead of typing it — a multi-line task typed via sendText crashes the integrated terminal.');
   }
   /* AI-66 — three invariants that each cost a real lost message today. All three are
      "the code looks fine and loses data quietly", so each is guarded by source rather than
