@@ -7,6 +7,7 @@ import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
 import { recordTyped } from './bus/busSent';
 import { TranscriptSince } from './bus/transcriptSince';
+import { unsupportedFieldReason } from './bus/unsupportedFields';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -851,6 +852,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `from` (send, resume) — the registry name of the session that wrote the request. A claim, never an identity: it is recorded with the delivery so the receiver can see who sent it, and an unusable value is ignored.',
       '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
       "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
+      '- `cwd` (spawn, resume) — **App only**: the directory the session opens in. **Glass dead-letters a request carrying `cwd`**, naming the field, rather than opening the session in the framework root. A sender that needs `cwd` should pin `"surface": "app"` alongside it.',
       '',
       '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
       '      { "action": "send", "name": "researcher", "from": "buddai", "prompt": "…" }',
@@ -1417,6 +1419,10 @@ export function activate(context: vscode.ExtensionContext): void {
       releaseRequest(held, true, `${c4.field} '${c4.value}' is not valid — ${c4.field === 'effort' ? 'use one of low, medium, high, xhigh, max' : 'use a rung or a model id'}`);
       return;
     }
+    /* A field only the App implements (cwd, App PR #77) is refused, never ignored: ignoring it
+       opened the session in the framework root — silently the wrong folder. */
+    const unsupported = unsupportedFieldReason(req as Record<string, unknown>, action);
+    if (unsupported) { releaseRequest(held, true, unsupported); return; }
     const from = c4.from;
     /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
        its v0.8.9 (AI-175/176). Until then a spawn that asks for them is refused and says why —
