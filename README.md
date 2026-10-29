@@ -9,6 +9,10 @@ A friendly **glass layer over the [AIOS](https://github.com/The-AIOS/aios)** —
 
 > **Glass, not engine.** AIOS Glass never reimplements the AIOS. It *surfaces* and *triggers* what already exists — your slash commands, your `spawn` workers, your company/collaborate syncs. The brain stays in the framework; this is the clickable window onto it. The terminal becomes optional, not required.
 
+## Install
+
+From **[Open VSX](https://open-vsx.org/extension/the-aios/aios-glass)**, in any editor that uses it: Google Antigravity, Cursor, VSCodium, Windsurf. Search *AIOS Glass* in the Extensions view. It needs [The AIOS](https://github.com/The-AIOS/aios) cloned at `~/aios` and [Claude Code](https://claude.com/claude-code) installed.
+
 ## Why
 
 The AIOS is powerful but lives behind the terminal: slash commands you type, the `spawn` wrapper, git pulls. That's a wall for non-developers. AIOS Glass turns each ritual into a button, each argument into a form field, each agent into a click — so anyone can operate their AIOS from a graphical surface.
@@ -23,6 +27,17 @@ The AIOS is powerful but lives behind the terminal: slash commands you type, the
 - **`⌘⌥G` chords + the `*` palette** — 21 shortcuts behind one leader with an on-panel cheat-sheet, plus a wildcard palette that fuzzy-searches everything launchable: sessions, routines, tasks, agents, commands, skills.
 - **Status, live** — framework-update badge that re-checks the moment your tracker changes, rate-limit meter, company/collaborate surfaces.
 - **Guided start + diagnostics** — a six-step Getting Started walkthrough on install, and an *AIOS Glass* output channel where any action failure lands with context (cog → *Show logs*).
+
+## Talking to sessions: the spawn inbox
+
+Sessions and agents reach each other through files in `~/.aios/spawn-inbox/`, and Glass is one of the two surfaces that carry them out (the [AIOS App](https://github.com/The-AIOS/aios-app) is the other). Four verbs, **contract 4**:
+
+- `spawn`: start a named session, with an optional first task
+- `send`: type a prompt into a session that is already running
+- `kill`: close a session
+- `resume`: reopen a closed session with the context it had
+
+Whichever surface is running picks the request up. Add `"surface": "glass"` or `"surface": "app"` to choose one. A field Glass cannot honour (`cwd`, App only) is refused with a dead letter naming it, never carried out somewhere else. The full protocol is the `README.md` the running surface writes into that folder.
 
 ## Relationship to Foam
 

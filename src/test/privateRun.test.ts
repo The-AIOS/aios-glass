@@ -70,6 +70,6 @@ test('Windows keeps its per-user temp dir', () => {
 test('SWEEP: no task or prompt file is written under a fixed name in the shared temp dir', () => {
   const src = fs.readFileSync('src/rituals/runner.ts', 'utf8');
   assert.doesNotMatch(src, /os\.tmpdir\(\),\s*`aios-(spawn|resume)-task/);
-  assert.match(src, /writePrivateFile\(runDir\(\), `aios-spawn-task-\$\{name\}\.md`/);
-  assert.match(src, /writePrivateFile\(runDir\(\), `aios-resume-task-\$\{name\}\.md`/);
+  assert.match(src, /writeHandoffFile\(`aios-spawn-task-\$\{name\}\.md`/);
+  assert.match(src, /writeHandoffFile\(`aios-resume-task-\$\{name\}\.md`/);
 });

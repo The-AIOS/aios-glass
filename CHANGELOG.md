@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.13] — 2026-10-28
+
+> **The bus never re-types a message it cannot verify, and a closed session stays closed.** The send and liveness fixes mirror the AIOS App's; the `--add-dir` helper is shared core.
+
+### Added
+- **Greek (Ελληνικά) interface language.** Greek catalogs for the Home panel (`media/i18n/strings.el.json`), host popups (`l10n/bundle.l10n.el.json`) and command titles (`package.nls.el.json`), plus `el` in the `aiosGlass.language` setting and the cog-menu switcher. `auto` picks Greek when the IDE display language is Greek. Translated from the English catalogs and reviewed by a native speaker. (#26)
+
+### Fixed
+- **A message is never typed twice because a transcript could not be read.** A send verified itself by reading the target's whole transcript; a very large one (past ~512 MB) could not be read, the failure counted as "not delivered yet", and an idle session could get the same message again. A send now reads only what the transcript gained since it started. If it still cannot read it, the message counts as typed once, unverified, and is not typed again. A request file deleted while it waits is no longer typed either. (AI-223)
+- **A closed session no longer looks live when its process id is reused.** A session counts as running only when the process holding its id started when Claude Code recorded (`procStart`). Without that record, the old check still applies. This mostly affected Windows, where process ids are reused quickly. (#78 on the App)
+- **A spawn or resume asking for `cwd` is refused, not opened in the wrong folder.** Only the App supports `cwd`. Glass used to open such a session in the framework root without saying so; it now dead-letters the request, names the field, and says to pin `"surface": "app"`. The inbox README says the same.
+- **A session told to read a task file is allowed to read it.** With Claude Code's `blockReadsOutsideWorkingDirectories`, a resumed session or the Health card's help session could not open its task file in `~/.aios/run`. Those launches now pass `--add-dir` for that file's own folder. A spawn with a long task also grants its folder through the `spawn` wrapper (`--add-dir`, or `-AddDir` in PowerShell), but only when the installed wrapper accepts it (canonical v0.8.13+). Glass reads that from the wrapper block in the shell's startup file. An older wrapper would take the flag as the worker's name, so it gets today's command unchanged. (aios#231)
+
+### Security
+- **A handed-over file sits alone in its own private folder.** Granting the run dir with `--add-dir` would have given a worker read and edit access to every other session's task file and to `run/setup` scripts a surface executes (on Windows, the whole temp folder). Each spawn, resume and health-help file is now written into a fresh `0700` folder holding only that file, and only that folder is granted. Folders older than a day are removed when Glass starts.
+
+### Docs
+- README: installing from Open VSX, and the spawn inbox's four verbs (contract 4). `CLAUDE.md` no longer says Glass depends on Foam: it is recommended, not required. (AI-219)
+
 ## [0.5.12] — 2026-10-16
 
 > **Ask AIOS names a session for the identity you ask for, and the bus says each problem once.** Ships alongside the AIOS App's v0.12.0; the naming rule and the name matching are shared core, identical on both surfaces.

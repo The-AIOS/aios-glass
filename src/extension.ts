@@ -1,4 +1,5 @@
 import { settingsToFile } from './bus/advisorFile';
+import { sweepHandoffDirs } from './bus/handoffDir';
 import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
 import { resolveSessionName, sessionKey } from './core/nameMatch';
 import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
@@ -6,6 +7,8 @@ import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
 import { recordTyped } from './bus/busSent';
+import { TranscriptSince } from './bus/transcriptSince';
+import { unsupportedFieldReason } from './bus/unsupportedFields';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -72,6 +75,7 @@ function noteWhen(ts: number): string {
 
 
 export function activate(context: vscode.ExtensionContext): void {
+  sweepHandoffDirs();   // aios#231: handoff folders older than a day
   // Banner so the diagnostics channel is never blank — an empty Output pane
   // reads as "broken", not "healthy". Everything below the banner is a failure.
   initI18n(context.extensionUri); // host-string translator (popups follow aiosGlass.language)
@@ -739,7 +743,12 @@ export function activate(context: vscode.ExtensionContext): void {
    * than whoever was running, and a second window that opened late and closed early deleted the
    * record out from under the window still serving it. Here that is not an exotic case; it is
    * simply two IDE windows, which is why Glass hits it more often than the App did. */
-  try {
+  /* A dev host never announces presence, exactly like the App's dev build: the record is how agents
+     decide a surface is alive, and a test window (usually watching a throwaway AIOS_BUS_DIR) would
+     tell them Glass is serving the real inbox when it is not. Measured in the 0.5.13 round: an
+     Extension Development Host overwrote ~/.aios/surfaces/glass.json with its own pid. */
+  if (devHost) log('spawn-inbox: presence not announced — dev host (a dev instance must not overwrite the real record)');
+  else try {
     const sdir = path.join(os.homedir(), '.aios', 'surfaces');
     fs.mkdirSync(sdir, { recursive: true });
     const version = context.extension?.packageJSON?.version ?? '?';
@@ -850,6 +859,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `from` (send, resume) — the registry name of the session that wrote the request. A claim, never an identity: it is recorded with the delivery so the receiver can see who sent it, and an unusable value is ignored.',
       '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
       "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
+      '- `cwd` (spawn, resume) — **App only**: the directory the session opens in. **Glass dead-letters a request carrying `cwd`**, naming the field, rather than opening the session in the framework root. A sender that needs `cwd` should pin `"surface": "app"` alongside it.',
       '',
       '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
       '      { "action": "send", "name": "researcher", "from": "buddai", "prompt": "…" }',
@@ -1022,7 +1032,9 @@ export function activate(context: vscode.ExtensionContext): void {
   /* 'release' is DISTINCT from 'undeliverable'. Collapsing them is the bug this fixes: a
      handoff budget running out means "no sibling left to try", never "this message cannot be
      delivered". See decideAfterVerifyMiss in core/sendQueue. */
-  type SendOutcome = 'verified' | 'no-terminal' | 'release' | 'undeliverable' | 'superseded';
+  /* 'unverified' (AI-223): typed once, but the target's transcript could not be read — finished,
+     never re-typed. 'gone': the request file vanished before a type, so nothing is typed. */
+  type SendOutcome = 'verified' | 'unverified' | 'no-terminal' | 'release' | 'undeliverable' | 'superseded' | 'gone';
   /** AI-205 — every send currently held by any surface, as the queue sees it (both surfaces'
    *  `.holding` files: claim time orders them, `from` decides supersession). */
   const heldSends = (): QueuedSend[] => {
@@ -1087,6 +1099,18 @@ export function activate(context: vscode.ExtensionContext): void {
        after the text had landed, no later poll could ever prove it.
        A baseline that moves cannot detect the thing it is a baseline for. */
     let baseline: number | undefined;
+    /* AI-223: count deliveries in what was appended since this send began — never the whole file. */
+    const since = new TranscriptSince();
+    const count = (tx: string, needle: string): number | null => {
+      const appended = since.read(tx);
+      return appended === null ? null : countDeliveries(appended, text, needle, started);
+    };
+    /* A transcript we cannot read cannot verify anything, and re-typing on that is how one message
+       arrived three times (measured on the App). Typed once → done, said plainly. */
+    const finishUnverifiable = (): SendOutcome => {
+      log(`spawn-inbox: send → '${name}' typed once; its transcript could not be read, so it is not verified and will not be re-typed`);
+      return 'unverified';
+    };
     for (;;) {
       /* AI-205: a live but busy target is waited on until its next idle (QUEUE_CEILING_MS), not
          30 min; the never-type-into-busy rule is unchanged. */
@@ -1153,10 +1177,8 @@ export function activate(context: vscode.ExtensionContext): void {
       /* `started`, not the per-attempt clock: a bound that moves with each retry would reset the
          count mid-flight, which is the same failure as a moving baseline. See countUserTurns-
          Containing for why an unbounded count made a slash-command send unverifiable. */
-      if (baseline === undefined) {
-        try { baseline = countDeliveries(fs.readFileSync(tx, 'utf8'), text, needleFor, started); } catch { baseline = 0; }
-      }
-      const before = baseline ?? 0;
+      if (baseline === undefined) baseline = count(tx, needleFor) ?? 0;
+      const before = baseline;
       /* The cap must gate the SEND. A 'wait' verdict continues this loop, so enforcing the
          limit only in the after-a-miss decision left the message being re-typed every cycle
          for the whole hold budget — the cap existed and capped nothing. */
@@ -1169,6 +1191,12 @@ export function activate(context: vscode.ExtensionContext): void {
         await sleep(2000);
         continue;   // keep watching for a late arrival; never type again
       }
+      /* AI-223: the request must still exist at the moment of typing. A hold deleted by hand (or
+         retired by a newer message) between attempts was typed anyway — the "re-send from memory". */
+      if (heldPath && !fs.existsSync(heldPath)) {
+        log(`spawn-inbox: send → '${name}' — its request file is gone, not typing`);
+        return 'gone';
+      }
       attempts++;
       if (!firstTypedAt) firstTypedAt = Date.now();
       recordTyped(text, name, 'send', sendFrom);   // AI-172: before typing, so the label can never lose the race
@@ -1177,20 +1205,20 @@ export function activate(context: vscode.ExtensionContext): void {
       const deadline = Date.now() + 20000;
       while (Date.now() < deadline) {
         await sleep(1500);
-        try {
-          const verdict = verifyVerdict(before, countDeliveries(fs.readFileSync(tx, 'utf8'), text, needle, started));
-          if (verdict === 'duplicate') {
-            // Never smooth this over: a double delivery is contract 2's worst outcome
-            // because it produces WRONG output, not missing output.
-            log(`spawn-inbox: send → '${name}' DUPLICATE DETECTED — the marker gained more than one user turn. Another fulfiller likely delivered the same request.`);
-            void vscode.window.showWarningMessage(`AIOS Glass: “${name}” appears to have received this message MORE THAN ONCE — check for a second fulfiller holding the same request.`);
-            return 'verified';   // it did land; the duplication is the thing to shout about
-          }
-          if (verdict === 'verified') {
-            log(`spawn-inbox: send → '${name}' delivered + VERIFIED (a new user turn, baseline ${baseline}) ✓`);
-            return 'verified';
-          }
-        } catch { /* transcript momentarily unreadable — keep polling */ }
+        const now = count(tx, needle);
+        if (now === null) return finishUnverifiable();
+        const verdict = verifyVerdict(before, now);
+        if (verdict === 'duplicate') {
+          // Never smooth this over: a double delivery is contract 2's worst outcome
+          // because it produces WRONG output, not missing output.
+          log(`spawn-inbox: send → '${name}' DUPLICATE DETECTED — the marker gained more than one user turn. Another fulfiller likely delivered the same request.`);
+          void vscode.window.showWarningMessage(`AIOS Glass: “${name}” appears to have received this message MORE THAN ONCE — check for a second fulfiller holding the same request.`);
+          return 'verified';   // it did land; the duplication is the thing to shout about
+        }
+        if (verdict === 'verified') {
+          log(`spawn-inbox: send → '${name}' delivered + VERIFIED (a new user turn, baseline ${baseline}) ✓`);
+          return 'verified';
+        }
       }
       /* It did not land inside the verify window. That is NOT the same as undeliverable —
          this used to return 'undeliverable' here and the caller retired the request, killing a
@@ -1398,6 +1426,10 @@ export function activate(context: vscode.ExtensionContext): void {
       releaseRequest(held, true, `${c4.field} '${c4.value}' is not valid — ${c4.field === 'effort' ? 'use one of low, medium, high, xhigh, max' : 'use a rung or a model id'}`);
       return;
     }
+    /* A field only the App implements (cwd, App PR #77) is refused, never ignored: ignoring it
+       opened the session in the framework root — silently the wrong folder. */
+    const unsupported = unsupportedFieldReason(req as Record<string, unknown>, action);
+    if (unsupported) { releaseRequest(held, true, unsupported); return; }
     const from = c4.from;
     /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
        its v0.8.9 (AI-175/176). Until then a spawn that asks for them is refused and says why —
@@ -1428,8 +1460,9 @@ export function activate(context: vscode.ExtensionContext): void {
         })();
         const spent = raw;
         const outcome = await deliverSend(name, prompt, from, held);
-        if (outcome === 'verified') { releaseRequest(held, false); }
+        if (outcome === 'verified' || outcome === 'unverified') { releaseRequest(held, false); }
         else if (outcome === 'superseded') { archiveSuperseded(held); }
+        else if (outcome === 'gone') { /* removed by hand or retired elsewhere — nothing to finish */ }
         else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back; another window may take it */ }
         else {
           releaseRequest(held, true, outcome === 'no-terminal'
@@ -1449,8 +1482,9 @@ export function activate(context: vscode.ExtensionContext): void {
           /* Through the queue, like a send (review should-fix 11): passing the held file is what
              makes it wait its turn, be superseded by a newer correction, and carry its age. */
           const outcome = await deliverSend(name, prompt, from, held);
-          if (outcome === 'verified') { releaseRequest(held, false); }
+          if (outcome === 'verified' || outcome === 'unverified') { releaseRequest(held, false); }
           else if (outcome === 'superseded') { archiveSuperseded(held); }
+          else if (outcome === 'gone') { /* removed by hand or retired elsewhere — nothing to finish */ }
           else if ((outcome === 'no-terminal' || outcome === 'release') && releaseToSibling(held)) { /* handed back */ }
           else { releaseRequest(held, true, lastSendReason || 'delivery not verified — re-drop it or paste it manually'); }
           return;

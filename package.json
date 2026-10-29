@@ -2,7 +2,7 @@
   "name": "aios-glass",
   "displayName": "AIOS Glass",
   "description": "A friendly glass layer over the AIOS — run rituals, browse agents, manage spaces, all from inside Antigravity. Glass, not engine.",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "publisher": "the-aios",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -473,13 +473,15 @@
             "auto",
             "en",
             "es",
-            "pt-br"
+            "pt-br",
+            "el"
           ],
           "enumDescriptions": [
             "Follow the IDE display language",
             "English",
             "Español (LATAM neutral)",
-            "Português (Brasil)"
+            "Português (Brasil)",
+            "Ελληνικά (Greek)"
           ],
           "default": "auto",
           "markdownDescription": "Language for the AIOS Glass Home panel. `auto` follows the IDE display language. Changing this re-renders the panel instantly. IDE command titles & native menus follow the IDE display language (Configure Display Language). Switch from the cog menu."

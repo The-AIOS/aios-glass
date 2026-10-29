@@ -1,0 +1,21 @@
+{
+  "_comment": "Source (English) bundle for vscode.l10n.t(...) host strings. Keys are the English source strings; the editor uses these verbatim for English and looks up bundle.l10n.<locale>.json for other display languages. Normally auto-extracted by @vscode/l10n-dev; maintained by hand here.",
+  "Ask AIOS": "Ρώτα το AIOS",
+  "What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work": "Τι χρειάζεσαι; Το Claude αντιστοιχεί το αίτημά σου με το σωστό πλαίσιο & εργαλεία στο AIOS σου — και τα αξιοποιεί",
+  "e.g. 'prep tomorrow's investor call' · 'post about our launch'": "π.χ. 'προετοίμασε το αυριανό call με τους επενδυτές' · 'κάνε post για το λανσάρισμά μας'",
+  "Daily ritual": "Καθημερινή ρουτίνα",
+  "Run a daily ritual": "Εκτέλεσε μια καθημερινή ρουτίνα",
+  "Plan my day": "Προγραμμάτισε τη μέρα μου",
+  "Close session": "Κλείσιμο συνεδρίας",
+  "Close the day": "Κλείσιμο ημέρας",
+  "Workspaces": "Χώροι εργασίας",
+  "Companies": "Εταιρείες",
+  "Collaboration": "Συνεργασία",
+  "Projects": "Έργα",
+  "mount · sync": "προσάρτηση · συγχρονισμός",
+  "shared spaces": "κοινόχρηστοι χώροι",
+  "your work": "η δουλειά σου",
+  "Ingest content": "Εισαγωγή περιεχομένου",
+  "One or more sources — URLs, file paths, or a topic (blank to be guided)": "Μία ή περισσότερες πηγές — URLs, διαδρομές αρχείων ή ένα θέμα (κενό για καθοδήγηση)",
+  "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "π.χ. https://… · ~/Downloads/notes.pdf · \"το call του Δ.Σ. για το Q3\""
+}

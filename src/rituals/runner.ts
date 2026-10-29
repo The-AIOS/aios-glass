@@ -12,7 +12,9 @@ import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
 import { askSessionName, identityNamesIn } from '../core/sessionName';
-import { runDir, writePrivateFile } from '../bus/privateRun';
+import { writeHandoffFile } from '../bus/handoffDir';   // aios#231: one private folder per handed-over file
+import { addDirFlag } from '../bus/wrapperCaps';
+import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 import { latestAgentName, pickResume } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
@@ -326,8 +328,16 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
     try {
       /* A private run file (privateRun: ~/.aios/run, never the shared /tmp on Linux), so no other
          local user can plant the instructions a worker follows. A refusal lands in the catch below. */
-      const taskFile = writePrivateFile(runDir(), `aios-spawn-task-${name}.md`, taskText);
+      /* aios#231: the wrapper puts this line into ITS task file and grants only its own folder, so
+         this folder is granted too, with the wrapper's own flag (canonical v0.8.13). An older
+         wrapper takes an unknown flag as the worker's NAME, so wrapperCaps reads the installed
+         wrapper and answers '' when it cannot take the flag: then the command is today's. */
+      const taskFile = writeHandoffFile(`aios-spawn-task-${name}.md`, taskText);
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
+      const grant = addDirFlag(path.dirname(taskFile), process.platform, os.homedir(), process.env,
+        (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return undefined; } });
+      if (grant) flag += grant;
+      else log(`spawn '${name}': the installed spawn wrapper takes no folder grant (canonical < v0.8.13); under blockReadsOutsideWorkingDirectories the worker cannot read ${taskFile}`);
     } catch (e) {
       /* AI-66: this used to cut the task to 2000 chars and spawn anyway — a silent truncation that
          handed the worker a task ending mid-sentence and reported success. That is the exact
@@ -405,9 +415,11 @@ export async function launchResumeSession(name: string, sessionId: string, promp
      crash the host. Long prompts go through a file; refusing beats silently shortening. */
   const text = prompt?.trim() ?? '';
   let inline = text;
+  let taskFile: string | undefined;   // aios#231: its dir is granted with --add-dir
   if (text && (/[\r\n]/.test(text) || text.length > 240)) {
     try {
-      const f = writePrivateFile(runDir(), `aios-resume-task-${name}.md`, text);   // private run file (privateRun)
+      const f = writeHandoffFile(`aios-resume-task-${name}.md`, text);   // private run file (privateRun)
+      taskFile = f;
       inline = `Read ${f} and follow the instructions inside.`;
     } catch (e) {
       log(`resume '${name}': ABORTED — prompt file not written safely (${(e as Error).message})`);
@@ -423,9 +435,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
   if (bus && inline) recordTyped(inline, name, 'resume', from);   // AI-172
-  const extra = extraArgs.map((a) => ` ${shellQuote(a)}`).join('');   // contract 4: --effort / --settings
-  runNew(`${claudeBin()} --resume ${shellQuote(sessionId)}${extra}${inline ? ` ${shellQuote(inline)}` : ''}`,
-    { name, icon, color: 'terminal.ansiBlue' });
+  runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile), { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
 
@@ -758,13 +768,13 @@ export async function askAios(intent: string): Promise<void> {
  */
 export function launchHealthHelp(brief: string): void {
   let file: string;
-  try { file = writePrivateFile(runDir(), 'aios-task-health-help.md', brief); }
+  try { file = writeHandoffFile('aios-task-health-help.md', brief); }
   catch (e) {
     void vscode.window.showErrorMessage(`AIOS Glass: could not write the help brief safely, so nothing was started: ${(e as Error).message}`);
     return;
   }
   const prompt = `Read ${file} and follow the instructions inside.`;
-  try { runNew(`${claudeBin()} --permission-mode default --name health-help ${shellQuote(prompt)}`, { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
+  try { runNew(healthHelpCmd(claudeBin(), file, prompt), { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
   catch (e) { swallow('launchHealthHelp → runNew', e); }
 }
 

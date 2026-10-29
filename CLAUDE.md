@@ -14,7 +14,8 @@ If you find yourself encoding *what a command does*, stop — the extension shou
 
 ## Architecture
 
-- **Depends on Foam** (`extensionDependencies: ["foam.foam-vscode"]`) for vault navigation — wikilinks, backlinks, graph. We do not fork Foam; it stays the engine and auto-updates from upstream.
+- **Foam is recommended, not required** for vault navigation (wikilinks, backlinks, graph). Glass offers to install it on first run and works without it. It is deliberately not an `extensionDependency`, so Glass installs on editors whose engine predates the latest Foam. We do not fork Foam.
+- **The spawn-inbox bus** (`~/.aios/spawn-inbox/`, contract 4): `spawn`, `send`, `kill`, `resume`. Glass and the AIOS App are two independent implementations of one protocol; whichever surface is running fulfils a request, and `"surface"` pins one. A fix ported to one surface and not the other is the expected shape of a bug.
 - TypeScript, compiled with `tsc` to `out/`. No runtime dependencies (only dev: typescript, @types).
 - `src/aios/` — framework-facing discovery/parsing (the glass↔engine boundary).
 - `src/rituals/` — the Rituals surface (provider + runner).

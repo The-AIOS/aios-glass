@@ -125,7 +125,7 @@ export async function setTerminalMode(value: string): Promise<void> {
 }
 
 /** Glass Home panel language. `auto` follows the IDE display language. */
-export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br';
+export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br' | 'el';
 export function currentLanguage(): GlassLang {
   return vscode.workspace.getConfiguration('aiosGlass').get<GlassLang>('language', 'auto') || 'auto';
 }

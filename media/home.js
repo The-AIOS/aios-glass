@@ -354,7 +354,7 @@
            detail on hover for every row (operator, 0.12.0: the colour and "Let Claude help" are what a
            non-technical operator acts on; the detail is extra). */
         const jobs = msg.jobs || [];
-        const loc = (window.__lang === 'es') ? 'es-MX' : (window.__lang === 'pt-br') ? 'pt-BR' : 'en-US';
+        const loc = (window.__lang === 'es') ? 'es-MX' : (window.__lang === 'pt-br') ? 'pt-BR' : (window.__lang === 'el') ? 'el-GR' : 'en-US';
         const when = (ms) => ms ? new Date(ms).toLocaleString(loc, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '?';
         const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => (o[k] != null ? o[k] : ''));
         const jobText = (x) => {
