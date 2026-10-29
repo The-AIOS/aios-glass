@@ -99,3 +99,12 @@ test('mayRetract: only ever our own record', () => {
   /* Deliberately NOT liveness-gated: we are the one exiting, so "is it mine" is the whole
      question. Asking whether we are alive would always answer yes and add a failure mode. */
 });
+
+test('a dev host never announces presence (0.5.13 round: it overwrote the real glass.json)', () => {
+  const fs = require('fs') as typeof import('fs');
+  const ext = fs.readFileSync('src/extension.ts', 'utf8');
+  const guard = ext.indexOf("if (devHost) log('spawn-inbox: presence not announced — dev host");
+  assert.ok(guard > 0, 'the dev host skips the presence record');
+  assert.ok(guard < ext.indexOf("const sdir = path.join(os.homedir(), '.aios', 'surfaces');"), 'before anything is written');
+  assert.match(ext.slice(guard, guard + 200), /\n  else try \{/, 'and the whole presence block is the else branch');
+});

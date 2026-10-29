@@ -743,7 +743,12 @@ export function activate(context: vscode.ExtensionContext): void {
    * than whoever was running, and a second window that opened late and closed early deleted the
    * record out from under the window still serving it. Here that is not an exotic case; it is
    * simply two IDE windows, which is why Glass hits it more often than the App did. */
-  try {
+  /* A dev host never announces presence, exactly like the App's dev build: the record is how agents
+     decide a surface is alive, and a test window (usually watching a throwaway AIOS_BUS_DIR) would
+     tell them Glass is serving the real inbox when it is not. Measured in the 0.5.13 round: an
+     Extension Development Host overwrote ~/.aios/surfaces/glass.json with its own pid. */
+  if (devHost) log('spawn-inbox: presence not announced — dev host (a dev instance must not overwrite the real record)');
+  else try {
     const sdir = path.join(os.homedir(), '.aios', 'surfaces');
     fs.mkdirSync(sdir, { recursive: true });
     const version = context.extension?.packageJSON?.version ?? '?';
