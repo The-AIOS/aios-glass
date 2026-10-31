@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, currentNameIfStale, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { normalizeVerb } from './core/busVerbs';
 import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
@@ -871,7 +871,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `spawn` gives you a fresh **something**; `resume` gives you back the same **someone** — its memory of the work, the corrections it absorbed, the shape of the thing you were building. Reach for it whenever a closed session has context worth more than a clean start.',
       '- The name is resolved from the transcripts on disk (`~/.claude/projects/*/*.jsonl`), not the live session registry — the registry only holds RUNNING sessions, and a closed one is the only kind this verb is for. A session that renamed itself resolves by its **latest** name.',
       '- **Already running?** It is revealed and your `prompt` is delivered into it, exactly as `send` would. Resuming a live session would give one identity two processes.',
-      '- **Any age.** A name is found however old its session is: an index of every transcript, not a count of the newest ones. If a session was renamed, its latest name is the one that counts.',
+      '- **Any age.** A name is found however old its session is: an index of every transcript, not a count of the newest ones. If a session was renamed, its latest name is the one that counts. An OLD name is refused with a dead letter that names the current one; it is never reopened under the old name (its terminal and tab would disagree, and messages to either would be lost).',
       '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
       '',
       '      { "action": "resume", "name": "designer", "prompt": "…", "fallback": "spawn" }',
@@ -1490,6 +1490,12 @@ export function activate(context: vscode.ExtensionContext): void {
           return;
         }
         const sid = await resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
+        const renamedTo = sid ? currentNameIfStale(sid, name) : '';
+        if (renamedTo) {
+          releaseRequest(held, true, `resume '${name}': that session is now called '${renamedTo}', so resume it as '${renamedTo}'. `
+            + 'It was not reopened under the old name: its terminal and its tab would carry different names, and bus messages to either would be lost (AI-228).');
+          return;
+        }
         if (sid) {
           let advisorModel: string | undefined;
           if (c4.advisor) {
