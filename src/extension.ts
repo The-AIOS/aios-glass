@@ -860,6 +860,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
       "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
       '- `cwd` (spawn, resume) — **App only**: the directory the session opens in. **Glass dead-letters a request carrying `cwd`**, naming the field, rather than opening the session in the framework root. A sender that needs `cwd` should pin `"surface": "app"` alongside it.',
+      '- `addDirs` (spawn, resume) — **App only**: extra folders the session may work in, one `--add-dir` each (the bus form of `spawn --add-dir`: start in the AIOS folder, reach a repo). **Glass dead-letters a request carrying a non-empty `addDirs`**, naming the field; an empty list means none. A sender that needs it should pin `"surface": "app"`.',
       '',
       '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
       '      { "action": "send", "name": "researcher", "from": "buddai", "prompt": "…" }',
