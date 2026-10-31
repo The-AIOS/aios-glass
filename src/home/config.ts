@@ -1,9 +1,11 @@
 import { resolveGlassTheme, shouldSyncToWorkbench } from './themeResolve';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
+import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
 
 /**
  * Read/write Claude Code's own global configuration. Glass surfaces these as
@@ -71,30 +73,66 @@ export function rateLimit(): RateLimit | undefined {
   } catch { return undefined; }
 }
 
-/** Next account to rotate to (round-robin after the current); '' if <2 accounts. */
-export function nextAccount(): string {
-  const accts = anthropicAccounts();
-  if (accts.length < 2) return '';
-  const i = accts.indexOf(currentAnthropicAccount());
-  return accts[(i + 1) % accts.length] || accts[0];
+// ── Anthropic accounts ─────────────────────────────────────────────────────
+// The script owns the list and who can take you (see core/accounts.ts). Asking it starts a bash
+// and a Python, and the Home panel asks on a 2s poll, so the panel reads the last answer and
+// ACCOUNTS_MAX_AGE_MS decides when to ask again, in the background.
+const ACCOUNTS_MAX_AGE_MS = 60_000;
+let accountsCache: { rows: AccountRow[]; error: string; at: number } = { rows: [], error: '', at: 0 };
+let accountsAsking: Promise<void> | undefined;
+
+function identityScript(): string | undefined {
+  const root = frameworkRoot();
+  return root ? path.join(root, 'hooks', 'claude-identity', 'claude-identity.sh') : undefined;
 }
 
-/** Accounts listed in USER.md → "## Anthropic accounts" (numbered `email` rows). */
-export function anthropicAccounts(): string[] {
-  const root = frameworkRoot();
-  if (!root) return [];
-  let md: string;
-  try { md = fs.readFileSync(path.join(root, 'USER.md'), 'utf8'); } catch { return []; }
-  const out: string[] = [];
-  let inSection = false;
-  for (const line of md.split(/\r?\n/)) {
-    if (/^##\s+Anthropic accounts/i.test(line)) { inSection = true; continue; }
-    if (inSection && /^##\s/.test(line)) break;
-    if (!inSection) continue;
-    const m = line.match(/^\s*\d+\.\s*`([^`]+)`/); // "1. `you@example.com` — primary…"
-    if (m) out.push(m[1].trim());
+/** Whether this framework has `--availability`. Checked by file and never by trying: an older
+ *  script reads an unknown flag as an email to switch to, and captures the seat on the way. */
+function frameworkHasAvailability(): boolean {
+  const script = identityScript();
+  return !!script && fs.existsSync(path.join(path.dirname(script), '_accounts.py'));
+}
+
+/** Ask the script again. A failure keeps the last good rows and records why. */
+export function refreshAccounts(): Promise<void> {
+  if (!frameworkHasAvailability()) return Promise.resolve();
+  if (accountsAsking) return accountsAsking;
+  accountsAsking = new Promise<void>((resolve) => {
+    execFile('bash', [identityScript() as string, 'switch', '--availability'], { timeout: 20_000 }, (err, out, stderr) => {
+      const rows = err ? null : parseAvailability(out);
+      accountsCache = rows
+        ? { rows, error: '', at: Date.now() }
+        : { ...accountsCache, error: String(stderr || (err && err.message) || 'unreadable answer').trim().slice(0, 300), at: Date.now() };
+      accountsAsking = undefined;
+      resolve();
+    });
+  });
+  return accountsAsking;
+}
+
+/** Why the last ask failed, or ''. A malformed list must be seen, not read as "no accounts". */
+export function accountsError(): string {
+  return frameworkHasAvailability() ? accountsCache.error : '';
+}
+
+/** The accounts, from the last answer. Never blocks: a stale answer also asks for a new one. */
+export function accountRows(): AccountRow[] {
+  if (!frameworkHasAvailability()) {
+    const root = frameworkRoot();
+    if (!root) return [];
+    try { return rowsFromUserMd(fs.readFileSync(path.join(root, 'USER.md'), 'utf8'), currentAnthropicAccount()); } catch { return []; }
   }
-  return out;
+  if (Date.now() - accountsCache.at > ACCOUNTS_MAX_AGE_MS) void refreshAccounts();
+  return accountsCache.rows;
+}
+
+/** The account a swap should go to; '' when none can take you. */
+export function nextAccount(): string {
+  return nextDestination(accountRows(), currentAnthropicAccount());
+}
+
+export function anthropicAccounts(): string[] {
+  return accountRows().map((r) => r.email);
 }
 
 export interface ModelOption {

@@ -4,7 +4,7 @@ import {
   setGlobalModel, setMode, setTerminalMode,
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
-  currentAnthropicAccount, anthropicAccounts,
+  currentAnthropicAccount, anthropicAccounts, accountRows, accountsError, refreshAccounts,
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
   showNudges, setShowNudges,
@@ -18,6 +18,7 @@ import {
   currentLanguage, setLanguage, GlassLang,
   openNotesIn, setOpenNotesIn, OpenNotesMode
 } from './config';
+import { canSwitchTo, rowLabel } from '../core/accounts';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 import { HomeViewProvider } from './homePanel';
 import { t } from '../i18n';
@@ -304,16 +305,29 @@ export async function openConfigMenu(): Promise<void> {
     }
     case 'swap': {
       const cur = currentAnthropicAccount();
-      const others = anthropicAccounts().filter((a) => a && a !== cur);
+      await refreshAccounts();
+      const problem = accountsError();
+      if (problem) void vscode.window.showWarningMessage(`AIOS Glass: ${problem}`);
+      const others = accountRows().filter((r) => r.email !== cur);
       if (!others.length) {
-        void vscode.window.showInformationMessage(`${t('Only one Anthropic account is configured')}${cur ? ` (${cur})` : ''}. ${t('Add more under USER.md → ## Anthropic accounts.')}`);
+        void vscode.window.showInformationMessage(`${t('Only one Anthropic account is configured')}${cur ? ` (${cur})` : ''}. ${t('Add more with claude-switch --add.')}`);
         return;
       }
-      const pick = await vscode.window.showQuickPick(others, {
+      // All of them, with why: an account missing from a menu reads as lost, not as expired.
+      const pick = await vscode.window.showQuickPick(others.map((row) => ({
+        label: `${canSwitchTo(row) ? '' : '$(warning) '}${rowLabel(row)}`,
+        description: row.state === 'unknown' ? '' : row.state,
+        detail: row.detail,
+        row,
+      })), {
         title: `${t('Swap account — now:')} ${cur || t('unknown')}`,
         placeHolder: t('Switch to… (silent — claude-switch)')
       });
-      if (pick) await launchAccountSwap(pick);
+      if (pick && !canSwitchTo(pick.row)) {
+        void vscode.window.showWarningMessage(`${pick.row.email}: ${pick.row.detail || pick.row.state}`);
+        return;
+      }
+      if (pick) await launchAccountSwap(pick.row.email);
       return;
     }
     case 'login': return launchClaude('auth login');
