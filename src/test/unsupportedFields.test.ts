@@ -28,3 +28,11 @@ test('the bus dead-letters it before any launch, and the inbox README says so', 
   assert.ok(refuse < src.indexOf("if (action === 'kill')", refuse) && refuse < src.indexOf('await launchSpawn(name, task', refuse), 'before anything is launched');
   assert.match(src, /Glass dead-letters a request carrying `cwd`/);
 });
+
+test('addDirs (App PR 89) is refused by name on spawn and resume, never dropped; send ignores it', () => {
+  for (const req of [{ name: 'heron', addDirs: ['/tmp/x'] }, { action: 'resume', name: 'heron', addDirs: [] }]) {
+    assert.match(unsupportedFieldReason(req, req.action ?? 'spawn') ?? '', /does not support addDirs/);
+  }
+  assert.equal(unsupportedFieldReason({ name: 'heron', addDirs: null }, 'spawn'), undefined);
+  assert.equal(unsupportedFieldReason({ action: 'send', name: 'heron', addDirs: ['/x'], prompt: 'p' }, 'send'), undefined);
+});
