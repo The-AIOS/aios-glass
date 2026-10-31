@@ -10,6 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > **A session resumed by an old name is refused with its new one, and a request Glass cannot honour says so by name.** Parity with the AIOS App 0.14.0 bus rules.
 
+### Changed
+- **The account menu and the swap button ask the framework who can take you.** They read `claude-identity.sh switch --availability`, so an account with an expired login or still capped is no longer offered as the next destination, and the menu shows each account's usage and renewal date. With an older framework they read `USER.md` as before.
+
 ### Fixed
 - **A resume under a stale name is refused, naming the current one (AI-228).** Before reopening a session, Glass reads the transcript's own tail; if the session now answers to another name, the request is dead-lettered with that name instead of reopening it under the old one, where its terminal and tab would disagree and messages to either would be lost. `core/resumeTarget.ts` and `agents/resumeIndex.ts` stay byte-identical with the App's, hashes pinned in both repos.
 - **`addDirs` is refused by name, like `cwd`.** The App's bus takes extra folders for a session (`--add-dir`); Glass opens sessions without them, so a request carrying a non-empty `addDirs` is dead-lettered naming the field, and an empty list means none, as on the App.
