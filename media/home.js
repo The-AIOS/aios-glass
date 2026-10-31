@@ -472,6 +472,11 @@
         qw.textContent = '↔ Swap to ' + (q.to.split('@')[0]);
         qw.setAttribute('data-to', q.to);
         qw.style.display = '';
+      } else if (q.showSwap) {
+        // Near the cap with nowhere to go: hiding the button would read as nothing being wrong.
+        qw.textContent = '⚠ No account available';
+        qw.setAttribute('data-to', '');
+        qw.style.display = '';
       } else { qw.style.display = 'none'; }
     } else if (msg.type === 'terminals'){
       const terms = msg.terminals || [];

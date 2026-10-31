@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **The account menu and the swap button ask the framework who can take you.** They read `claude-identity.sh switch --availability`, so an account with an expired login or still capped is no longer offered as the next destination, and the menu shows each account's usage and renewal date. With an older framework they read `USER.md` as before.
+
 ## [0.5.13] — 2026-10-28
 
 > **The bus never re-types a message it cannot verify, and a closed session stays closed.** The send and liveness fixes mirror the AIOS App's; the `--add-dir` helper is shared core.
