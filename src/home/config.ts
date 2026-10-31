@@ -88,7 +88,7 @@ function identityScript(): string | undefined {
 
 /** Whether this framework has `--availability`. Checked by file and never by trying: an older
  *  script reads an unknown flag as an email to switch to, and captures the seat on the way. */
-function frameworkHasAvailability(): boolean {
+export function frameworkHasAvailability(): boolean {
   const script = identityScript();
   return !!script && fs.existsSync(path.join(path.dirname(script), '_accounts.py'));
 }

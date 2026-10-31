@@ -4,7 +4,7 @@ import {
   setGlobalModel, setMode, setTerminalMode,
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
-  currentAnthropicAccount, anthropicAccounts, accountRows, accountsError, refreshAccounts,
+  currentAnthropicAccount, anthropicAccounts, accountRows, accountsError, refreshAccounts, frameworkHasAvailability,
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
   showNudges, setShowNudges,
@@ -36,6 +36,9 @@ function openNotesLabel(m: OpenNotesMode): string {
 /** The cog menu — Claude account, model, permission mode, terminal mode. */
 export async function openConfigMenu(): Promise<void> {
   const account = currentAccount() || t('not signed in');
+  // Ask first when nothing has yet: the Home panel's poll may never have run, and an empty answer
+  // here would hide the swap entry from an operator with several accounts.
+  if (!anthropicAccounts().length) await refreshAccounts();
   const multiAccount = anthropicAccounts().length > 1; // swap only matters with 2+
   const sep = (label: string): vscode.QuickPickItem & { id?: string } => ({ label, kind: vscode.QuickPickItemKind.Separator });
   const onOff = (b: boolean) => (b ? t('on') : t('off'));
@@ -310,7 +313,7 @@ export async function openConfigMenu(): Promise<void> {
       if (problem) void vscode.window.showWarningMessage(`AIOS Glass: ${problem}`);
       const others = accountRows().filter((r) => r.email !== cur);
       if (!others.length) {
-        void vscode.window.showInformationMessage(`${t('Only one Anthropic account is configured')}${cur ? ` (${cur})` : ''}. ${t('Add more with claude-switch --add.')}`);
+        void vscode.window.showInformationMessage(`${t('Only one Anthropic account is configured')}${cur ? ` (${cur})` : ''}. ${(frameworkHasAvailability() ? t('Add more with claude-switch --add.') : t('Add more under USER.md → ## Anthropic accounts.'))}`);
         return;
       }
       // All of them, with why: an account missing from a menu reads as lost, not as expired.
