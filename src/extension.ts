@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, currentNameIfStale, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
 import { normalizeVerb } from './core/busVerbs';
 import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
@@ -859,7 +859,8 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `from` (send, resume) — the registry name of the session that wrote the request. A claim, never an identity: it is recorded with the delivery so the receiver can see who sent it, and an unusable value is ignored.',
       '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
       "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
-      '- `cwd` (spawn, resume) — **App only**: the directory the session opens in. **Glass dead-letters a request carrying `cwd`**, naming the field, rather than opening the session in the framework root. A sender that needs `cwd` should pin `"surface": "app"` alongside it.',
+      '- `cwd` (spawn, resume) — **App only**: the directory the session opens in. **Glass dead-letters a request carrying `cwd`**, naming the field, rather than opening the session in the framework root, unless the App is running, in which case Glass hands it to the App. A resume to a session that is already running is delivered (the field cannot change a running session). A sender that needs `cwd` should pin `"surface": "app"` alongside it.',
+      '- `addDirs` (spawn, resume) — **App only**: extra folders the session may work in, one `--add-dir` each (the bus form of `spawn --add-dir`: start in the AIOS folder, reach a repo). **Glass dead-letters a request carrying a non-empty `addDirs`**, naming the field, unless the App is running, in which case Glass hands it to the App; an empty list means none. A resume to a session that is already running is delivered (the folders cannot change a running session). A sender that needs it should pin `"surface": "app"`.',
       '',
       '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
       '      { "action": "send", "name": "researcher", "from": "buddai", "prompt": "…" }',
@@ -871,7 +872,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `spawn` gives you a fresh **something**; `resume` gives you back the same **someone** — its memory of the work, the corrections it absorbed, the shape of the thing you were building. Reach for it whenever a closed session has context worth more than a clean start.',
       '- The name is resolved from the transcripts on disk (`~/.claude/projects/*/*.jsonl`), not the live session registry — the registry only holds RUNNING sessions, and a closed one is the only kind this verb is for. A session that renamed itself resolves by its **latest** name.',
       '- **Already running?** It is revealed and your `prompt` is delivered into it, exactly as `send` would. Resuming a live session would give one identity two processes.',
-      '- **Any age.** A name is found however old its session is: an index of every transcript, not a count of the newest ones. If a session was renamed, its latest name is the one that counts.',
+      '- **Any age.** A name is found however old its session is: an index of every transcript, not a count of the newest ones. If a session was renamed, its latest name is the one that counts. An OLD name is refused with a dead letter that names the current one; it is never reopened under the old name (its terminal and tab would disagree, and messages to either would be lost).',
       '- **Nothing to resume?** A dead letter naming the session — never a silent spawn. Add `"fallback": "spawn"` to opt into starting a fresh one instead:',
       '',
       '      { "action": "resume", "name": "designer", "prompt": "…", "fallback": "spawn" }',
@@ -1298,6 +1299,16 @@ export function activate(context: vscode.ExtensionContext): void {
   /** Hand a request back so a SIBLING window can try it — very different from declaring
    *  it undeliverable. The claimer that can't see the target's terminal may simply be the
    *  wrong window. Bounded by `_releases` so two windows can't ping-pong forever. */
+  /** Is the AIOS App's bus running right now? Its presence record names a pid; only a live pid counts
+   *  (a record outlives its process). Used to hand it a request only it can fulfil. */
+  const appSurfaceAlive = (): boolean => {
+    const rec = parsePresenceRecord((() => {
+      try { return fs.readFileSync(path.join(os.homedir(), '.aios', 'surfaces', 'app.json'), 'utf8'); } catch { return undefined; }
+    })());
+    const pid = Number(rec && rec.pid);
+    if (!Number.isInteger(pid) || pid <= 1) return false;
+    try { process.kill(pid, 0); return true; } catch (err) { return (err as NodeJS.ErrnoException)?.code !== 'ESRCH'; }
+  };
   const releaseToSibling = (held: string): boolean => {
     const body = readJson(held) ?? {};
     /* Older Apps wrote `releases`; read both, the larger wins (the count only bounds a ping-pong). */
@@ -1429,7 +1440,16 @@ export function activate(context: vscode.ExtensionContext): void {
     /* A field only the App implements (cwd, App PR #77) is refused, never ignored: ignoring it
        opened the session in the framework root — silently the wrong folder. */
     const unsupported = unsupportedFieldReason(req as Record<string, unknown>, action);
-    if (unsupported) { releaseRequest(held, true, unsupported); return; }
+    /* Review, 0.5.14: the refusal is about LAUNCHING. A resume whose session is already running
+       launches nothing, so it is delivered like the App does (the folders are logged as not
+       applied, further down). And a launch only the App can do is handed to the App when it is
+       alive, instead of dead-lettering work that the surface beside us would have done. */
+    const liveResume = !!unsupported && action === 'resume' && (await listRunningAgents()).some((a) => a.name === name);
+    if (unsupported && !liveResume) {
+      if (typeof (req as Record<string, unknown>).surface !== 'string' && appSurfaceAlive() && releaseToSibling(held)) { return; }
+      releaseRequest(held, true, unsupported);
+      return;
+    }
     const from = c4.from;
     /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
        its v0.8.9 (AI-175/176). Until then a spawn that asks for them is refused and says why —
@@ -1477,7 +1497,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const live = (await listRunningAgents()).find((a) => a.name === name);
         if (live) {
           await revealAgentTerminal(name, live.pid);
-          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering${c4.effort || c4.advisor ? ' (effort/advisor NOT applied: a running session cannot change them)' : ''}`);
+          log(`spawn-inbox: resume '${name}' — already running, revealing and delivering${c4.effort || c4.advisor ? ' (effort/advisor NOT applied: a running session cannot change them)' : ''}${unsupported ? ' (cwd/addDirs NOT applied: a running session cannot change them)' : ''}`);
           if (!prompt) { releaseRequest(held, false); return; }
           /* Through the queue, like a send (review should-fix 11): passing the held file is what
              makes it wait its turn, be superseded by a newer correction, and carry its age. */
@@ -1490,6 +1510,12 @@ export function activate(context: vscode.ExtensionContext): void {
           return;
         }
         const sid = await resumeIdFor(name, process.env.CLAUDE_CODE_SESSION_ID);
+        const renamedTo = sid ? currentNameIfStale(sid, name) : '';
+        if (renamedTo) {
+          releaseRequest(held, true, `resume '${name}': that session is now called '${renamedTo}', so resume it as '${renamedTo}'. `
+            + 'It was not reopened under the old name: its terminal and its tab would carry different names, and bus messages to either would be lost (AI-228).');
+          return;
+        }
         if (sid) {
           let advisorModel: string | undefined;
           if (c4.advisor) {

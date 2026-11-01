@@ -1,4 +1,5 @@
 import { ResumeIndex } from '../agents/resumeIndex';
+import { resolveBash } from '../home/resolveBash';
 import * as vscode from 'vscode';
 import { AiosCommand, discoverCommands, expandHome, resolveCommandsDir } from '../aios/commands';
 import * as path from 'path';
@@ -15,7 +16,7 @@ import { askSessionName, identityNamesIn } from '../core/sessionName';
 import { writeHandoffFile } from '../bus/handoffDir';   // aios#231: one private folder per handed-over file
 import { addDirFlag } from '../bus/wrapperCaps';
 import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
-import { latestAgentName, pickResume } from '../core/resumeTarget';
+import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 
@@ -454,6 +455,22 @@ const resumeIndex = new ResumeIndex(
 export function resumeIdFor(name: string, excludeSessionId?: string): Promise<string | undefined> {
   return resumeIndex.lookup(name, excludeSessionId).catch(() => undefined);
 }
+/* AI-228 (App parity): the session's current name as its own transcript says it NOW (the last 2 MB hold the newest
+   records), or '' when it matches `want` or cannot be read. A read failure never blocks a resume. */
+export function currentNameIfStale(sessionId: string, want: string): string {
+  const f = resumeIndex.fileOf(sessionId);
+  if (!f) return '';
+  try {
+    const st = fs.statSync(f);
+    const len = Math.min(st.size, 2 * 1024 * 1024);
+    const fd = fs.openSync(f, 'r');
+    try {
+      const buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, st.size - len);
+      return staleResumeName(buf.toString('utf8'), want);
+    } finally { fs.closeSync(fd); }
+  } catch { return ''; }
+}
 /** Build the index in the background at activation, so the first resume does not pay for it. */
 export function warmResumeIndex(): void { void resumeIndex.refresh().catch(() => undefined); }
 
@@ -851,7 +868,9 @@ export async function launchAccountSwap(email: string): Promise<void> {
   };
   const fromEmail = readAccount(); // outgoing account, for the statusline banner
   return new Promise((resolve) => {
-    execFile('bash', [script, 'switch', email], { timeout: 20000 }, (err, _out, stderr) => {
+    const bash = resolveBash();   // Git Bash on Windows, never WSL's launcher (review, 0.5.14)
+    if (!bash) { void vscode.window.showWarningMessage(t('AIOS Glass: Git Bash not found — install Git for Windows to switch accounts.')); return resolve(); }
+    execFile(bash, [script, 'switch', email], { timeout: 20000, windowsHide: true }, (err, _out, stderr) => {
       if (err) { void vscode.window.showWarningMessage(`${t('AIOS Glass: account swap failed —')} ${(stderr || err.message).slice(0, 160)}`); return resolve(); }
       // The manual `switch` only logs; write the swap-notification marker the
       // statusline (context-monitor.py) reads, so the swap banner shows for its

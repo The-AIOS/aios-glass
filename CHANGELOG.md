@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.14] — 2026-11-01
+
+> **A session resumed by an old name is refused with its new one, and a request Glass cannot honour says so by name.** Parity with the AIOS App 0.14.0 bus rules.
+
+### Changed
+- **The account menu and the swap button ask the framework who can take you.** They read `claude-identity.sh switch --availability`, so an account with an expired login or still capped is no longer offered as the next destination, and the menu shows each account's usage and renewal date. With an older framework they read `USER.md` as before.
+
+### Fixed
+- **The account list and the swap use Git Bash on Windows, never WSL's `bash`.** The same resolver as the App. A machine with WSL enabled found WSL's launcher first, which cannot open the framework's script, so the account list vanished.
+- **A broken account list says so.** When the framework cannot answer, the cog menu keeps its Swap entry, marked, and opening it shows why; before, every account just disappeared. The menu asks the framework only the first time, so it no longer waits on it at every open.
+- **A `resume` with `cwd` or `addDirs` to a session that is already running is delivered**, as the App does: those fields only matter when a session starts. And a request only the App can launch is handed to the App when it is running, instead of dead-lettered.
+- **A resume under a stale name is refused, naming the current one (AI-228).** Before reopening a session, Glass reads the transcript's own tail; if the session now answers to another name, the request is dead-lettered with that name instead of reopening it under the old one, where its terminal and tab would disagree and messages to either would be lost. `core/resumeTarget.ts` and `agents/resumeIndex.ts` stay byte-identical with the App's, hashes pinned in both repos.
+- **`addDirs` is refused by name, like `cwd`.** The App's bus takes extra folders for a session (`--add-dir`); Glass opens sessions without them, so a request carrying a non-empty `addDirs` is dead-lettered naming the field, and an empty list means none, as on the App.
+
+### Docs
+- The inbox README Glass writes names `addDirs` and the stale-name refusal.
+
 ## [0.5.13] — 2026-10-28
 
 > **The bus never re-types a message it cannot verify, and a closed session stays closed.** The send and liveness fixes mirror the AIOS App's; the `--add-dir` helper is shared core.

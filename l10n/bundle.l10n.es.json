@@ -137,6 +137,7 @@
   "Add a frequent task": "Agregar tarea frecuente",
   "Add a frequent task — what runs it?": "Agregar tarea frecuente — ¿qué la ejecuta?",
   "Add a routine": "Agregar rutina",
+  "Add more with claude-switch --add.": "Agrega más con claude-switch --add.",
   "Add more under USER.md → ## Anthropic accounts.": "Agrega más en USER.md → ## Anthropic accounts.",
   "Agent": "Agente",
   "Agents": "Agentes",
@@ -306,5 +307,7 @@
   "One or more sources — URLs, file paths, or a topic (blank to be guided)": "Una o más fuentes — URLs, rutas de archivos o un tema (déjalo en blanco para que te guíe)",
   "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "p. ej. https://… · ~/Downloads/notas.pdf · \"la junta directiva del Q3\"",
   "Claude matches your ask to the right context & tools in your AIOS — and puts them to work": "Claude conecta tu petición con el contexto y las herramientas adecuadas de tu AIOS — y las pone a trabajar",
-  "Foam-rendered wikilinks beside the source — Obsidian-style": "wikilinks renderizados por Foam junto al código fuente — estilo Obsidian"
+  "Foam-rendered wikilinks beside the source — Obsidian-style": "wikilinks renderizados por Foam junto al código fuente — estilo Obsidian",
+  "AIOS Glass: Git Bash not found — install Git for Windows to switch accounts.": "AIOS Glass: no se encontró Git Bash — instala Git para Windows para cambiar de cuenta.",
+  "could not read the account list": "no se pudo leer la lista de cuentas"
 }

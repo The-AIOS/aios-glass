@@ -23,8 +23,24 @@ test('without cwd (or on a verb with no folder) nothing is refused', () => {
 
 test('the bus dead-letters it before any launch, and the inbox README says so', () => {
   const src = fs.readFileSync('src/extension.ts', 'utf8');
-  const refuse = src.indexOf('if (unsupported) { releaseRequest(held, true, unsupported); return; }');
-  assert.ok(refuse > 0, 'refused with the .undelivered mechanism');
+  const gate = src.indexOf('if (unsupported && !liveResume) {');
+  const refuse = src.indexOf('releaseRequest(held, true, unsupported);', gate);
+  assert.ok(gate > 0 && refuse > gate && refuse - gate < 200, 'refused with the .undelivered mechanism');
+  /* Review, 0.5.14: a resume to a RUNNING session launches nothing, so it is delivered like the App does; and a
+     launch only the App can do goes to the App when it is alive, never to a dead letter while it could run. */
+  assert.match(src, /const liveResume = !!unsupported && action === 'resume' && \(await listRunningAgents\(\)\)\.some\(\(a\) => a\.name === name\)/);
+  assert.match(src.slice(gate, refuse), /appSurfaceAlive\(\) && releaseToSibling\(held\)/, 'handed to the App only when it is alive');
+  assert.match(src.slice(gate, refuse), /typeof \(req as Record<string, unknown>\)\.surface !== 'string'/, 'a request pinned to a surface is never re-routed');
   assert.ok(refuse < src.indexOf("if (action === 'kill')", refuse) && refuse < src.indexOf('await launchSpawn(name, task', refuse), 'before anything is launched');
   assert.match(src, /Glass dead-letters a request carrying `cwd`/);
+});
+
+test('addDirs (App PR 89) is refused by name on spawn and resume, never dropped; send ignores it', () => {
+  for (const req of [{ name: 'heron', addDirs: ['/tmp/x'] }, { action: 'resume', name: 'heron', addDirs: ['/a', '/b'] }]) {
+    assert.match(unsupportedFieldReason(req, req.action ?? 'spawn') ?? '', /does not support addDirs/);
+  }
+  assert.equal(unsupportedFieldReason({ name: 'heron', addDirs: null }, 'spawn'), undefined);
+  assert.equal(unsupportedFieldReason({ name: 'heron', addDirs: [] }, 'spawn'), undefined, 'an empty list is none, as on the App');
+  assert.match(fs.readFileSync('src/extension.ts', 'utf8'), /Glass dead-letters a request carrying a non-empty `addDirs`/, 'the README says so');
+  assert.equal(unsupportedFieldReason({ action: 'send', name: 'heron', addDirs: ['/x'], prompt: 'p' }, 'send'), undefined);
 });
