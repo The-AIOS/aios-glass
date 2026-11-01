@@ -6,7 +6,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.5.14] — draft, ships with AIOS App 0.14.0
+## [0.5.14] — 2026-11-01
 
 > **A session resumed by an old name is refused with its new one, and a request Glass cannot honour says so by name.** Parity with the AIOS App 0.14.0 bus rules.
 
