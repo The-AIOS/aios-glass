@@ -309,5 +309,6 @@
   "Claude matches your ask to the right context & tools in your AIOS — and puts them to work": "Claude conecta tu petición con el contexto y las herramientas adecuadas de tu AIOS — y las pone a trabajar",
   "Foam-rendered wikilinks beside the source — Obsidian-style": "wikilinks renderizados por Foam junto al código fuente — estilo Obsidian",
   "AIOS Glass: Git Bash not found — install Git for Windows to switch accounts.": "AIOS Glass: no se encontró Git Bash — instala Git para Windows para cambiar de cuenta.",
-  "could not read the account list": "no se pudo leer la lista de cuentas"
+  "could not read the account list": "no se pudo leer la lista de cuentas",
+  "is already running outside this window, so a second one was not started.": "ya está en ejecución fuera de esta ventana, así que no se inició otra."
 }

@@ -17,5 +17,6 @@
   "your work": "η δουλειά σου",
   "Ingest content": "Εισαγωγή περιεχομένου",
   "One or more sources — URLs, file paths, or a topic (blank to be guided)": "Μία ή περισσότερες πηγές — URLs, διαδρομές αρχείων ή ένα θέμα (κενό για καθοδήγηση)",
-  "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "π.χ. https://… · ~/Downloads/notes.pdf · \"το call του Δ.Σ. για το Q3\""
+  "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "π.χ. https://… · ~/Downloads/notes.pdf · \"το call του Δ.Σ. για το Q3\"",
+  "is already running outside this window, so a second one was not started.": "εκτελείται ήδη εκτός αυτού του παραθύρου, οπότε δεν ξεκίνησε δεύτερη."
 }

@@ -19,6 +19,7 @@ import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
+import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -147,7 +148,9 @@ async function runInSession(slash: string, style?: TermStyle): Promise<void> {
     try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: n }); } catch { /* command unavailable — best effort */ }
   }
   const nameArg = n && /^[a-z0-9][a-z0-9-]*$/.test(n) ? `--name ${n} ` : '';
-  target.terminal.sendText(`${claudeBin()} ${nameArg}${shellQuote(slash)}`);
+  const line = `${claudeBin()} ${nameArg}${shellQuote(slash)}`;
+  if (await nameHeld(line)) return;
+  target.terminal.sendText(line);
 }
 
 /** True if a `claude` process is a descendant of the terminal's shell. */
@@ -188,9 +191,27 @@ export async function terminalHasClaude(terminal: vscode.Terminal): Promise<bool
 
 /** Run a full shell command line in a fresh terminal (always-new actions). */
 function runNew(cmdline: string, style?: TermStyle): void {
-  const t = newTerminal(style);
-  t.show();
-  t.sendText(cmdline);
+  void (async () => {
+    if (await nameHeld(cmdline)) return;
+    const term = newTerminal(style);
+    term.show();
+    term.sendText(cmdline);
+  })().catch((e) => swallow('runNew', e));
+}
+
+/* AI-241 (issue 95) — never start a second session under a name a live session already holds.
+   Two sessions with one name make the bus refuse both, and the copy reruns the startup routine.
+   Glass has no tab strip of its own, so every live holder counts: one in a terminal of this
+   window is revealed, any other is named, and nothing is started. True when it held. */
+async function nameHeld(cmdline: string): Promise<boolean> {
+  const name = nameStartedBy(cmdline);
+  if (!name) return false;
+  const holder = heldElsewhere(name, await listRunningAgents(), new Set());
+  if (!holder) return false;
+  const term = await findAgentTerminal(holder.name, holder.pid);
+  if (term) term.show(false);
+  else void vscode.window.showInformationMessage(`AIOS Glass: "${holder.name}" (pid ${holder.pid}) ${t('is already running outside this window, so a second one was not started.')}`);
+  return true;
 }
 
 // ── In-session actions (ask/active) ───────────────────────────────────────
