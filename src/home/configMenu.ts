@@ -4,7 +4,7 @@ import {
   setGlobalModel, setMode, setTerminalMode,
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
-  currentAnthropicAccount, anthropicAccounts, accountRows, accountsError, refreshAccounts, frameworkHasAvailability,
+  currentAnthropicAccount, anthropicAccounts, accountRows, accountsError, accountsAskedYet, refreshAccounts, frameworkHasAvailability,
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
   showNudges, setShowNudges,
@@ -38,8 +38,12 @@ export async function openConfigMenu(): Promise<void> {
   const account = currentAccount() || t('not signed in');
   // Ask first when nothing has yet: the Home panel's poll may never have run, and an empty answer
   // here would hide the swap entry from an operator with several accounts.
-  if (!anthropicAccounts().length) await refreshAccounts();
-  const multiAccount = anthropicAccounts().length > 1; // swap only matters with 2+
+  // Only the FIRST time (review, 0.5.14): a one-account install answers with an empty list on purpose, and waiting
+  // on the script at every open made this whole menu slow for them. Later opens use the cache, which refreshes itself.
+  if (!anthropicAccounts().length && !accountsAskedYet()) await refreshAccounts();
+  // A list that could not be read keeps the entry, saying so: hiding it was how a broken list went unnoticed.
+  const accountsBroken = !anthropicAccounts().length && !!accountsError();
+  const multiAccount = anthropicAccounts().length > 1 || accountsBroken; // swap only matters with 2+
   const sep = (label: string): vscode.QuickPickItem & { id?: string } => ({ label, kind: vscode.QuickPickItemKind.Separator });
   const onOff = (b: boolean) => (b ? t('on') : t('off'));
   const shownHidden = (b: boolean) => (b ? t('shown') : t('hidden'));
@@ -75,7 +79,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(clock) ' + t('Schedule work'), description: '/schedule', id: 'schedule' },
     // ── Account ──
     sep(t('Account')),
-    ...(multiAccount ? [{ label: '$(arrow-swap) ' + t('Swap account'), description: currentAnthropicAccount(), id: 'swap' }] : []),
+    ...(multiAccount ? [{ label: (accountsBroken ? '$(warning) ' : '$(arrow-swap) ') + t('Swap account'), description: accountsBroken ? t('could not read the account list') : currentAnthropicAccount(), id: 'swap' }] : []),
     { label: '$(account) ' + t('Login'), description: account, id: 'login' },
     { label: '$(sign-out) ' + t('Logout'), id: 'logout' },
     { label: '$(info) ' + t('Auth status'), id: 'status' },

@@ -307,5 +307,7 @@
   "One or more sources — URLs, file paths, or a topic (blank to be guided)": "Uma ou mais fontes — URLs, caminhos de arquivos ou um tópico (deixe em branco para ser guiado)",
   "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "ex.: https://… · ~/Downloads/notas.pdf · \"a reunião do conselho do Q3\"",
   "Claude matches your ask to the right context & tools in your AIOS — and puts them to work": "O Claude conecta seu pedido ao contexto e às ferramentas certas do seu AIOS — e as coloca para trabalhar",
-  "Foam-rendered wikilinks beside the source — Obsidian-style": "wikilinks renderizados pelo Foam ao lado do código-fonte — estilo Obsidian"
+  "Foam-rendered wikilinks beside the source — Obsidian-style": "wikilinks renderizados pelo Foam ao lado do código-fonte — estilo Obsidian",
+  "AIOS Glass: Git Bash not found — install Git for Windows to switch accounts.": "AIOS Glass: Git Bash não encontrado — instale o Git para Windows para trocar de conta.",
+  "could not read the account list": "não foi possível ler a lista de contas"
 }

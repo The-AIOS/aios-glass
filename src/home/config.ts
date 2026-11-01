@@ -1,4 +1,5 @@
 import { resolveGlassTheme, shouldSyncToWorkbench } from './themeResolve';
+import { resolveBash } from './resolveBash';
 import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -98,7 +99,16 @@ export function refreshAccounts(): Promise<void> {
   if (!frameworkHasAvailability()) return Promise.resolve();
   if (accountsAsking) return accountsAsking;
   accountsAsking = new Promise<void>((resolve) => {
-    execFile('bash', [identityScript() as string, 'switch', '--availability'], { timeout: 20_000 }, (err, out, stderr) => {
+    /* Git Bash on Windows, never the bare word: that can be WSL's launcher, which cannot open a C:\\ path
+       and has another home (review, 0.5.14). Same resolver as the App. */
+    const bash = resolveBash();
+    if (!bash) {
+      accountsCache = { ...accountsCache, error: 'Git Bash not found. Install Git for Windows.', at: Date.now() };
+      accountsAsking = undefined;
+      resolve();
+      return;
+    }
+    execFile(bash, [identityScript() as string, 'switch', '--availability'], { timeout: 20_000, windowsHide: true }, (err, out, stderr) => {
       const rows = err ? null : parseAvailability(out);
       accountsCache = rows
         ? { rows, error: '', at: Date.now() }
@@ -108,6 +118,11 @@ export function refreshAccounts(): Promise<void> {
     });
   });
   return accountsAsking;
+}
+
+/** Has the script been asked at least once (answer or failure)? */
+export function accountsAskedYet(): boolean {
+  return accountsCache.at > 0;
 }
 
 /** Why the last ask failed, or ''. A malformed list must be seen, not read as "no accounts". */

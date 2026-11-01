@@ -1,4 +1,5 @@
 import { ResumeIndex } from '../agents/resumeIndex';
+import { resolveBash } from '../home/resolveBash';
 import * as vscode from 'vscode';
 import { AiosCommand, discoverCommands, expandHome, resolveCommandsDir } from '../aios/commands';
 import * as path from 'path';
@@ -867,7 +868,9 @@ export async function launchAccountSwap(email: string): Promise<void> {
   };
   const fromEmail = readAccount(); // outgoing account, for the statusline banner
   return new Promise((resolve) => {
-    execFile('bash', [script, 'switch', email], { timeout: 20000 }, (err, _out, stderr) => {
+    const bash = resolveBash();   // Git Bash on Windows, never WSL's launcher (review, 0.5.14)
+    if (!bash) { void vscode.window.showWarningMessage(t('AIOS Glass: Git Bash not found — install Git for Windows to switch accounts.')); return resolve(); }
+    execFile(bash, [script, 'switch', email], { timeout: 20000, windowsHide: true }, (err, _out, stderr) => {
       if (err) { void vscode.window.showWarningMessage(`${t('AIOS Glass: account swap failed —')} ${(stderr || err.message).slice(0, 160)}`); return resolve(); }
       // The manual `switch` only logs; write the swap-notification marker the
       // statusline (context-monitor.py) reads, so the swap banner shows for its
