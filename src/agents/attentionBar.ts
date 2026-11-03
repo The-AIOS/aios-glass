@@ -39,7 +39,7 @@ export function createAttentionBar(context: vscode.ExtensionContext): AttentionB
     normalizeNotifyLevel(vscode.workspace.getConfiguration('aiosGlass').get<string>('attention'));
 
   const tick = async (): Promise<void> => {
-    const running = await listOperatorSessions();   // AI-165: never a daemon spare
+    const running = await listOperatorSessions();   // never a daemon spare
     const lvl = level();
     const r = attentionTick(
       state,

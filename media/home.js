@@ -209,11 +209,11 @@
     const reveal = (el) => { if (!el) return; const { n, p } = itemNP(el); if (n) run('aios.revealAgent', n, p); };
     runningList.addEventListener('click', (ev) => {
       const item = ev.target.closest('.runitem'); if (!item) return;
-      if (ev.target.closest('.rnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNotesView', n); return; } // AI-18: 📝 badge → view/delete notes
-      if (ev.target.closest('.runnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNote', n); return; } // AI-18: pencil → jot a new post-it
+      if (ev.target.closest('.rnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNotesView', n); return; } // 📝 badge → view/delete notes
+      if (ev.target.closest('.runnote')) { const { n } = itemNP(item); if (n) run('aios.sessionNote', n); return; } // pencil → jot a new post-it
       if (ev.target.closest('.runint')) { const { n, p } = itemNP(item); if (n) run('aios.interruptAgent', n, p); return; }
       if (ev.target.closest('.runclose')) { const { n, p } = itemNP(item); if (n) run('aios.closeSessionAgent', n, p); return; }
-      // Kill routes through the kill-guard (AI-18) — no optimistic removal, since the
+      // Kill routes through the kill-guard — no optimistic removal, since the
       // guard may cancel; aios.closeAgent refreshes the list once the session is gone.
       if (ev.target.closest('.runkill')) { const { n, p } = itemNP(item); if (n) run('aios.closeAgent', n, p); return; }
       reveal(item);
@@ -255,7 +255,7 @@
     else vscode.postMessage({ type: 'focusTerminal', pid });
   });
   document.getElementById('quotaWarn').addEventListener('click', () => { const to = document.getElementById('quotaWarn').getAttribute('data-to'); if (to) run('aios.swapTo', to); });
-  // AI-18: health-card fix-its route to the commands Glass already ships.
+  // Health-card fix-its route to the commands Glass already ships.
   document.getElementById('healthList').addEventListener('click', (ev) => {
     if (ev.target.closest('#healthHelp')) { vscode.postMessage({ type: 'healthHelp' }); return; }
     const b = ev.target.closest('.hfix'); if (!b) return;
@@ -338,7 +338,7 @@
         return '<div class="learnitem" data-path="' + (r.path||'') + '" title="report — click to read · ⌘-click for source"><span class="lsrc">report</span><span class="ltitle">' + nm + '</span></div>';
       }).join('');
       document.getElementById('reportHint').style.display = reps.length ? '' : 'none';
-      // AI-18 setup/health card — a dot + detail per check, with a fix-it when amber.
+      // Setup/health card — a dot + detail per check, with a fix-it when amber.
       const health = msg.health || [];
       const hl = document.getElementById('healthList');
       if (hl){
@@ -399,7 +399,7 @@
               + '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
               + '</button>'
             : '';
-          // AI-18 post-it: a 📝 count badge when the session carries notes — click to
+          // Post-it: a 📝 count badge when the session carries notes — click to
           // view them (text + when + delete). role=button so it reads as interactive.
           const noteBadge = a.notes ? '<span class="rnote" role="button" tabindex="0" title="' + (NLS('running.note.view', 'View notes') + ' (' + a.notes + ')').replace(/"/g, '&quot;') + '">📝 ' + a.notes + '</span>' : '';
           // Richer status, inline only: "status + duration · project" (webview
@@ -412,11 +412,11 @@
           return '<div class="runitem" role="button" tabindex="0" data-name="' + nm + '" data-pid="' + (a.pid||'') + '" title="' + titleAttr + '">'
             + '<span class="dot ' + s.cls + '"></span><span class="rname">' + nm + '</span><span class="k"> · ' + statusTxt + (proj ? ' · ' + proj : '') + '</span>'
             + noteBadge
-            // AI-171 step 1 — skills/agents this session used; hover names them all.
+            // Skills/agents this session used; hover names them all.
             + (a.used ? '<span class="rused" title="' + (NLS('running.usedTip', 'This session used: ') + String(a.usedNames || '')).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"> · ' + NLS('running.used', 'used') + ': ' + String(a.used).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>' : '')
             + (mem ? '<span class="rmem">' + mem + '</span>' : '')
             + '<span class="runacts">'
-            // AI-18: the 4th (first-listed) hover button — attach a post-it to this session.
+            // The 4th (first-listed) hover button — attach a post-it to this session.
             + '<button class="runnote" data-note="1" title="' + NLS('running.note.title', 'Note').replace(/"/g, '&quot;') + '" aria-label="Note">'
             + '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
             + '</button>'

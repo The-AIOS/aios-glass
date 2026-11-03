@@ -101,7 +101,7 @@
   .xroot .xrm{flex:0 0 auto; color:var(--subtle); opacity:0; padding:0 4px; font-size:14px; line-height:1; border-radius:4px}
   .xroot:hover .xrm{opacity:.7}
   .xroot .xrm:hover{opacity:1; color:var(--accent-ink)}
-  /* AI-58: per-folder sort control — hover-reveal like ×; sits left of ×, pushed
+  /* Per-folder sort control — hover-reveal like ×; sits left of ×, pushed
      to the right edge by margin-left:auto. Stays faintly visible when the folder
      is on the non-default 'mtime' mode, so the current sort is discoverable. */
   .xsort{margin-left:auto; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;

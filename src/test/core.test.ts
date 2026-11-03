@@ -182,7 +182,7 @@ test('parseAgentSection: does not false-match distinct tasks', () => {
   assert.equal(parseAgentSection(md).length, 1);
 });
 
-// ── AI-58 per-folder sort (pure comparator + pref map) ───────────────────────
+// ── per-folder sort (pure comparator + pref map) ───────────────────────
 
 import { compareEntries, sortEntries, setFolderSort, resolveSort, owningRoot } from '../files/sort';
 
@@ -226,7 +226,7 @@ test('sort: owningRoot picks the longest-matching workspace root', () => {
   assert.equal(owningRoot(roots, '/elsewhere/z.ts'), undefined);
 });
 
-// ── AI-18 session post-its — backward-compatible note parsing ────────────────
+// ── session post-its — backward-compatible note parsing ────────────────
 
 import { parseStoredNotes } from '../agents/sessionNotesParse';
 

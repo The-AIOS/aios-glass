@@ -71,7 +71,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (e.affectsConfiguration('aiosGlass.language')) this.rerender();
       if (e.affectsConfiguration('files.exclude')) { this.excludeRe = undefined; this.post({ type: 'reload' }); }
     }));
-    // AI-190: with the theme on `auto`, follow the editor's theme live.
+    // With the theme on `auto`, follow the editor's theme live.
     this.disposables.push(vscode.window.onDidChangeActiveColorTheme(() => this.post({ type: 'theme', theme: currentTheme() })));
     // Mirror this view's visibility to Home so the files button shows active (and
     // toggles). Fires on show/hide (including when another container takes over).
@@ -221,7 +221,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
   refresh(): void { this.post({ type: 'refresh' }); }
 
   /** Rebuild the whole document — regenerates the injected `window.__nls` catalog
-   *  (AI-19). Needed on a language flip; costs the tree's expand state (rare event). */
+   *  Needed on a language flip; costs the tree's expand state (rare event). */
   rerender(): void { if (this.view) this.view.webview.html = this.html(this.view.webview); }
 
   /** Open the Files view if hidden; hide it if shown. VS Code can't say which bar a
@@ -304,7 +304,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
       if (excluded.some((re) => re.test(name))) continue; // honor the editor's files.exclude
       const full = path.join(dirPath, name);
       // One stat gets BOTH is-dir and mtime — the mtime the `mtime` sort needs is
-      // therefore free (the readdir + stat already happen; AI-58 rides them).
+      // therefore free (the readdir + stat already happen; the sort rides them).
       let st: fs.Stats;
       try { st = fs.statSync(full); } catch { continue; }
       entries.push({ name, dir: st.isDirectory(), ext: st.isDirectory() ? '' : (name.split('.').pop() || '').toLowerCase(), path: full, mtime: st.mtimeMs });
@@ -516,7 +516,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider {
     const nonce = makeNonce();
     const media = vscode.Uri.joinPath(this.extensionUri, 'media');
     const csp = `default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'nonce-${nonce}';`;
-    // AI-19: localize the Explorer webview the same way the Home panel does —
+    // Localize the Explorer webview the same way the Home panel does —
     // inject `window.__nls` (the catalog for the effective locale) before
     // files.js runs. Baked-in English stays as the literal fallback.
     const locale = effectiveLocale();

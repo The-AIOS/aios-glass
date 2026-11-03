@@ -112,7 +112,7 @@ function listRegistryEntries(): Promise<{ agent: RunningAgent; recorded: number 
 }
 
 /**
- * AI-165 — the sessions the OPERATOR is running, for everything that shows, alerts or broadcasts.
+ * The sessions the OPERATOR is running, for everything that shows, alerts or broadcasts.
  *
  * Claude Code's background daemon keeps pre-started spare sessions so a background agent opens
  * instantly. They register like any other session but with no name, so they appeared under their

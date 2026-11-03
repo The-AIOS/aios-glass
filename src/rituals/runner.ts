@@ -199,7 +199,7 @@ function runNew(cmdline: string, style?: TermStyle): void {
   })().catch((e) => swallow('runNew', e));
 }
 
-/* AI-241 (issue 95) — never start a second session under a name a live session already holds.
+/* Issue 95 — never start a second session under a name a live session already holds.
    Two sessions with one name make the bus refuse both, and the copy reruns the startup routine.
    Glass has no tab strip of its own, so every live holder counts: one in a terminal of this
    window is revealed, any other is named, and nothing is started. True when it held. */
@@ -361,7 +361,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       if (grant) flag += grant;
       else log(`spawn '${name}': the installed spawn wrapper takes no folder grant (canonical < v0.8.13); under blockReadsOutsideWorkingDirectories the worker cannot read ${taskFile}`);
     } catch (e) {
-      /* AI-66: this used to cut the task to 2000 chars and spawn anyway — a silent truncation that
+      /* This used to cut the task to 2000 chars and spawn anyway — a silent truncation that
          handed the worker a task ending mid-sentence and reported success. That is the exact
          shape of the incident this ticket exists for, sitting in the codebase as a "fallback".
          There is no safe way to shorten someone's instructions, so we refuse and say so. */
@@ -374,7 +374,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
       return;
     }
   }
-  // AI-172: a bus spawn's first prompt is bus-typed — record exactly what the worker receives.
+  // A bus spawn's first prompt is bus-typed — record exactly what the worker receives.
   if (opts?.bus && inlineTask) recordTyped(inlineTask, name, 'spawn');
   runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color });
 }
@@ -418,7 +418,7 @@ export async function launchPrimary(name: string): Promise<void> {
 
 /** Resume a Claude conversation — always a new terminal with the session picker. */
 /**
- * Resume a SPECIFIC session by id (AI-149) — the bus's `resume` verb.
+ * Resume a SPECIFIC session by id — the bus's `resume` verb.
  *
  * The sibling of {@link launchResume}: that one hands the operator Claude's own picker, which
  * needs a human in the chair. A bus request names the session it wants, so nothing may be picked
@@ -456,13 +456,13 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   }
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
-  if (bus && inline) recordTyped(inline, name, 'resume', from);   // AI-172
+  if (bus && inline) recordTyped(inline, name, 'resume', from);
   runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile), { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
 
 /**
- * AI-204 — which session does a name resume to? Through a persisted, incremental index of EVERY
+ * Which session does a name resume to? Through a persisted, incremental index of EVERY
  * transcript (agents/resumeIndex — byte-identical to the App's, pinned by hash in both repos),
  * never the 60 newest: a workforce night pushed named sessions out of that window and a resume
  * dead-lettered with "no transcript found" while 69 records carried the name. "Latest name wins"
@@ -476,7 +476,7 @@ const resumeIndex = new ResumeIndex(
 export function resumeIdFor(name: string, excludeSessionId?: string): Promise<string | undefined> {
   return resumeIndex.lookup(name, excludeSessionId).catch(() => undefined);
 }
-/* AI-228 (App parity): the session's current name as its own transcript says it NOW (the last 2 MB hold the newest
+/* App parity: the session's current name as its own transcript says it NOW (the last 2 MB hold the newest
    records), or '' when it matches `want` or cannot be read. A read failure never blocks a resume. */
 export function currentNameIfStale(sessionId: string, want: string): string {
   const f = resumeIndex.fileOf(sessionId);
@@ -661,7 +661,7 @@ export function spillIfLong(name: string, text: string): { text: string; failed:
 
 export async function sendToSession(name: string, text: string, pid?: number): Promise<void> {
   const term = await findAgentTerminal(name, pid);
-  /* AI-66 — NEVER hand a long prompt to sendText. A ~2.6KB bus send arrived cut at byte 2043
+  /* NEVER hand a long prompt to sendText. A ~2.6KB bus send arrived cut at byte 2043
      with no error on any surface; the dropped tail carried a "do NOT push" instruction. That
      ceiling lives inside the VS Code extension host, is not measurable from the App side, and
      can move under an upgrade — so nothing here relies on knowing it. Above the one ceiling
@@ -717,7 +717,7 @@ export async function disposeAgentTerminal(name: string, pid?: number): Promise<
 }
 
 /**
- * AI-18 — kill-guard (the shared sentinel; every kill surface calls this one
+ * Kill-guard (the shared sentinel; every kill surface calls this one
  * primitive). Kill is destructive and irreversible (it SIGHUPs Claude + its
  * children), so an explicit close ALWAYS shows the 3-option QuickPick — capture
  * the work first, kill now (harvesting any post-its so they aren't lost), or

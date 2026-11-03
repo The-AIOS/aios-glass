@@ -8,7 +8,7 @@ import { SessionNote, parseStoredNotes } from './sessionNotesParse';
 export { SessionNote, parseStoredNotes } from './sessionNotesParse';
 
 /**
- * AI-18 / AI-39 — session post-its ("running session reminders").
+ * Session post-its ("running session reminders").
  *
  * A fourth hover button on a live session lets the HUMAN jot quick notes
  * attached to that session — "what did I want to do here next" — replacing the
@@ -20,12 +20,12 @@ export { SessionNote, parseStoredNotes } from './sessionNotesParse';
  *
  * Stored in `.glass/state.json` (via state.ts) under `sessionNotes`, keyed by
  * session NAME (unique among live sessions). Roams with the vault like the rest
- * of glass state; the App's session viewer reads the same key (AI-53 topology).
+ * of glass state; the App's session viewer reads the same key (shared sidebar topology).
  */
 
 const NOTES_KEY = 'sessionNotes';
 
-/** A stored entry: the timestamped object shape, or a LEGACY bare string (pre-AI-39
+/** A stored entry: the timestamped object shape, or a LEGACY bare string (pre-timestamp
  *  notes, and whatever the App may still write). Readers coerce both (sessionNotesParse). */
 type StoredNote = string | { t: string; ts: number };
 type NotesMap = Record<string, StoredNote[]>;

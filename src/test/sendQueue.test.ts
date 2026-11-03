@@ -293,10 +293,10 @@ test('KNOWN LIMIT: an invocation inside our own hold window is still indistingui
     'still counted — documented, bounded to the hold window, and the reason release was removed');
 });
 
-/* AI-170 — a built-in slash command verifies by its local_command record (real format, 2.1.288). */
+/* A built-in slash command verifies by its local_command record (real format, 2.1.288). */
 import { slashCommandOf, countLocalCommands, countDeliveries } from '../core/sendQueue';
 
-test('AI-170: /remote-control verifies by the local_command record it really writes', () => {
+test('slash command: /remote-control verifies by the local_command record it really writes', () => {
   const rc = (ts: string, args = '') => JSON.stringify({ parentUuid: 'p', isSidechain: false, type: 'system', subtype: 'local_command',
     content: `<command-name>/remote-control</command-name>\n            <command-message>remote-control</command-message>\n            <command-args>${args}</command-args>`,
     level: 'info', timestamp: ts, uuid: 'u', sessionId: 's' });
@@ -313,7 +313,7 @@ test('AI-170: /remote-control verifies by the local_command record it really wri
   assert.equal(countLocalCommands(rc('2026-10-03T01:38:34Z').replace('"system"', '"user"'), '/remote-control'), 0, 'only system/local_command records count');
 });
 
-test('AI-170: a plain message still verifies by user turns only, and a command is never counted twice', () => {
+test('slash command: a plain message still verifies by user turns only, and a command is never counted twice', () => {
   const user = (text: string, ts: string) => JSON.stringify({ type: 'user', message: { role: 'user', content: text }, timestamp: ts });
   const t0 = Date.parse('2026-10-11T00:00:00Z');
   const tx = user('hello from the bus, a long enough marker', '2026-10-11T00:00:05Z');

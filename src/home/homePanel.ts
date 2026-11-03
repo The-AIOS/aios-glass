@@ -206,7 +206,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     }, 120);
   }
 
-  /** AI-171 — what each session used. The shared reader (core/usageReader) reads ASYNC, bounded per
+  /** What each session used. The shared reader (core/usageReader) reads ASYNC, bounded per
    *  tick, prunes ended sessions and byte-splits at newlines (review should-fix 17). */
   private usage = new UsageReader(fsUsageIo);
   private usageFor(sessionId: string): ToolUsage | undefined { return this.usage.get(sessionId); }
@@ -327,7 +327,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     // children), one `ps` scan for all of them. Best-effort — omitted if ps fails,
     // or when the operator turns the display off (cog → Session memory).
     const mem = showMemory() ? sessionMemoryMB(running.map((a) => a.pid)) : new Map<number, number>();
-    // AI-18 post-it counts, joined onto each session.
+    // Post-it counts, joined onto each session.
     const notes = sessionNoteCounts();
     this.usage.prune(running.map((a) => a.sessionId));   // the cache follows the running list
     const rows = running.map((a) => {
@@ -336,7 +336,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
         name: a.name, pid: a.pid, status: a.status,
         proj: projOf(a.cwd), updatedAt: a.updatedAt, mem: mem.get(a.pid),
         notes: notes[a.name] || 0,
-        // AI-171 step 1 — the skills and agents this session used (shared core/toolUse).
+        // The skills and agents this session used (shared core/toolUse).
         used: u ? usageChip(u) : '', usedNames: u ? [...u.skills, ...u.agents].join(', ') : '',
       };
     });
@@ -387,7 +387,7 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
       nudge: showNudges() ? nudgeState(now.getHours(), now.getDay(), this.lastRunningCount) : null,
       outputs: recentOutputs(6).map((o) => ({ name: o.name, group: o.group, path: o.path })),
       reports: recentReports(5).map((r) => ({ name: r.name, path: r.path })),
-      health: computeHealth(), // AI-18 setup/health card
+      health: computeHealth(), // setup/health card
       jobs: routineJobs()      // #27 scheduled jobs (canonical's status files)
     });
   }

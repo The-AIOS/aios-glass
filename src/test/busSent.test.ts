@@ -1,4 +1,4 @@
-/** AI-172 (Glass) — every bus delivery records the exact text the session receives, before typing. */
+/** Glass — every bus delivery records the exact text the session receives, before typing. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
@@ -23,7 +23,7 @@ test('the Glass recorder writes what the App recorder writes (one format, two su
   assert.match(g, /process\.env\.AIOS_BUS_LOG \|\| path\.join\(os\.homedir\(\), '\.aios', 'bus-sent\.jsonl'\)/);
 });
 
-test('AI-198: Glass dead-letters a contract-4 field it cannot honour, naming why', () => {
+test('contract 4: Glass dead-letters a contract-4 field it cannot honour, naming why', () => {
   const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
   assert.match(ext, /const c4 = contract4Fields\(req as Record<string, unknown>, action\);\s*if \(!c4\.accept\) \{/);
   assert.match(ext, /const c4Launch = \{ effort: c4\.effort, advisorModel: advisorModelFor\(c4\.advisor, c4\.advisorRung\) \};/, 'a spawn honours effort/advisor, like the App (should-fix 9)');
@@ -34,7 +34,7 @@ test('AI-198: Glass dead-letters a contract-4 field it cannot honour, naming why
   assert.equal((ext.match(/await deliverSend\(name, prompt, from(, held)?\);/g) || []).length, 2, 'send and live resume both carry from');
 });
 
-test('AI-205: Glass waits for the next idle, in order, superseding, aged — and verifies from the first type', () => {
+test('send queue: Glass waits for the next idle, in order, superseding, aged — and verifies from the first type', () => {
   const ext = fs.readFileSync(path.join(ROOT, 'src', 'extension.ts'), 'utf8');
   assert.match(ext, /decideSend\(await find\(\), Date\.now\(\) - myQueuedAt, TIMINGS\.QUEUE_CEILING_MS\)/, 'the ceiling runs from the FIRST queue time');
   assert.match(ext, /const turn = queueTurn\(\{ key: myKey, target: sessionKey\(name\), from: sendFrom, queuedAt: myQueuedAt \}, heldSends\(\)\);/);

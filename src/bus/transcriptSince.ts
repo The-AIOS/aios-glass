@@ -1,5 +1,5 @@
 /**
- * AI-223 — VERIFY A SEND BY READING ONLY WHAT WAS APPENDED SINCE IT STARTED.
+ * VERIFY A SEND BY READING ONLY WHAT WAS APPENDED SINCE IT STARTED.
  * (Glass's twin of the App's src/main/transcriptSince.ts; vscode-free, so it is tested directly.)
  *
  * The measured failure (on the App): every repeat delivery went to one session whose transcript had

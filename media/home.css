@@ -226,7 +226,7 @@
      (the hover action buttons take their space from the text, not a new line) */
   .runitem .k{margin-left:0; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto; min-width:0}
   /* memory — quietest thing in the row (like the quota meter's "5h (7d…)" text) */
-  .runitem .rused{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--subtle)}   /* AI-171 */
+  .runitem .rused{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; color:var(--subtle)}
   .runitem .rmem{flex:0 0 auto; margin-left:6px; font-family:var(--mono); font-size:10px; color:var(--subtle); opacity:.6; white-space:nowrap}
   .runitem .dot{--dc:var(--subtle); width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--dc)}
   .runitem .dot.busy{--dc:#f5a623; animation:dotpulse 2s ease-out infinite}
@@ -241,10 +241,10 @@
   @media (prefers-reduced-motion: reduce){ .runitem .dot{animation:none; box-shadow:0 0 0 2px color-mix(in srgb, var(--dc) 22%, transparent)} }
   .runitem .dot.error{--dc:#f5564a; box-shadow:0 0 0 2px color-mix(in srgb, #f5564a 24%, transparent)}
   .runitem .dot.unk{--dc:var(--subtle)}
-  /* AI-18 post-it badge on a session row */
+  /* post-it badge on a session row */
   .runitem .rnote{flex:0 0 auto; margin-left:6px; font-size:10px; color:var(--subtle); opacity:.75; white-space:nowrap; cursor:pointer; border-radius:4px}
   .runitem .rnote:hover{opacity:1; color:var(--ink)}
-  /* AI-18 health card */
+  /* health card */
   .hlist{display:flex; flex-direction:column; gap:2px}
   .hcheck{display:flex; align-items:center; gap:7px; font-size:12.5px; padding:3px 2px}
   .hcheck .hdot{width:7px; height:7px; border-radius:50%; flex:0 0 auto; background:var(--subtle)}

@@ -141,7 +141,7 @@ test('an unreadable projects folder keeps the index — an outage is not "every 
   assert.equal(ix.size(), 0, 'a transcript really deleted is still pruned');
 });
 
-test('AI-204: Glass resolves resume through the index, never a count of the newest transcripts', () => {
+test('resume index: Glass resolves resume through the index, never a count of the newest transcripts', () => {
   const runner = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'rituals', 'runner.ts'), 'utf8');
   assert.match(runner, /return resumeIndex\.lookup\(name, excludeSessionId\)/);
   assert.doesNotMatch(runner, /MAX_RESUME_SCAN|\.slice\(0, 60\)/, 'no 60-newest window anywhere');

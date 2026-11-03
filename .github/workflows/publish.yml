@@ -60,7 +60,7 @@ jobs:
           name: aios-glass-vsix
           path: aios-glass.vsix
 
-      # AI-119: a GitHub Release used to be a SECOND, HAND-DONE act after the tag, and the
+      # A GitHub Release used to be a SECOND, HAND-DONE act after the tag, and the
       # roadmap carried a row for exactly the divergence that invites — one release whose
       # content mattered most to the bus protocol was, for a while, the one that could not be
       # resolved to a commit. Two hand-coordinated steps drift; one automated step cannot.
