@@ -105,13 +105,20 @@ export function testingBranch(): string { return lastTestingBranch; }
  * Compare the last-synced hash (`.aios-update`) against canonical HEAD via
  * `git ls-remote`. Network/SSH; resolves 'unknown' on any failure or offline.
  */
+/** How long the framework check may take before it counts as "no answer". Over HTTPS,
+ *  `git ls-remote` makes two round trips; with GitHub's git endpoint slow but working, each was
+ *  measured at about 5 s, so a successful check took 9-10 s and an 8 s limit turned every one into
+ *  "unknown" on an up-to-date vault (aios-app#132). It runs in the background, so a longer wait
+ *  costs nothing visible. Same limit as the App. */
+export const FRAMEWORK_CHECK_TIMEOUT_MS = 20_000;
+
 export function checkForUpdates(): Promise<UpdateState> {
   const status = readFrameworkStatus();
   if (!status || !status.repo || !status.hash) return Promise.resolve('unknown');
   return new Promise((resolve) => {
     /* Every branch head (shared core/freshness, same as the App): a vault on a release branch is
        AHEAD of main, and comparing with HEAD alone read it as "update available". */
-    execFile('git', ['ls-remote', '--symref', status.repo], { timeout: 8000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
+    execFile('git', ['ls-remote', '--symref', status.repo], { timeout: FRAMEWORK_CHECK_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
       if (err || !stdout) return resolve('unknown');
       const f = freshness({ hash: status.hash, ref: status.ref }, parseLsRemote(stdout));
       lastTestingBranch = f.state === 'testing' ? f.branch : '';
