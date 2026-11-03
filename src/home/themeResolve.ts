@@ -1,5 +1,5 @@
 /**
- * AI-190 (Glass half) — which theme the Glass webviews paint. Pure: no `vscode` import, so the
+ * Glass half — which theme the Glass webviews paint. Pure: no `vscode` import, so the
  * unit tests can run it. `auto` (the default since 0.5.11) follows the editor's colour theme:
  * an exec on VS Code's stock Light Modern was greeted by a DARK Home panel inside a light IDE,
  * because the old default was `dark` and the co-switch only knew the AIOS themes.

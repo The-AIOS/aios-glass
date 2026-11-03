@@ -1,5 +1,5 @@
 /**
- * AI-165 — Claude Code's daemon spares (`kind: "bg"`, no name) must not appear as operator
+ * Claude Code's daemon spares (`kind: "bg"`, no name) must not appear as operator
  * sessions; a terminal session beside them still does. Same rule and same test shape as aios-app.
  */
 import { test } from 'node:test';

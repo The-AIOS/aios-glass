@@ -7,7 +7,7 @@ import { currentAnthropicAccount } from './config';
 import { routineRows, routineNeedsAttention, type RoutineRow } from '../core/routineHealth';
 
 /**
- * AI-18 — health / setup card.
+ * Health / setup card.
  *
  * A quiet "is my AIOS wired?" readout for the Home panel: the handful of things
  * that, when unset, silently break Glass for a non-dev (Iris's app-only

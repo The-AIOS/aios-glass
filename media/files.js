@@ -6,7 +6,7 @@
   // effective sort for a dir: its closest-ancestor override, else the master default (mirrors host resolveSort).
   function effectiveSort(dir){ let best = null; for (const k in overrides){ if (dir === k || dir.startsWith(k + '/')){ if (!best || k.length > best.length) best = k; } } return best ? overrides[best] : master; }
 
-  // ── i18n (AI-19) ── mirror of the Home panel's localizer. The host injects
+  // ── i18n ── mirror of the Home panel's localizer. The host injects
   // `window.__nls` before this runs; NLS(key, fallback) returns the translation or
   // the English fallback (also baked into files.html), so a miss degrades to English.
   const NLS_MAP = (typeof window !== 'undefined' && window.__nls) || {};
@@ -160,7 +160,7 @@
   window.addEventListener('blur', hideCtx);
   window.addEventListener('scroll', hideCtx, true);
 
-  // ── per-folder sort (AI-58) — a hover-reveal control on each Workspace-folder
+  // ── per-folder sort — a hover-reveal control on each Workspace-folder
   //    header opens this 2-option menu; the choice persists per folder in .glass/. ──
   const sortMenu = document.getElementById('sortMenu');
   let sortTarget = null; // a folder PATH (per-folder override), or 'MASTER' (the global default)
@@ -299,7 +299,7 @@
     // git decorations survive; only genuinely-new files are built. Reordering (not just
     // insert-missing) is what makes a live sort-flip — or an mtime bump from a save —
     // visibly reorder folders AND files in place, with no full repaint and no manual
-    // collapse/expand. (AI-58)
+    // collapse/expand.
     const byPath = new Map(rowsNow().map((r) => [r.dataset.path, r]));
     let prev = null; // the last node placed (a row, or its trailing .xkids container)
     for (const e of entries) {
@@ -324,7 +324,7 @@
 
   // A collapsible SECTION (FRAMEWORK / VAULT). `key` is the STABLE identity
   // (collapse state + ensureExpand + auto-reveal all key off it, English-fixed);
-  // `label` is the translated text shown to the operator (AI-19).
+  // `label` is the translated text shown to the operator.
   async function addSection(key, label, opts, buildBody, parent) {
     const head = el('div', 'xsect xsub' + (opts.primary ? ' xprimary' : ''));
     const car = el('span', 'xcaret'); head.appendChild(car);

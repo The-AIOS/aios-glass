@@ -1,5 +1,5 @@
 /**
- * AI-18 / AI-39 — pure parsing for session post-its.
+ * Pure parsing for session post-its.
  *
  * Kept vscode-/fs-free (like `files/sort.ts`) so the backward-compat coercion is
  * the single source of truth AND unit-testable without the state file. `sessionNotes.ts`

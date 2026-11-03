@@ -84,7 +84,7 @@ function checkDeliveryRobustness() {
   if (!spawn || !/writeHandoffFile\(/.test(spawn) || /tmpdir\s*\(/.test(spawn) || !spawn.includes('[\\r\\n]')) {
     fails.push('launchSpawn must hand a multi-line/large task off via a PRIVATE run file (writeHandoffFile(…): its own 0700 folder under ~/.aios/run), never os.tmpdir(); gated on a [\\r\\n] test) instead of typing it — a multi-line task typed via sendText crashes the integrated terminal.');
   }
-  /* AI-66 — three invariants that each cost a real lost message today. All three are
+  /* Bus delivery — three invariants that each cost a real lost message today. All three are
      "the code looks fine and loses data quietly", so each is guarded by source rather than
      trusted to review. */
   const runner = src;   // this guard's `src` is already runner.ts
