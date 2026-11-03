@@ -2,6 +2,15 @@
 
 A VS Code / Antigravity extension that is a **glass layer over the AIOS**. It surfaces and triggers the framework's existing capabilities (slash commands, `spawn` agents, company/collaborate syncs); it does **not** reimplement them.
 
+## Before you open an issue or a PR
+
+Read [The-AIOS/aios → CONTRIBUTING.md](https://github.com/The-AIOS/aios/blob/main/CONTRIBUTING.md) first, then this repo's [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+- Search open and recently closed issues and PRs across The-AIOS org, and check the [work in flight](https://github.com/search?q=org%3AThe-AIOS+is%3Aopen+label%3A%22status%3A+in-progress%22&type=issues): issues labelled `status: in-progress`, and open or draft PRs. The labels are the only status source. If something matches, comment there instead.
+- Right repo: the extension, its panel and how it fulfils the spawn inbox belong in `aios-glass`. The other surface lives in `aios-app`. Agents, skills, commands, hooks and templates go to `aios`.
+- Issue titles read `Area: what changes`, with no type prefix.
+- No internal tracking keys or personal names in commit messages, PR titles, PR bodies or issue comments.
+
 ## The one principle: glass, not engine
 
 Every feature must *read the framework's own source of truth at runtime* and *trigger the existing mechanism* — never duplicate AIOS logic into the extension. Examples:
