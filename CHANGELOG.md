@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.15] — 2026-11-02
+
+> **Glass never starts a second session under a name a live session already holds.** Parity with the AIOS App 0.14.1.
+
+### Fixed
+- **A named session is not started twice.** Before starting a ritual or a session under `--name`, Glass checks the live sessions. If one outside this window already holds that name, Glass says which (with its pid) and starts nothing; if it is one of its own terminals, Glass reveals it. A resume is never blocked. The name check is shared core with the App (#95).
+
+### Docs
+- `CONTRIBUTING.md` opens with the framework's guide and keeps only what is specific to Glass: search before building, issue titles as `Area: what changes`, which changes belong here, and `npm test` plus `npm run smoke` as the gates. `CLAUDE.md` and a new `AGENTS.md` carry the same short block; the issue templates prefill `<area>: `.
+- Internal tracking keys are gone from comments, test names and docs, and a test keeps them out (#31).
+
 ## [0.5.14] — 2026-11-01
 
 > **A session resumed by an old name is refused with its new one, and a request Glass cannot honour says so by name.** Parity with the AIOS App 0.14.0 bus rules.
