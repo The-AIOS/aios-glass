@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Something in AIOS Glass isn't working as expected
-title: "[bug] "
+title: "<area>: "
 labels: bug
 ---
 

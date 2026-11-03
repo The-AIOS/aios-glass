@@ -10,8 +10,8 @@
 
 ## Checklist
 
-- [ ] `npm run compile` passes (CI gate)
+- [ ] `npm test` and `npm run smoke` pass
 - [ ] Tried it live in the Extension Development Host (F5) where applicable
 - [ ] No secrets, real emails, names, or environment-specific paths (generic placeholders only)
-- [ ] Commits follow Conventional Commits
+- [ ] Commits follow Conventional Commits, with no internal tracking keys in messages or the PR title
 - [ ] Change stays on the "glass" side (no framework logic reimplemented in the extension)

@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: Suggest a surface, action, or improvement for AIOS Glass
-title: "[feat] "
+title: "<area>: "
 labels: enhancement
 ---
 
