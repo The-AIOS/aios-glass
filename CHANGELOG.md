@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.16] — 2026-11-06
+
+> **The framework update check waits long enough on a slow connection.** Parity with the AIOS App 0.15.0.
+
+### Fixed
+- **A slow but working connection no longer reads as "the server didn't answer".** The check that compares your framework with GitHub now allows 20 seconds instead of 8, the same as the App, so it reports a real answer on a slow network instead of a timeout (#34).
+
 ## [0.5.15] — 2026-11-02
 
 > **Glass never starts a second session under a name a live session already holds.** Parity with the AIOS App 0.14.1.
