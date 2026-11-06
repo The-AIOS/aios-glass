@@ -39,3 +39,13 @@ test('Glass shows TESTING and a click can never run /aios:update for it', () => 
   assert.match(js, /else if \(msg\.state === 'testing'\)\{ b\.className = 'status testing';/, 'never the clickable "upd" class');
   assert.match(js, /if \(document\.getElementById\('updBadge'\)\.classList\.contains\('upd'\)\) run\('aios\.updateFramework'\);/, 'the update runs only from the upd class');
 });
+
+test('a slow but working link is an answer, not a failure (aios-app#132)', () => {
+  const fs = require('node:fs') as typeof import('node:fs');
+  const path = require('node:path') as typeof import('node:path');
+  const spaces = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'spaces', 'spaces.ts'), 'utf8');
+  const limit = Number((spaces.match(/FRAMEWORK_CHECK_TIMEOUT_MS = ([\d_]+);/) || [])[1]?.replace(/_/g, ''));
+  assert.ok(limit >= 20_000, 'covers two ~5 s round trips with room to spare');
+  const call = spaces.slice(spaces.indexOf("['ls-remote', '--symref', status.repo]"));
+  assert.match(call.slice(0, 120), /timeout: FRAMEWORK_CHECK_TIMEOUT_MS/, 'the check uses that limit, not a literal');
+});
