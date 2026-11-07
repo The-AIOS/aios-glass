@@ -44,3 +44,17 @@ test('addDirs (App PR 89) is refused by name on spawn and resume, never dropped;
   assert.match(fs.readFileSync('src/extension.ts', 'utf8'), /Glass dead-letters a request carrying a non-empty `addDirs`/, 'the README says so');
   assert.equal(unsupportedFieldReason({ action: 'send', name: 'heron', addDirs: ['/x'], prompt: 'p' }, 'send'), undefined);
 });
+
+test('group (App 0.15.0) is advisory: never a refusal, handed to the App when it is alive, otherwise logged as not applied', async () => {
+  const { appPreferredGroup } = await import('../bus/unsupportedFields');
+  assert.equal(unsupportedFieldReason({ name: 'heron', group: 'Release' }, 'spawn'), undefined, 'never a dead letter');
+  assert.equal(appPreferredGroup({ name: 'heron', group: '  Release \n 0.15 ' }, 'spawn'), 'Release 0.15', 'cleaned the same way the App cleans it');
+  assert.equal(appPreferredGroup({ name: 'heron', group: 'Release' }, 'resume'), 'Release');
+  assert.equal(appPreferredGroup({ name: 'heron', group: 'Release', prompt: 'p' }, 'send'), undefined, 'send launches nothing');
+  for (const bad of [42, ['x'], '', '   ', null, undefined]) assert.equal(appPreferredGroup({ name: 'heron', group: bad }, 'spawn'), undefined, String(bad));
+  assert.equal(appPreferredGroup({ name: 'heron', group: 'x'.repeat(60) }, 'spawn')?.length, 40);
+  const src = fs.readFileSync('src/extension.ts', 'utf8');
+  assert.match(src, /if \(group && typeof \(req as Record<string, unknown>\)\.surface !== 'string' && appSurfaceAlive\(\) && releaseToSibling\(held\)\) \{ return; \}/, 'to the App when it is alive and the sender did not pin a surface');
+  assert.match(src, /group '\$\{group\}' NOT applied: this surface has no tab groups/, 'otherwise started, and the log says so');
+  assert.match(src, /'- `group` \(spawn, resume\) — \*\*App only\*\*/, 'and the inbox README Glass writes documents it beside cwd and addDirs');
+});

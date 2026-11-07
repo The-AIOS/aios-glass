@@ -8,7 +8,7 @@ import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
 import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
 import { recordTyped } from './bus/busSent';
 import { TranscriptSince } from './bus/transcriptSince';
-import { unsupportedFieldReason } from './bus/unsupportedFields';
+import { unsupportedFieldReason, appPreferredGroup } from './bus/unsupportedFields';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -860,6 +860,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '- `effort` (spawn, resume) — `low` · `medium` · `high` · `xhigh` · `max` → `claude --effort <value>`. Any other value is dead-lettered naming the field.',
       "- `advisor` (spawn, resume) \u2014 a rung (`frontier` Fable 5.1 \u00b7 `judgment` Opus 5.5 \u00b7 `scale` Sonnet 5.5 \u00b7 `fast` Haiku 5.5) or a model id. Passed as a settings file; the advisor must be at least as capable as the worker's model or Claude silently does not use it.",
       '- `cwd` (spawn, resume) — **App only**: the directory the session opens in. **Glass dead-letters a request carrying `cwd`**, naming the field, rather than opening the session in the framework root, unless the App is running, in which case Glass hands it to the App. A resume to a session that is already running is delivered (the field cannot change a running session). A sender that needs `cwd` should pin `"surface": "app"` alongside it.',
+      '- `group` (spawn, resume) — **App only**: the tab group the session joins, by name, e.g. `"group": "Release"`; the App creates the group when none has that name. Advisory, never refused: Glass has no tab groups, so it hands a request carrying `group` to the App when the App is running, and otherwise starts the session without a group and logs it. Needs AIOS App 0.15.0 / Glass 0.5.16.',
       '- `addDirs` (spawn, resume) — **App only**: extra folders the session may work in, one `--add-dir` each (the bus form of `spawn --add-dir`: start in the AIOS folder, reach a repo). **Glass dead-letters a request carrying a non-empty `addDirs`**, naming the field, unless the App is running, in which case Glass hands it to the App; an empty list means none. A resume to a session that is already running is delivered (the folders cannot change a running session). A sender that needs it should pin `"surface": "app"`.',
       '',
       '      { "name": "researcher", "task": "…", "tier": "scale", "effort": "high", "advisor": "judgment" }',
@@ -1450,6 +1451,11 @@ export function activate(context: vscode.ExtensionContext): void {
       releaseRequest(held, true, unsupported);
       return;
     }
+    /* `group` (App 0.15.0): advisory, never refused. Glass has no tab groups, so a request naming one goes to the App
+       when the App is alive (it puts the tab in the group); otherwise Glass starts it and says the group was not applied. */
+    const group = appPreferredGroup(req as Record<string, unknown>, action);
+    if (group && typeof (req as Record<string, unknown>).surface !== 'string' && appSurfaceAlive() && releaseToSibling(held)) { return; }
+    if (group) log(`spawn-inbox: ${action} '${name}' — group '${group}' NOT applied: this surface has no tab groups`);
     const from = c4.from;
     /* Glass spawns through canonical's `spawn` wrapper, which takes --effort/--advisor only from
        its v0.8.9. Until then a spawn that asks for them is refused and says why —
