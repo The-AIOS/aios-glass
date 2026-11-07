@@ -13,6 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - **A slow but working connection no longer reads as "the server didn't answer".** The check that compares your framework with GitHub now allows 20 seconds instead of 8, the same as the App, so it reports a real answer on a slow network instead of a timeout (#34).
 
+### Added
+- **Spawn requests may name a tab group.** The inbox accepts an optional `group` on `spawn` and `resume` (the AIOS App 0.15.0 opens the session inside that group). Glass has no tab groups: when the App is running the request is left to it, otherwise Glass starts the session and logs that the group was not applied. Never a refusal.
+
 ## [0.5.15] — 2026-11-02
 
 > **Glass never starts a second session under a name a live session already holds.** Parity with the AIOS App 0.14.1.
