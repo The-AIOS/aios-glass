@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import { identityRowsIn, choosePrimaryIdentity } from '../core/primaryIdentity';
 import { resolveCommandsDir, expandHome } from '../aios/commands';
 import * as vscode from 'vscode';
 
@@ -51,28 +53,25 @@ export function operatorName(): string {
 }
 
 /**
- * Primary session name from USER.md → ## Identity (first table row's name),
- * mirroring install-wrappers.sh detect_primary_session. Fallback: "aios".
+ * Primary session name from USER.md → ## Identity. A vault on several computers keeps one row per
+ * computer's primary; THIS computer's choice is machine-local in ~/.aios/app.json (`primaryIdentity`,
+ * set in the AIOS App's Settings), shared with the App so both surfaces launch the same identity.
+ * No choice → the first row, as before. Fallback: "aios".
  */
 export function primaryName(): string {
   const root = frameworkRoot();
-  if (root) {
-    try {
-      const lines = fs.readFileSync(path.join(root, 'USER.md'), 'utf8').split(/\r?\n/);
-      let inSection = false;
-      for (const line of lines) {
-        if (/^##\s+Identity/.test(line)) { inSection = true; continue; }
-        if (inSection && /^##\s/.test(line)) break;
-        if (inSection && line.startsWith('|')) {
-          const raw = (line.split('|')[1] ?? '').replace(/`/g, '').trim();
-          if (raw && raw !== 'Name' && !/^[ -]+$/.test(raw)) return raw;
-        }
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return 'aios';
+  if (!root) return 'aios';
+  let text = '';
+  try { text = fs.readFileSync(path.join(root, 'USER.md'), 'utf8'); } catch { return 'aios'; }
+  return choosePrimaryIdentity(identityRowsIn(text), storedPrimaryIdentity()).name || 'aios';
+}
+
+/** This computer's choice, from the App's machine-local ~/.aios/app.json ('' = none). */
+function storedPrimaryIdentity(): string {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.aios', 'app.json'), 'utf8')) as { primaryIdentity?: unknown };
+    return typeof raw.primaryIdentity === 'string' ? raw.primaryIdentity.trim() : '';
+  } catch { return ''; }
 }
 
 export type ContextKind = 'declared' | 'observed' | 'projects';
