@@ -20,3 +20,19 @@ export function unsupportedFieldReason(req: Record<string, unknown>, action: str
   }
   return undefined;
 }
+
+/**
+ * `group` (App 0.15.0) — the tab group a spawned or resumed session joins, by name. Glass terminals
+ * have no tab groups. Unlike `cwd` and `addDirs` this is ADVISORY: a worker started outside its
+ * group is still the right worker in the right folder, so the field is never a reason to refuse.
+ * When the App is alive, the request goes to the App, which honours it; otherwise Glass starts the
+ * session and logs that the group was not applied. Returns the group name when it is worth handing
+ * over, or undefined (absent, not a string, empty, or a verb that launches nothing).
+ */
+export function appPreferredGroup(req: Record<string, unknown>, action: string): string | undefined {
+  if (action !== 'spawn' && action !== 'resume') return undefined;
+  const g = req.group;
+  if (typeof g !== 'string') return undefined;
+  const s = g.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
+  return s ? s.slice(0, 40) : undefined;
+}
