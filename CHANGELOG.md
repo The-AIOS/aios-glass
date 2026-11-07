@@ -15,6 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - **Spawn requests may name a tab group.** The inbox accepts an optional `group` on `spawn` and `resume` (the AIOS App 0.15.0 opens the session inside that group). Glass has no tab groups: when the App is running the request is left to it, otherwise Glass starts the session and logs that the group was not applied. Never a refusal.
+- **Each computer launches its own primary identity.** When `USER.md` lists several primary identities (one per computer), Glass launches the one chosen for this computer in the AIOS App's Settings, read from the machine-local `~/.aios/app.json`; with no choice, the first row as before.
 
 ## [0.5.15] — 2026-11-02
 
