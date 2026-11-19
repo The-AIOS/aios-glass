@@ -24,10 +24,10 @@ import * as path from 'path';
  *     English rather than to a blank.
  *
  * Locale resolution maps the editor's BCP-47 language to one of the three
- * shipped catalogs (en / es / pt-br / el). Anything else → en.
+ * shipped catalogs (en / es / pt-br / el / fr). Anything else → en.
  */
 
-export type GlassLocale = 'en' | 'es' | 'pt-br' | 'el';
+export type GlassLocale = 'en' | 'es' | 'pt-br' | 'el' | 'fr';
 
 /** Map `vscode.env.language` (e.g. "es", "es-419", "pt-br", "pt") to a shipped catalog. */
 export function resolveLocale(lang?: string): GlassLocale {
@@ -35,12 +35,13 @@ export function resolveLocale(lang?: string): GlassLocale {
   if (l === 'pt-br' || l.startsWith('pt')) return 'pt-br';
   if (l.startsWith('es')) return 'es';
   if (l.startsWith('el')) return 'el';
+  if (l.startsWith('fr')) return 'fr';
   return 'en';
 }
 
 /**
  * The locale the webview should render in. Honors the `aiosGlass.language`
- * override first (en / es / pt-br / el); `auto` (or unset) follows the IDE display
+ * override first (en / es / pt-br / el / fr); `auto` (or unset) follows the IDE display
  * language. Host chrome (package.json titles, vscode.l10n) still follows the
  * IDE display language only — VS Code owns that and it needs a reload.
  */

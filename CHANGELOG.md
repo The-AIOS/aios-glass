@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **French (Français) interface language.** French catalogs for the Home panel (`media/i18n/strings.fr.json`), host popups (`l10n/bundle.l10n.fr.json`) and command titles (`package.nls.fr.json`), plus `fr` in the `aiosGlass.language` setting and the cog menu's language picker. Dates in the panel use `fr-FR`. Parity with the AIOS App.
+- **Claude answers in Glass's language.** Glass keeps Claude Code's own `language` setting in step with its language, in the vault's local store (`.claude/settings.local.json`) that every session launched from the vault reads, at activation and whenever the language changes. A language you set yourself (locally, globally or in the project) is never overridden; English removes Glass's value so Claude goes back to matching you. Same rules, and the same record of what was written, as the AIOS App, so the two surfaces never fight over it.
+
 ## [0.5.16] — 2026-11-06
 
 > **The framework update check waits long enough on a slow connection.** Parity with the AIOS App 0.15.0.
