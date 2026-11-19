@@ -25,7 +25,7 @@ import { t } from '../i18n';
 
 /** Human label for the Glass language setting. */
 function langLabel(l: GlassLang): string {
-  return l === 'es' ? 'Español' : l === 'pt-br' ? 'Português (BR)' : l === 'el' ? 'Ελληνικά' : l === 'en' ? 'English' : 'Auto (IDE)';
+  return l === 'es' ? 'Español' : l === 'pt-br' ? 'Português (BR)' : l === 'el' ? 'Ελληνικά' : l === 'fr' ? 'Français' : l === 'en' ? 'English' : 'Auto (IDE)';
 }
 
 /** Human label for the open-notes-in setting. */
@@ -105,7 +105,8 @@ export async function openConfigMenu(): Promise<void> {
           { label: 'English', value: 'en' as const },
           { label: 'Español', description: t('LATAM neutral'), value: 'es' as const },
           { label: 'Português', description: 'Brasil', value: 'pt-br' as const },
-          { label: 'Ελληνικά', description: 'Greek', value: 'el' as const }
+          { label: 'Ελληνικά', description: 'Greek', value: 'el' as const },
+          { label: 'Français', description: 'French', value: 'fr' as const }
         ],
         { title: `${t('Glass language')} — ${t('currently')} ${langLabel(currentLanguage())}`, placeHolder: t('Home panel language · IDE menus follow Configure Display Language') }
       );

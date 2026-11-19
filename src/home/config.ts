@@ -6,6 +6,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
+import { claudeLanguageFor, decideClaudeLanguage } from '../core/claudeLanguage';
+import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
 
 /**
@@ -178,7 +180,7 @@ export async function setTerminalMode(value: string): Promise<void> {
 }
 
 /** Glass Home panel language. `auto` follows the IDE display language. */
-export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br' | 'el';
+export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br' | 'el' | 'fr';
 export function currentLanguage(): GlassLang {
   return vscode.workspace.getConfiguration('aiosGlass').get<GlassLang>('language', 'auto') || 'auto';
 }
@@ -376,6 +378,49 @@ export async function setRemoteControl(on: boolean): Promise<void> {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(json, null, 2) + '\n', 'utf8');
   void vscode.window.showInformationMessage(`AIOS Glass: remote control at startup ${on ? 'enabled' : 'disabled'} (global).`);
+}
+
+/* Claude answers in Glass's language — parity with the AIOS App (core/claudeLanguage.ts, byte-identical).
+   Claude Code's own `language` setting is kept in step with the effective Glass locale, in the vault's
+   LOCAL store (`<root>/.claude/settings.local.json`), which every session launched from the vault reads
+   first. The value the surface last wrote is remembered in `<root>/.glass/shell.json` under the SAME key
+   the App uses, so whichever surface wrote it, the other recognises it as a surface's and not the
+   operator's. A language the operator set anywhere is never overridden; English removes ours. */
+const CLAUDE_LANGUAGE_SYNCED = 'claudeLanguageSynced';
+const readJsonFile = (p: string): Record<string, unknown> => {
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')) as Record<string, unknown>; } catch { return {}; }
+};
+const writeJsonFile = (p: string, j: Record<string, unknown>): void => {
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(j, null, 2) + '\n', 'utf8');
+  fs.renameSync(tmp, p);
+};
+
+/** Keep Claude's `language` in step with Glass's language. Call at activation and when aiosGlass.language changes. Never throws. */
+export function syncClaudeLanguage(): 'set' | 'unset' | 'keep' {
+  try {
+    const r = frameworkRoot();
+    if (!r || !fs.existsSync(r)) return 'keep';
+    const localPath = path.join(r, '.claude', 'settings.local.json');
+    const markerPath = path.join(r, '.glass', 'shell.json');
+    const local = readJsonFile(localPath);
+    const marker = readJsonFile(markerPath);
+    const action = decideClaudeLanguage({
+      local: local.language,
+      elsewhere: readJsonFile(path.join(r, '.claude', 'settings.json')).language ?? readJsonFile(globalSettingsPath()).language,
+      synced: marker[CLAUDE_LANGUAGE_SYNCED],
+      target: claudeLanguageFor(effectiveLocale()),
+    });
+    if (action.kind === 'keep') return 'keep';
+    if (action.kind === 'set') local.language = action.value; else delete local.language;
+    writeJsonFile(localPath, local);
+    marker[CLAUDE_LANGUAGE_SYNCED] = action.kind === 'set' ? action.value : '';
+    writeJsonFile(markerPath, marker);
+    return action.kind;
+  } catch {
+    return 'keep';
+  }
 }
 
 export function currentAccount(): string {
