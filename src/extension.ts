@@ -32,8 +32,8 @@ import { spawnAgentFlow, spawnWorker } from './agents/spawn';
 import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
 import { companyAction, collaborateAction } from './spaces/spacesActions';
-import { openConfigMenu } from './home/configMenu';
-import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench, syncClaudeLanguage, themePref } from './home/config';
+import { openConfigMenu, askClaudeLanguage } from './home/configMenu';
+import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench, themePref } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents, listOperatorSessions } from './agents/running';
 import { createAttentionBar } from './agents/attentionBar';
@@ -79,7 +79,6 @@ export function activate(context: vscode.ExtensionContext): void {
   // Banner so the diagnostics channel is never blank — an empty Output pane
   // reads as "broken", not "healthy". Everything below the banner is a failure.
   initI18n(context.extensionUri); // host-string translator (popups follow aiosGlass.language)
-  syncClaudeLanguage();           // Claude answers in Glass's language (core/claudeLanguage.ts)
   const version = (context.extension.packageJSON as { version?: string }).version ?? '?';
   log(`AIOS Glass ${version} activated. This channel records ACTION FAILURES (a click that did nothing, a failed launch, a state write error). Nothing below this line = everything is healthy.`);
 
@@ -638,7 +637,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory') || e.affectsConfiguration('aiosGlass.showWeekNumbers')) HomeViewProvider.current?.refresh();
       // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
       if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
-      if (e.affectsConfiguration('aiosGlass.language') || e.affectsConfiguration('aiosGlass.frameworkPath')) syncClaudeLanguage();
+      if (e.affectsConfiguration('aiosGlass.language')) void askClaudeLanguage();   // Claude's language is only ASKED about, never changed with Glass's (App parity)
     }),
     /* With the theme on `auto`, an editor theme change (⌘K⌘T, or the OS flipping it
        through window.autoDetectColorScheme) repaints Glass live. */

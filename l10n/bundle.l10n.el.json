@@ -18,5 +18,16 @@
   "Ingest content": "Εισαγωγή περιεχομένου",
   "One or more sources — URLs, file paths, or a topic (blank to be guided)": "Μία ή περισσότερες πηγές — URLs, διαδρομές αρχείων ή ένα θέμα (κενό για καθοδήγηση)",
   "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "π.χ. https://… · ~/Downloads/notes.pdf · \"το call του Δ.Σ. για το Q3\"",
-  "is already running outside this window, so a second one was not started.": "εκτελείται ήδη εκτός αυτού του παραθύρου, οπότε δεν ξεκίνησε δεύτερη."
+  "is already running outside this window, so a second one was not started.": "εκτελείται ήδη εκτός αυτού του παραθύρου, οπότε δεν ξεκίνησε δεύτερη.",
+  "Claude answers in": "Ο Claude απαντά στα",
+  "The language you write in": "Τη γλώσσα που γράφεις",
+  "default": "προεπιλογή",
+  "For sessions started from your vault; separate from Glass's language": "Για τις συνεδρίες που ξεκινούν από το vault σου· ξεχωριστά από τη γλώσσα του Glass",
+  "AIOS Glass: could not save Claude's language": "AIOS Glass: δεν αποθηκεύτηκε η γλώσσα του Claude",
+  "Saved. Claude's own settings still say {lang}, so it keeps answering in it": "Αποθηκεύτηκε. Οι ρυθμίσεις του Claude λένε ακόμη {lang}, οπότε συνεχίζει να απαντά σε αυτή",
+  "Claude's language saved": "Η γλώσσα του Claude αποθηκεύτηκε",
+  "Should Claude answer in the language you write in again?": "Να απαντά ξανά ο Claude στη γλώσσα που γράφεις;",
+  "Glass is in {lang} now. Should Claude answer in {lang} too?": "Το Glass είναι τώρα στα {lang}. Να απαντά και ο Claude στα {lang};",
+  "Yes, match": "Ναι, ίδια",
+  "No, keep it": "Όχι, ως έχει"
 }

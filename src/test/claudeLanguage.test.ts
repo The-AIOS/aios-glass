@@ -1,32 +1,40 @@
-/** Claude answers in Glass's language, without ever overriding a language the operator chose (parity with the AIOS App). */
+/** Claude's language is the operator's own choice, beside Glass's: never changed with it, only asked about (parity with the AIOS App 0.17.0). */
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
-import { decideClaudeLanguage, claudeLanguageFor } from '../core/claudeLanguage';
+import { claudeLanguageFor, claudeLanguageSuggestion, CLAUDE_LANGUAGES } from '../core/claudeLanguage';
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (p: string): string => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
-test('every shipped catalog has a Claude language entry; English leaves Claude matching the operator', () => {
+test('every shipped catalog has a Claude language; English matching means "the language you write in"', () => {
   const langs = (JSON.parse(read('package.json')).contributes.configuration.properties['aiosGlass.language'].enum as string[]).filter((l) => l !== 'auto');
-  for (const l of langs) assert.ok(l === 'en' ? claudeLanguageFor(l) === null : typeof claudeLanguageFor(l) === 'string', `${l} has no Claude language`);
+  for (const l of langs) assert.ok(CLAUDE_LANGUAGES.some((c) => c.locale === l), `${l} has no Claude language`);
+  assert.equal(claudeLanguageFor('en'), null);
   assert.equal(claudeLanguageFor('fr'), 'French');
 });
 
-test('the rules: follow the surface, never override the operator', () => {
-  assert.deepEqual(decideClaudeLanguage({ target: 'French' }), { kind: 'set', value: 'French' });
-  assert.deepEqual(decideClaudeLanguage({ local: 'French', synced: 'French', target: 'Greek' }), { kind: 'set', value: 'Greek' });
-  assert.deepEqual(decideClaudeLanguage({ local: 'French', synced: 'French', target: null }), { kind: 'unset' });
-  assert.deepEqual(decideClaudeLanguage({ local: 'japanese', synced: 'French', target: 'Greek' }), { kind: 'keep' });
-  assert.deepEqual(decideClaudeLanguage({ local: 'French', synced: 'French', elsewhere: 'english', target: 'French' }), { kind: 'unset' });
-  assert.deepEqual(decideClaudeLanguage({ elsewhere: 'english', target: 'French' }), { kind: 'keep' });
+test('the shared module is byte-identical to the App\'s, when the App is checked out beside Glass', () => {
+  const app = path.join(ROOT, '..', 'aios-app', 'src', 'core', 'claudeLanguage.ts');
+  if (!fs.existsSync(app)) return;
+  assert.equal(read('src/core/claudeLanguage.ts'), fs.readFileSync(app, 'utf8'));
 });
 
-test('the sync runs at activation and when the language or framework path changes', () => {
+test('matching is suggested only when Claude does not already match', () => {
+  assert.deepEqual(claudeLanguageSuggestion('fr', null), { value: 'French' });
+  assert.equal(claudeLanguageSuggestion('fr', 'french'), null);
+  assert.deepEqual(claudeLanguageSuggestion('en', 'French'), { value: null });
+  assert.equal(claudeLanguageSuggestion('en', null), null);
+});
+
+test('nothing writes Claude\'s language at activation or on a language change: it only asks', () => {
   const ext = read('src/extension.ts');
-  assert.match(ext, /initI18n\(context\.extensionUri\);[^\n]*\n\s*syncClaudeLanguage\(\);/, 'activation');
-  assert.match(ext, /affectsConfiguration\('aiosGlass\.language'\)[^\n]*syncClaudeLanguage\(\)/, 'on change');
+  const cfg = read('src/home/config.ts');
+  assert.doesNotMatch(ext + cfg, /syncClaudeLanguage/, 'the automatic sync is gone');
+  assert.match(ext, /if \(e\.affectsConfiguration\('aiosGlass\.language'\)\) void askClaudeLanguage\(\);/);
+  assert.match(read('src/home/configMenu.ts'), /id: 'claudelang'/, 'the choice is in the config menu');
+  assert.match(cfg, /const j = readJsonForWrite\(p\);\n    if \(!j\) return false;/, 'a settings file that does not parse is never rewritten');
 });
 
 test('every catalog ships French with the same keys and placeholders as English', () => {

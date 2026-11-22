@@ -1,6 +1,5 @@
 {
   "_comment": "Source (English) bundle for vscode.l10n.t(...) host strings. Keys are the English source strings; the editor uses these verbatim for English and looks up bundle.l10n.<locale>.json for other display languages. Normally auto-extracted by @vscode/l10n-dev; maintained by hand here.",
-
   "Ask AIOS": "Ask AIOS",
   "What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work": "What do you need? Claude matches your ask to the right context & tools in your AIOS — and puts them to work",
   "e.g. 'prep tomorrow's investor call' · 'post about our launch'": "e.g. 'prep tomorrow's investor call' · 'post about our launch'",
@@ -18,5 +17,16 @@
   "your work": "your work",
   "Ingest content": "Ingest content",
   "One or more sources — URLs, file paths, or a topic (blank to be guided)": "One or more sources — URLs, file paths, or a topic (blank to be guided)",
-  "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\""
+  "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"": "e.g. https://… · ~/Downloads/notes.pdf · \"the Q3 board call\"",
+  "Claude answers in": "Claude answers in",
+  "The language you write in": "The language you write in",
+  "default": "default",
+  "For sessions started from your vault; separate from Glass's language": "For sessions started from your vault; separate from Glass's language",
+  "AIOS Glass: could not save Claude's language": "AIOS Glass: could not save Claude's language",
+  "Saved. Claude's own settings still say {lang}, so it keeps answering in it": "Saved. Claude's own settings still say {lang}, so it keeps answering in it",
+  "Claude's language saved": "Claude's language saved",
+  "Should Claude answer in the language you write in again?": "Should Claude answer in the language you write in again?",
+  "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass is in {lang} now. Should Claude answer in {lang} too?",
+  "Yes, match": "Yes, match",
+  "No, keep it": "No, keep it"
 }

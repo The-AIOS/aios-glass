@@ -6,9 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.17] — 2026-11-22
+
+> **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.
+
 ### Added
-- **French (Français) interface language.** French catalogs for the Home panel (`media/i18n/strings.fr.json`), host popups (`l10n/bundle.l10n.fr.json`) and command titles (`package.nls.fr.json`), plus `fr` in the `aiosGlass.language` setting and the cog menu's language picker. Dates in the panel use `fr-FR`. Parity with the AIOS App.
-- **Claude answers in Glass's language.** Glass keeps Claude Code's own `language` setting in step with its language, in the vault's local store (`.claude/settings.local.json`) that every session launched from the vault reads, at activation and whenever the language changes. A language you set yourself (locally, globally or in the project) is never overridden; English removes Glass's value so Claude goes back to matching you. Same rules, and the same record of what was written, as the AIOS App, so the two surfaces never fight over it.
+- **French (Français) interface language.** French catalogs for the Home panel (`media/i18n/strings.fr.json`), host popups (`l10n/bundle.l10n.fr.json`) and command titles (`package.nls.fr.json`), plus `fr` in the `aiosGlass.language` setting and the cog menu's language picker. Dates in the panel use `fr-FR`. Contributed by a member of the community (#36).
+- **Claude answers in: its own choice.** The cog menu has "Claude answers in", under Claude: the language you write in (the default, nothing written) or one language for every session started from your vault, kept in the vault's local Claude settings. Changing Glass's language never changes how Claude answers: Glass asks once whether Claude should match, and does nothing unless you say yes. A value set in Claude's own settings is shown and only changed if you pick another; a settings file that does not parse is never rewritten. Same module as the AIOS App.
+
+### Fixed
+- **A nudge names the agent it suggests** ("Run /agent explainer", not "Run /agent"), reads plainer, and the reminder to close your sessions shows only in the afternoon. Parity with the App.
 
 ## [0.5.16] — 2026-11-06
 
