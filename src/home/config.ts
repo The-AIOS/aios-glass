@@ -6,6 +6,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
+import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
+import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
 
 /**
@@ -178,7 +180,7 @@ export async function setTerminalMode(value: string): Promise<void> {
 }
 
 /** Glass Home panel language. `auto` follows the IDE display language. */
-export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br' | 'el';
+export type GlassLang = 'auto' | 'en' | 'es' | 'pt-br' | 'el' | 'fr';
 export function currentLanguage(): GlassLang {
   return vscode.workspace.getConfiguration('aiosGlass').get<GlassLang>('language', 'auto') || 'auto';
 }
@@ -376,6 +378,57 @@ export async function setRemoteControl(on: boolean): Promise<void> {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(json, null, 2) + '\n', 'utf8');
   void vscode.window.showInformationMessage(`AIOS Glass: remote control at startup ${on ? 'enabled' : 'disabled'} (global).`);
+}
+
+/* Claude's language: its own choice, beside Glass's (parity with the AIOS App 0.17.0, core/claudeLanguage.ts, byte-identical).
+   Claude Code's `language` setting outranks any CLAUDE.md asking Claude to match the operator, so following Glass's
+   language would make a Spanish Glass answer English prompts in Spanish with nothing saying why (the App's hand test).
+   Glass writes it only on the operator's pick, in the vault's LOCAL store (`<root>/.claude/settings.local.json`), the one
+   every session launched from the vault reads first; after a Glass language change it only ASKS (configMenu.ts). */
+const readJsonFile = (p: string): Record<string, unknown> => {
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')) as Record<string, unknown>; } catch { return {}; }
+};
+/* For a WRITER: absent or empty is {} (start fresh); a file that exists and does not parse is null, so the writer refuses
+   rather than replace it, and with it every permission rule the operator had (the App's 0.17.0 review). */
+function readJsonForWrite(p: string): Record<string, unknown> | null {
+  let raw: string;
+  try { raw = fs.readFileSync(p, 'utf8'); } catch { return {}; }
+  if (!raw.trim()) return {};
+  try { const j = JSON.parse(raw); return j && typeof j === 'object' && !Array.isArray(j) ? j : null; } catch { return null; }
+}
+
+/** Claude's language now: the vault's own value, a value in Claude's project or user settings, and what matching
+ *  Glass's CURRENT language would write (null when there is nothing to ask). Never throws. */
+export function getClaudeLanguage(): { local: string | null; elsewhere: string | null; suggest: { value: string | null } | null } {
+  try {
+    const r = frameworkRoot();
+    const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    const l = r ? s(readJsonFile(path.join(r, '.claude', 'settings.local.json')).language) : null;
+    const e = s(r ? readJsonFile(path.join(r, '.claude', 'settings.json')).language : undefined) ?? s(readJsonFile(globalSettingsPath()).language);
+    const sg = claudeLanguageSuggestion(effectiveLocale(), l ?? e);
+    /* Back to "the language you write in" cannot be done from here when the value lives in Claude's own settings. */
+    return { local: l, elsewhere: e, suggest: sg && sg.value === null && !l ? null : sg };
+  } catch { return { local: null, elsewhere: null, suggest: null }; }
+}
+
+/** Write the operator's pick: a listed language, or null to remove the key. False when it is not a choice, there is no
+ *  vault, or the settings file does not parse (left as it was). Nothing calls it on activation or a language change. */
+export function setClaudeLanguage(v: unknown): boolean {
+  const choice = claudeLanguageChoice(v);
+  if (choice === undefined) return false;
+  try {
+    const r = frameworkRoot();
+    if (!r || !fs.existsSync(r)) return false;
+    const p = path.join(r, '.claude', 'settings.local.json');
+    const j = readJsonForWrite(p);
+    if (!j) return false;
+    if (choice === null) delete j.language; else j.language = choice;
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    const tmp = p + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(j, null, 2) + '\n', 'utf8');
+    fs.renameSync(tmp, p);
+    return true;
+  } catch { return false; }
 }
 
 export function currentAccount(): string {

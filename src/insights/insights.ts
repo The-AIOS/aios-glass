@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { nudgeShort } from '../core/nudgeCommand';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
 
@@ -155,7 +156,7 @@ function suggestedRitual(md: string): { command: string; short: string; desc: st
     if (!m) continue;
     const command = m[1].trim();
     if (/close-?day|close-?session/i.test(command)) continue; // time-based states own these
-    const short = command.replace(/^\/(?:aios:|vault-commands:)?/, '').split(/\s/)[0];
+    const short = nudgeShort(command);   // keeps an agent's name: "Run /agent explainer", never "Run /agent" (App parity)
     // The note's own warm one-liner — the first italic span after the command
     // (e.g. _maps the week across all four pillars…_). Skip the trailing _(suggested)_.
     let desc = '';
@@ -186,7 +187,7 @@ export function nudgeState(hour: number, weekday: number, runningCount: number):
   try { md = fs.readFileSync(note as string, 'utf8'); } catch { return null; }
   const isClosed = /close[\s-]?of[\s-]?day|^#{1,4}.*\bclose\b.*\bday\b/im.test(md);
   if (hour >= 17 && !isClosed) {
-    return { kind: 'close', icon: '🌙', label: "Close the day — capture what compounded before it's lost", command: '/aios:close-day' };
+    return { kind: 'close', icon: '🌙', label: "Close the day: save what you learned before it's lost", command: '/aios:close-day' };
   }
   // Early-week (Mon/Tue, 6–17h): if this week isn't planned yet, nudge /7plan — a
   // file-existence signal, so it's reliable regardless of what the note's 💡 says.
@@ -207,8 +208,9 @@ export function nudgeState(hour: number, weekday: number, runningCount: number):
       return { kind: 'plan', icon: '💡', cmdLabel: `Run /${r.short}`, label, command: r.command };
     }
   }
-  if (hour < 17 && runningCount > 0) {
-    return { kind: 'sessions', icon: '💬', label: 'Wrap your open sessions before you close the day', command: '/aios:close-session' };
+  /* From mid-afternoon only (App parity, 0.17): closing sessions is an end-of-work act. */
+  if (hour >= 15 && hour < 17 && runningCount > 0) {
+    return { kind: 'sessions', icon: '💬', label: "Close the sessions you're done with, so their work reaches today's note", command: '/aios:close-session' };
   }
   return null;
 }

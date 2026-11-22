@@ -22,10 +22,45 @@ import { canSwitchTo, rowLabel } from '../core/accounts';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 import { HomeViewProvider } from './homePanel';
 import { t } from '../i18n';
+import { getClaudeLanguage, setClaudeLanguage } from './config';
+
+/* Claude's language, as its own choice (App parity, 0.17.0): "the language you write in" (no value) or one language. */
+const CLAUDE_LANGS: ReadonlyArray<{ value: string | null; label: string }> = [
+  { value: null, label: '' },
+  { value: 'English', label: 'English' },
+  { value: 'Spanish', label: 'Español' },
+  { value: 'Brazilian Portuguese', label: 'Português (BR)' },
+  { value: 'Greek', label: 'Ελληνικά' },
+  { value: 'French', label: 'Français' },
+];
+function claudeLangLabel(v: string | null): string {
+  if (v === null) return t('The language you write in');
+  const hit = CLAUDE_LANGS.find((l) => l.value && l.value.toLowerCase() === v.toLowerCase());
+  return hit ? hit.label : v;
+}
+/** Save a pick and say what it did: saved, saved but Claude's own settings still apply, or not saved. */
+async function chooseClaudeLanguage(v: string | null): Promise<void> {
+  const ok = setClaudeLanguage(v);
+  const cl = getClaudeLanguage();
+  if (!ok) { void vscode.window.showWarningMessage(t("AIOS Glass: could not save Claude's language")); return; }
+  if (v === null && cl.elsewhere) { void vscode.window.showInformationMessage(t("Saved. Claude's own settings still say {lang}, so it keeps answering in it").replace('{lang}', cl.elsewhere)); return; }
+  void vscode.window.showInformationMessage(t("Claude's language saved"));
+}
+/** After Glass's language changed: ask, once, whether Claude should match. Never changes it by itself. */
+export async function askClaudeLanguage(): Promise<void> {
+  const s = getClaudeLanguage().suggest;
+  if (!s) return;
+  const q = s.value === null
+    ? t('Should Claude answer in the language you write in again?')
+    : t('Glass is in {lang} now. Should Claude answer in {lang} too?').split('{lang}').join(claudeLangLabel(s.value));
+  const yes = t('Yes, match'), no = t('No, keep it');
+  const pick = await vscode.window.showInformationMessage(q, yes, no);
+  if (pick === yes) await chooseClaudeLanguage(s.value);
+}
 
 /** Human label for the Glass language setting. */
 function langLabel(l: GlassLang): string {
-  return l === 'es' ? 'Español' : l === 'pt-br' ? 'Português (BR)' : l === 'el' ? 'Ελληνικά' : l === 'en' ? 'English' : 'Auto (IDE)';
+  return l === 'es' ? 'Español' : l === 'pt-br' ? 'Português (BR)' : l === 'el' ? 'Ελληνικά' : l === 'fr' ? 'Français' : l === 'en' ? 'English' : 'Auto (IDE)';
 }
 
 /** Human label for the open-notes-in setting. */
@@ -64,6 +99,7 @@ export async function openConfigMenu(): Promise<void> {
     { label: '$(target) ' + t('Auto-reveal active file'), description: onOff(autoReveal()), id: 'autoreveal' },
     // ── Claude — the engine behind the surfaces ──
     sep(t('Claude')),
+    { label: '$(comment-discussion) ' + t('Claude answers in'), description: (() => { const cl = getClaudeLanguage(); return claudeLangLabel(cl.local ?? cl.elsewhere); })(), id: 'claudelang' },
     { label: '$(server) ' + t('Model'), description: modelLabel(currentModel()), id: 'model' },
     { label: '$(shield) ' + t('Permission mode'), description: currentMode(), id: 'mode' },
     { label: '$(terminal) ' + t('Terminal mode'), description: currentTerminalMode(), id: 'terminal' },
@@ -98,6 +134,16 @@ export async function openConfigMenu(): Promise<void> {
     case 'logs':
       await vscode.commands.executeCommand('aios.showLogs');
       return;
+    case 'claudelang': {
+      const cl = getClaudeLanguage();
+      const cur = cl.local ?? cl.elsewhere;
+      const choice = await vscode.window.showQuickPick(
+        CLAUDE_LANGS.map((l) => ({ label: l.value === null ? t('The language you write in') : l.label, description: l.value === null ? t('default') : undefined, value: l.value })),
+        { title: `${t('Claude answers in')} — ${t('currently')} ${claudeLangLabel(cur)}`, placeHolder: t("For sessions started from your vault; separate from Glass's language") }
+      );
+      if (choice) await chooseClaudeLanguage(choice.value);
+      return;
+    }
     case 'language': {
       const choice = await vscode.window.showQuickPick(
         [
@@ -105,13 +151,17 @@ export async function openConfigMenu(): Promise<void> {
           { label: 'English', value: 'en' as const },
           { label: 'Español', description: t('LATAM neutral'), value: 'es' as const },
           { label: 'Português', description: 'Brasil', value: 'pt-br' as const },
-          { label: 'Ελληνικά', description: 'Greek', value: 'el' as const }
+          { label: 'Ελληνικά', description: 'Greek', value: 'el' as const },
+          { label: 'Français', description: 'French', value: 'fr' as const }
         ],
         { title: `${t('Glass language')} — ${t('currently')} ${langLabel(currentLanguage())}`, placeHolder: t('Home panel language · IDE menus follow Configure Display Language') }
       );
       if (choice) {
         await setLanguage(choice.value);
         HomeViewProvider.current?.rerender();
+        /* Claude's language is only ASKED about, never changed with Glass's (App parity). Here, in the window where the
+           language was picked: the setting is global, so a config listener would ask in every open window (review). */
+        await askClaudeLanguage();
         if (choice.value !== 'auto') {
           void vscode.window.showInformationMessage(
             `${t('Glass Home is now in')} ${langLabel(choice.value)}. ${t('To also translate IDE command titles & native menus, set the display language.')}`,

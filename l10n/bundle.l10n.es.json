@@ -310,5 +310,16 @@
   "Foam-rendered wikilinks beside the source — Obsidian-style": "wikilinks renderizados por Foam junto al código fuente — estilo Obsidian",
   "AIOS Glass: Git Bash not found — install Git for Windows to switch accounts.": "AIOS Glass: no se encontró Git Bash — instala Git para Windows para cambiar de cuenta.",
   "could not read the account list": "no se pudo leer la lista de cuentas",
-  "is already running outside this window, so a second one was not started.": "ya está en ejecución fuera de esta ventana, así que no se inició otra."
+  "is already running outside this window, so a second one was not started.": "ya está en ejecución fuera de esta ventana, así que no se inició otra.",
+  "Claude answers in": "Claude responde en",
+  "The language you write in": "El idioma en que escribes",
+  "default": "predeterminado",
+  "For sessions started from your vault; separate from Glass's language": "Para las sesiones que inicias desde tu vault; aparte del idioma de Glass",
+  "AIOS Glass: could not save Claude's language": "AIOS Glass: no se pudo guardar el idioma de Claude",
+  "Saved. Claude's own settings still say {lang}, so it keeps answering in it": "Guardado. La configuración de Claude todavía dice {lang}, así que seguirá respondiendo en ese idioma",
+  "Claude's language saved": "Idioma de Claude guardado",
+  "Should Claude answer in the language you write in again?": "¿Quieres que Claude vuelva a responder en el idioma en que escribes?",
+  "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass ahora está en {lang}. ¿Quieres que Claude también responda en {lang}?",
+  "Yes, match": "Sí, igualar",
+  "No, keep it": "No, dejarlo así"
 }
