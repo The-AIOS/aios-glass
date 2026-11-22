@@ -32,7 +32,7 @@ import { spawnAgentFlow, spawnWorker } from './agents/spawn';
 import { Agent, discoverAgents, iconForAgent } from './agents/agents';
 import { Capability, skillsPicker, discoverSkills } from './capabilities/capabilities';
 import { companyAction, collaborateAction } from './spaces/spacesActions';
-import { openConfigMenu, askClaudeLanguage } from './home/configMenu';
+import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench, themePref } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents, listOperatorSessions } from './agents/running';
@@ -637,7 +637,6 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration('aiosGlass.frameworkPath') || e.affectsConfiguration('aiosGlass.showHints') || e.affectsConfiguration('aiosGlass.showNudges') || e.affectsConfiguration('aiosGlass.theme') || e.affectsConfiguration('aiosGlass.showMemory') || e.affectsConfiguration('aiosGlass.showWeekNumbers')) HomeViewProvider.current?.refresh();
       // Editor theme changed (⌘K⌘T or OS auto-detect) → if it's an AIOS theme, flip Glass to match.
       if (e.affectsConfiguration('workbench.colorTheme')) void syncGlassToWorkbench();
-      if (e.affectsConfiguration('aiosGlass.language')) void askClaudeLanguage();   // Claude's language is only ASKED about, never changed with Glass's (App parity)
     }),
     /* With the theme on `auto`, an editor theme change (⌘K⌘T, or the OS flipping it
        through window.autoDetectColorScheme) repaints Glass live. */

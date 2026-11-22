@@ -159,6 +159,9 @@ export async function openConfigMenu(): Promise<void> {
       if (choice) {
         await setLanguage(choice.value);
         HomeViewProvider.current?.rerender();
+        /* Claude's language is only ASKED about, never changed with Glass's (App parity). Here, in the window where the
+           language was picked: the setting is global, so a config listener would ask in every open window (review). */
+        await askClaudeLanguage();
         if (choice.value !== 'auto') {
           void vscode.window.showInformationMessage(
             `${t('Glass Home is now in')} ${langLabel(choice.value)}. ${t('To also translate IDE command titles & native menus, set the display language.')}`,

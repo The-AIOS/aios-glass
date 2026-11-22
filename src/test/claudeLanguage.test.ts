@@ -32,7 +32,8 @@ test('nothing writes Claude\'s language at activation or on a language change: i
   const ext = read('src/extension.ts');
   const cfg = read('src/home/config.ts');
   assert.doesNotMatch(ext + cfg, /syncClaudeLanguage/, 'the automatic sync is gone');
-  assert.match(ext, /if \(e\.affectsConfiguration\('aiosGlass\.language'\)\) void askClaudeLanguage\(\);/);
+  assert.doesNotMatch(ext, /askClaudeLanguage/, 'not from the config listener: the setting is global, so every window would ask (review)');
+  assert.match(read('src/home/configMenu.ts'), /await setLanguage\(choice\.value\);\n\s*HomeViewProvider\.current\?\.rerender\(\);\n[\s\S]{0,300}?await askClaudeLanguage\(\);/, 'asked in the window where the language was picked');
   assert.match(read('src/home/configMenu.ts'), /id: 'claudelang'/, 'the choice is in the config menu');
   assert.match(cfg, /const j = readJsonForWrite\(p\);\n    if \(!j\) return false;/, 'a settings file that does not parse is never rewritten');
 });
