@@ -843,7 +843,7 @@ export function activate(context: vscode.ExtensionContext): void {
       '    { "name": "designer", "task": "design the hero", "tier": "fast" }',
       '',
       '- `task` — optional first prompt. `"model": "<id>"` **or** `"tier": "<rung>"` — optional, routes the worker by cognitive load.',
-      "- **The rung names are not listed here on purpose.** This file used to name a closed set of two, went stale when the ladder grew, and then contradicted the handler beside it — while `CLAUDE.md` points sessions at this file as the protocol's authority. So an agent reading the authority would have concluded the current rungs were invalid. Ask the one table instead: **`~/aios/hooks/resolve-tier --list`** prints every rung and what it resolves to, and `MODEL-ROUTING.md` says what each is *for*. An unknown rung is refused with a dead letter that lists the valid ones, so a guess is safe — it fails loudly rather than falling back.",
+      "- **The rung names are not listed here on purpose.** This file used to name a closed set of two, went stale when the ladder grew, and then contradicted the handler beside it — while `CLAUDE.md` points sessions at this file as the protocol's authority. So an agent reading the authority would have concluded the current rungs were invalid. Ask the one table instead: **`~/aios/hooks/pipeline/resolve-tier --list`** prints every rung and what it resolves to, and `MODEL-ROUTING.md` says what each is *for*. An unknown rung is refused with a dead letter that lists the valid ones, so a guess is safe — it fails loudly rather than falling back.",
       '- A name that is already live is *revealed*, never duplicated.',
       '',
       '**send** — deliver a prompt into a LIVE session:',
