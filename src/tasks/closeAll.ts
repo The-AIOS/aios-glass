@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import { findAgentTerminal, launchPrimary } from '../rituals/runner';
 import { listOperatorSessions } from '../agents/running';
 import { primaryName } from '../home/vault';
-import { newCloseWatch, closeWatchStep } from './closeWatch';
+import { newCloseWatch, closeWatchStep, watchKey } from './closeWatch';
+import { isBlockedStatus } from '../core/attention';
 import { t } from '../i18n';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -10,6 +11,8 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 interface Pick extends vscode.QuickPickItem {
   term?: vscode.Terminal;
   agentName?: string;
+  /** The session's identity (watchKey): names are not unique, so nothing is keyed by them. */
+  key?: string;
   action?: 'closeday' | 'kill';
 }
 
@@ -22,7 +25,7 @@ interface Pick extends vscode.QuickPickItem {
 function statusView(raw: string): { dot: string; word: string } {
   const st = (raw || '').toLowerCase();
   if (st === 'busy' || st === 'working' || st === 'running') return { dot: '🟡', word: t('working') };
-  if (/wait|input|prompt|\bask\b|attention|approv|permission|block/.test(st)) return { dot: '🔵', word: t('needs input') };
+  if (isBlockedStatus(st)) return { dot: '🔵', word: t('needs input') };
   if (/error|fail|crash/.test(st)) return { dot: '🔴', word: t('error') };
   return { dot: '🟢', word: '' }; // idle / ready — the green dot says it, no word needed
 }
@@ -43,7 +46,8 @@ function statusView(raw: string): { dot: string; word: string } {
  *   • Two OPTIONAL post-actions (default off): run close-day (in your primary session — opens it
  *     if it isn't live) and kill the terminals (disposes every SELECTED terminal EXCEPT your primary).
  *   • KILL = the trash-icon path: term.dispose() (SIGHUP → claude + respawn loop + shell). Only your
- *     primary is spared; and each is disposed only AFTER it finishes capturing (busy→idle watch).
+ *     primary is spared; and each is disposed only AFTER it finishes capturing (busy→idle watch;
+ *     a session that stops to ask for a permission is `waiting`, not finished, and is left open).
  *
  * THIS button is the canonical "close all" surface. (There is no /close-all CLI command — it was retired
  * because a CLI session can't inject prompts into sibling terminals; only the extension owns them, so the
@@ -65,10 +69,10 @@ export async function closeAll(): Promise<void> {
   // Keep only sessions whose terminal is here, i.e. ones we can actually drive.
   let agents: Awaited<ReturnType<typeof listOperatorSessions>> = [];
   try { agents = await listOperatorSessions(); } catch { /* best-effort */ }
-  const resolved: { name: string; status: string; term: vscode.Terminal }[] = [];
+  const resolved: { key: string; name: string; status: string; term: vscode.Terminal }[] = [];
   for (const a of agents) {
     const term = await findAgentTerminal(a.name, a.pid);
-    if (term) resolved.push({ name: a.name, status: a.status, term });
+    if (term) resolved.push({ key: watchKey(a), name: a.name, status: a.status, term });
   }
   if (resolved.length === 0) {
     vscode.window.showInformationMessage(t('Close sessions: no live Claude sessions found in this window.'));
@@ -80,7 +84,7 @@ export async function closeAll(): Promise<void> {
   for (const r of resolved) {
     const sv = statusView(r.status);
     const badges = [isPrimary(r.name) ? t('primary') : '', sv.word].filter(Boolean).join(' · ');
-    items.push({ term: r.term, agentName: r.name, label: `${sv.dot} ${r.name}`, description: badges, picked: true }); // ALL selected by default
+    items.push({ term: r.term, agentName: r.name, key: r.key, label: `${sv.dot} ${r.name}`, description: badges, picked: true }); // ALL selected by default
   }
   items.push({ label: t('After closing (optional)'), kind: vscode.QuickPickItemKind.Separator });
   items.push({ action: 'closeday', label: t('Run /close-day'), description: t('consolidate — runs in your primary session (opens it if needed)'), picked: false });
@@ -93,14 +97,15 @@ export async function closeAll(): Promise<void> {
   })) as Pick[] | undefined;
   if (!chosen) return;
 
-  const picks = chosen.filter((p) => p.term && p.agentName) as Pick[];
+  const picks = chosen.filter((p) => p.term && p.agentName && p.key) as Pick[];
   const sessions = picks.map((p) => p.term!);
   if (sessions.length === 0) { vscode.window.showInformationMessage(t('No sessions selected.')); return; }
   const doCloseDay = chosen.some((p) => p.action === 'closeday');
   const doKill = chosen.some((p) => p.action === 'kill');
   // Kill scope: every SELECTED session EXCEPT the primary (never killed, even if selected).
-  const killTerms = new Map<string, vscode.Terminal>();
-  if (doKill) for (const p of picks) if (!isPrimary(p.agentName!)) killTerms.set(p.agentName!, p.term!);
+  // Keyed by session id; the name rides along only for the timeout notice.
+  const killTerms = new Map<string, { name: string; term: vscode.Terminal }>();
+  if (doKill) for (const p of picks) if (!isPrimary(p.agentName!)) killTerms.set(p.key!, { name: p.agentName!, term: p.term! });
 
   // The primary's live terminal (regardless of whether it was selected) — where /close-day runs.
   const primaryTerm = resolved.find((r) => isPrimary(r.name))?.term;
@@ -109,9 +114,9 @@ export async function closeAll(): Promise<void> {
   for (const term of sessions) { term.show(false); term.sendText('/aios:close-session --auto', true); }
   vscode.window.showInformationMessage(t('Closing {0} session(s)…').replace('{0}', String(sessions.length)));
 
-  // 2. watch each finish (busy→idle / gone), dispose the scoped ones, then optional close-day in primary
+  // 2. watch each finish (busy→idle, or gone), dispose the scoped ones, then optional close-day in primary
   void (async () => {
-    await watchSessionsDone(picks.map((p) => p.agentName!), killTerms);
+    await watchSessionsDone(picks.map((p) => p.key!), killTerms);
     if (doCloseDay) {
       if (primaryTerm) { primaryTerm.show(); primaryTerm.sendText('/aios:close-day', true); }
       else { await launchPrimary(primary); vscode.window.showInformationMessage(t('Opened your primary session — run /aios:close-day there to consolidate.')); }
@@ -120,23 +125,24 @@ export async function closeAll(): Promise<void> {
 }
 
 /**
- * Wait for each named session to finish its --auto capture, then dispose the ones in `killTerms`
- * (the trash-icon equivalent: term.dispose() SIGHUPs claude + respawn loop + shell). "Done" = it
- * was seen busy (close-session running) and returned to idle, OR it vanished from the registry.
- * A session that never shows the busy→idle cycle within the window is NOT auto-disposed (safer to
- * leave it than risk killing mid-capture). Never disposes anything not in killTerms.
+ * Wait for each watched session (by session id) to finish its --auto capture, then dispose the
+ * ones in `killTerms` (the trash-icon equivalent: term.dispose() SIGHUPs claude + respawn loop +
+ * shell). The decision is closeWatchStep's: finished = seen busy and now idle; `waiting` is the
+ * session asking for the operator, so it keeps being watched. A session that vanished from the
+ * registry, or never completes the cycle within the window, is NOT auto-disposed (safer to leave
+ * it than risk killing mid-capture). Never disposes anything not in killTerms.
  */
-async function watchSessionsDone(allNames: string[], killTerms: Map<string, vscode.Terminal>): Promise<void> {
-  const watch = newCloseWatch(allNames);
+async function watchSessionsDone(keys: string[], killTerms: Map<string, { name: string; term: vscode.Terminal }>): Promise<void> {
+  const watch = newCloseWatch(keys);
   const pendingKill = new Set(killTerms.keys());
-  const deadline = Date.now() + 180_000; // 2 min ceiling
+  const deadline = Date.now() + 180_000; // 3 min ceiling
   await sleep(2000); // grace so close-session can start (the session goes busy)
 
   let sessions: Awaited<ReturnType<typeof listOperatorSessions>> = [];
   while (watch.watching.size > 0 && Date.now() < deadline) {
     try { sessions = await listOperatorSessions(); } catch { /* keep last */ }
-    for (const name of closeWatchStep(watch, sessions).finished) {
-      if (pendingKill.delete(name)) killTerms.get(name)?.dispose();
+    for (const key of closeWatchStep(watch, sessions).finished) {
+      if (pendingKill.delete(key)) killTerms.get(key)?.term.dispose();
     }
     if (watch.watching.size > 0) await sleep(1500);
   }
@@ -144,7 +150,7 @@ async function watchSessionsDone(allNames: string[], killTerms: Map<string, vsco
   if (pendingKill.size > 0) {
     vscode.window.showWarningMessage(
       t('Kill-after timed out (never saw close-session finish) for: {0}. Close them manually if you want.')
-        .replace('{0}', [...pendingKill].join(', ')),
+        .replace('{0}', [...pendingKill].map((k) => killTerms.get(k)?.name ?? k).join(', ')),
     );
   }
 }

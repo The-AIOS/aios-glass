@@ -6,6 +6,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A session in another window is no longer mistaken for a terminal here with a similar name.** Glass finds a session's terminal by its process tree. When that found nothing it fell back to any terminal whose name merely contained the session's name, so with `ingest` running elsewhere and a terminal called `ingest-notes` here, a bus `send` was typed into `ingest-notes` (and never handed to the window that held the session), and "Close sessions" could capture and dispose it. Without a process-tree match the answer is now "not in this window". Only when the process table cannot be read at all is an exact name accepted, never a partial one (#40).
+- **"Close sessions" waits for a session that stops to ask you something.** With "Kill the terminals" on, a session that asked for a permission halfway through its capture counted as finished and its terminal was closed with the capture unfinished. Finished now means idle; a session that needs you stays open. Sessions are tracked by session id, so two with the same name no longer share one status (#40).
+- **Windows: terminals are found by process tree too.** The process table was read with `ps`, which Windows does not have, so there the name match was the only thing that worked. Glass now reads it through PowerShell on Windows.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

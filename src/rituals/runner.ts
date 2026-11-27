@@ -20,7 +20,7 @@ import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarg
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
-import { matchTerminal, parsePpidTable, type TerminalRef } from './terminalMatch';
+import { matchTerminal, parsePpidTable, parseWinPpidTable, WIN_PPID_COMMAND, type TerminalRef } from './terminalMatch';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -554,37 +554,48 @@ export async function launchKill(name: string): Promise<void> {
   runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
 }
 
-/** pid → ppid map from `ps`, for walking the process tree. */
+/**
+ * pid → ppid map, for walking the process tree. `ps` on macOS and Linux; PowerShell on
+ * Windows, which has no `ps`. EMPTY means the table could not be read — matchTerminal
+ * treats that, and only that, as "ancestry unknown".
+ */
 function getPpidMap(): Promise<Map<number, number>> {
   return new Promise((resolve) => {
-    execFile('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 }, (err, out) => {
-      resolve(!err && out ? parsePpidTable(out) : new Map<number, number>());
-    });
+    const none = new Map<number, number>();
+    try {
+      if (process.platform === 'win32') {
+        execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', WIN_PPID_COMMAND],
+          { maxBuffer: 8 * 1024 * 1024, timeout: 10000, windowsHide: true },
+          (err, out) => resolve(!err && out ? parseWinPpidTable(String(out)) : none));
+        return;
+      }
+      execFile('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 },
+        (err, out) => resolve(!err && out ? parsePpidTable(String(out)) : none));
+    } catch { resolve(none); }
   });
 }
 
 /**
- * Reveal a running worker's integrated terminal. Matches by PROCESS TREE
- * (rename-proof): finds the integrated terminal whose shell is an ancestor of
- * the agent's claude PID. (Renaming a tab doesn't update VS Code's
- * `terminal.name`, so name-matching misses spawned workers.)
+ * The integrated terminal in THIS window that holds a running session, or undefined.
+ * Matches by PROCESS TREE (rename-proof): the terminal whose shell is an ancestor of the
+ * session's claude PID. Never by name — renaming a tab doesn't update `terminal.name`, and
+ * a name that merely resembles the session's belongs to some other terminal (see
+ * matchTerminal for the rule and its one exception). Undefined means "not in this window":
+ * every caller already handles that, by saying so or by handing the request to a sibling.
  */
 export async function findAgentTerminal(name: string, pid?: number): Promise<vscode.Terminal | undefined> {
   // When the caller didn't supply a pid, resolve it from the session registry
   // (~/.claude/sessions/<pid>.json — authoritative even for resumed / bare
-  // `claude --resume` / externally-started sessions). This lets delivery use the
-  // robust process-ancestry match below even for a terminal Glass didn't create,
-  // whose TAB name won't equal the session name (a UI rename doesn't propagate to
-  // the API `Terminal.name`). The bare name-match at the end is a last resort that
-  // only works for Glass-created terminals, where name === session name.
+  // `claude --resume` / externally-started sessions), so a terminal Glass didn't
+  // create is still found by ancestry.
   if (!pid) {
     try { pid = (await listRunningAgents()).find((a) => a.name === name)?.pid; }
-    catch { /* registry unreadable → fall through to the name-match below */ }
+    catch { /* registry unreadable → no pid, so no ancestry match */ }
   }
-  const ppidOf = pid ? await getPpidMap() : new Map<number, number>();
+  const ppidOf = await getPpidMap();
   const terminals = vscode.window.terminals;
   const refs: TerminalRef[] = [];
-  for (const t of terminals) refs.push({ name: t.name, shellPid: pid ? await t.processId : undefined });
+  for (const t of terminals) refs.push({ name: t.name, shellPid: await t.processId });
   const i = matchTerminal(refs, name, pid, ppidOf);
   return i === -1 ? undefined : terminals[i];
 }
