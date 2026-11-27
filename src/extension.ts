@@ -1435,7 +1435,6 @@ export function activate(context: vscode.ExtensionContext): void {
   };
   let floodDropped = 0;
   let floodLetterAt = 0;
-  let floodLastAt = 0;
   const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {
     const now = Date.now();
     /* Open off: no roots, so the decision refuses at check 8, after the flood and rate counting. */
@@ -1444,10 +1443,8 @@ export function activate(context: vscode.ExtensionContext): void {
     if (d.do === 'refuse') {
       if (d.why === 'flood') {
         /* A flood: no dead letter per request, one a minute that says how many were dropped. */
-        if (now - floodLastAt > 60_000) floodDropped = 0;   // a new flood starts its own count
-        floodLastAt = now;
-        floodDropped++;
-        if (now - floodLetterAt >= 60_000) { floodLetterAt = now; releaseRequest(held, true, `open refused (flood): ${floodDropped} open request(s) dropped in the last minute; more than 20 a minute are not shown`); floodDropped = 0; }
+        floodDropped++;   // carried until the next notice, so a flood's tail is counted there
+        if (now - floodLetterAt >= 60_000) { floodLetterAt = now; releaseRequest(held, true, `open refused (flood): ${floodDropped} open request(s) dropped since the last notice; more than 20 a minute are not shown`); floodDropped = 0; }
         else releaseRequest(held, false);
         return;
       }

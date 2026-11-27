@@ -52,7 +52,7 @@ test('a flood writes one dead letter a minute, not one per request', () => {
   const flood = between(runOpen, "if (d.why === 'flood') {", '\n      }');
   assert.equal((flood.match(/releaseRequest\(held, true,/g) ?? []).length, 1);
   assert.match(flood, /else releaseRequest\(held, false\);/);
-  assert.match(flood, /if \(now - floodLastAt > 60_000\) floodDropped = 0;/, 'a new flood starts its own count');
+  assert.match(flood, /dropped since the last notice/, 'a flood\'s tail is carried to the next notice, never thrown away');
   assert.match(ext, /if \(verdict === 'skip'\) \{ firstSeen\.delete\(fsPath\); presentAtStart\.delete\(fsPath\); return; \}/, 'no first-seen entry outlives a request this window will not take');
 });
 
