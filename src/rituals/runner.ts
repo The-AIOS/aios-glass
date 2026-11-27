@@ -340,7 +340,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   const mf = spawnModelFlag({ model: opts?.model, launcherDefault: opts?.launcherDefault ? true : undefined },
     asked ? '' : inheritModelFlag(process.platform, os.homedir(), process.env, readRc));
   let flag = mf.flag;
-  if (mf.fellBack) log(`spawn '${name}': no model was asked for, and the installed spawn wrapper cannot start without one (it is older than that flag: run /aios:update, then open a new terminal); it starts on the wrapper's pinned model instead of your saved one`);
+  if (mf.fellBack) log(`spawn '${name}': no model was asked for, and the spawn wrapper in your shell's startup file cannot start without one (it is not installed there, or it is older than that flag: run /aios:update, then open a new terminal); it starts on the wrapper's pinned model instead of your own default`);
   /* Contract 4 through the wrapper's own flags (canonical v0.8.9): it writes the advisor settings
      to a unique file and appends the consult instruction. The advisor arrives as a MODEL ID,
      resolved from the contract's table, so the wrapper never maps `judgment` to "default". */

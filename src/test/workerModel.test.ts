@@ -116,6 +116,20 @@ test('the typed model flag: a model, the wrapper\'s pin, or the operator\'s save
   }
 });
 
+test('Glass\'s own buttons ask for no model, so they start what the App starts from the same buttons', () => {
+  /* The App's new session, builder and onboarding start `claude --name …` with no model. These four
+     call launchSpawn with no options at all, which is the "nothing asked" case. A model added to
+     one of them is a rule of Glass's own: it has to be the model the App passes there too. */
+  for (const [file, call] of [
+    [['src', 'agents', 'spawn.ts'], /await launchSpawn\(name, task\);/],
+    [['src', 'tasks', 'goWithAgents.ts'], /await launchSpawn\(s\.agents\[0\], s\.task\);/],
+    [['src', 'create', 'create.ts'], /await launchSpawn\('aios-builder', task\);/],
+    [['src', 'extension.ts'], /\(\) => launchSpawn\('onboarding-aios'\)\)/],
+  ] as const) {
+    assert.match(code(read(...file)), call, `${file.join('/')} starts its session with no model`);
+  }
+});
+
 test('wiring: the bus resolves before it launches, refuses by dead letter, and the runner takes a model only', () => {
   const ext = read('src', 'extension.ts');
   assert.match(ext, /const mf = wantsModel \? modelField\(req\.model\) : \{\};/);
