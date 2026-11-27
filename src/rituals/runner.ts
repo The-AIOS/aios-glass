@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
-import { listRunningAgents } from '../agents/running';
+import { listRunningAgents, listOperatorSessions } from '../agents/running';
 import { killPlan, noteTab, pruneLedger, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
@@ -204,8 +204,8 @@ function runNew(cmdline: string, style?: TermStyle, session?: string): void {
 }
 
 // ── Which session each terminal last held (rituals/endedTabs) ─────────────────────────────
-// Kept per window (workspaceState), so it survives a window reload, where the terminals and
-// their shell pids survive too. Pruned to the open terminals whenever one closes.
+// Kept per window (workspaceState), so it survives a window reload when the terminals and their
+// shell pids survive it too. Pruned to the open terminals whenever one closes.
 const TAB_LEDGER_KEY = 'aiosGlass.tabLedger';
 let tabLedger: TabLedger = {};
 let tabLedgerStore: vscode.Memento | undefined;
@@ -223,14 +223,28 @@ async function openShellPids(): Promise<{ term: vscode.Terminal; shellPid: numbe
   return all.filter((x): x is { term: vscode.Terminal; shellPid: number } => !!x.shellPid);
 }
 
-/** Load the ledger and keep it pruned — call once from activate(). */
+/**
+ * Load the ledger, keep it pruned, and keep it fed — call once from activate().
+ * Not pruned at activation: the terminals of a reloaded window come back asynchronously, and a
+ * prune against a half-restored list would forget them. A stale entry is harmless meanwhile,
+ * because a kill only considers terminals that are open (tabsLeftBy).
+ * Fed every few seconds for the live sessions, whether or not the Home view is visible, so a
+ * session started in any terminal (one Glass reused, one the operator opened) is known before
+ * it ends.
+ */
 export function initTabLedger(ctx: vscode.ExtensionContext): void {
   tabLedgerStore = ctx.workspaceState;
   const stored = ctx.workspaceState.get<TabLedger>(TAB_LEDGER_KEY);
   tabLedger = stored && typeof stored === 'object' ? stored : {};
   const prune = (): void => { void openShellPids().then((open) => saveTabLedger(pruneLedger(tabLedger, open.map((o) => o.shellPid)))).catch((e) => swallow('tabLedger', e)); };
-  prune();
   ctx.subscriptions.push(vscode.window.onDidCloseTerminal(prune));
+  let busy = false;
+  const feed = setInterval(() => {
+    if (busy || !vscode.window.terminals.length) return;
+    busy = true;
+    void listOperatorSessions().then(noteLiveSessions).catch((e) => swallow('tabLedger', e)).finally(() => { busy = false; });
+  }, 3000);
+  ctx.subscriptions.push({ dispose: () => clearInterval(feed) });
 }
 
 /**
@@ -244,6 +258,7 @@ export async function noteLiveSessions(agents: readonly { name: string; pid: num
   if (ppidOf.size === 0) return;
   const open = await openShellPids();
   for (const a of agents) {
+    if (a.name === '(unnamed)') continue;   // no name to kill it by
     const anc = ancestorsOf(a.pid, ppidOf);
     const hit = open.find((o) => anc.has(o.shellPid));
     if (hit) rememberTab(hit.shellPid, { name: a.name, sessionId: a.sessionId });
@@ -446,7 +461,7 @@ export async function launchCommandInNewSession(command: string, arg?: string, l
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const name = base && /^[a-z0-9]/.test(base) ? base.slice(0, 28).replace(/-+$/, '') : '';
   const nameArg = name ? `--name ${name} ` : '';
-  runNew(`${claudeBin()} ${nameArg}${shellQuote(slash)}`, { name: name || 'AIOS', icon: 'play', color: 'terminal.ansiCyan' });
+  runNew(`${claudeBin()} ${nameArg}${shellQuote(slash)}`, { name: name || 'AIOS', icon: 'play', color: 'terminal.ansiCyan' }, name || undefined);
 }
 
 /**
@@ -858,7 +873,7 @@ export async function askAios(intent: string): Promise<void> {
     `tell me in one line which you chose and why, then execute it. If nothing fits, say so and suggest the 2-3 closest options.`;
   /* Async now (it reads the registry), so a throw would surface as an unhandled rejection in callers
      that used to catch it synchronously — contain it here instead. */
-  try { runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' }); }
+  try { runNew(`${claudeBin()} --name ${name} ${shellQuote(prompt)}`, { name, icon: 'sparkle', color: 'terminal.ansiYellow' }, name); }
   catch (e) { swallow('askAios → runNew', e); }
 }
 

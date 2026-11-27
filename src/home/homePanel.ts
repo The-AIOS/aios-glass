@@ -14,7 +14,7 @@ import { discoverAgents } from '../agents/agents';
 import { listOperatorSessions } from '../agents/running';
 import { sessionNoteCounts } from '../agents/sessionNotes';
 import { computeHealth, routineJobs, healthHelpBrief } from './health';
-import { launchHealthHelp, noteLiveSessions } from '../rituals/runner';
+import { launchHealthHelp } from '../rituals/runner';
 import { discoverSkills } from '../capabilities/capabilities';
 import { discoverCommands } from '../aios/commands';
 import { countAgentSuggestions } from '../tasks/goWithAgents';
@@ -342,7 +342,6 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     });
     this.post({ type: 'running', running: rows, quota });
     void this.postTerminals(new Set(running.map((a) => a.name))); // reconcile Terminals vs the live registry each poll
-    void noteLiveSessions(running).catch(() => { /* best effort: the next poll notes it */ });
   }
 
   /** Open integrated terminals that aren't live Claude sessions — the Terminals list

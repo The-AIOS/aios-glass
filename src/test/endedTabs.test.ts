@@ -54,6 +54,12 @@ test('a newer session in the same terminal replaces the older one; a closed term
   assert.deepEqual(childrenOf(100, TABLE), []);
 });
 
+test('a name lives in one terminal: when a session of that name is seen in another, the older terminal is forgotten', () => {
+  let ledger = noteTab({}, 100, { name: 'w', sessionId: 's-1' });   // w ran in 100, ended
+  ledger = noteTab(ledger, 200, { name: 'w', sessionId: 's-2' });   // w runs again in 200
+  assert.deepEqual(tabsLeftBy(ledger, 'w', [100, 200]), [200], 'a kill closes the terminal of the latest w, never the old one');
+});
+
 test('the log line says what happened, and never "closed" when nothing closed', () => {
   assert.equal(killReport('w', { did: 'nothing', closed: 0, busy: [] }), "kill 'w': no live session and no terminal left by one: nothing to close");
   assert.equal(killReport('w', { did: 'closed-left', closed: 1, busy: [] }), "kill 'w': no live session; closed the terminal it left");

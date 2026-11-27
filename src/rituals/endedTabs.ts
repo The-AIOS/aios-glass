@@ -17,11 +17,22 @@ export interface TabNote { name: string; sessionId?: string; }
 /** Shell pid (as a string key) → the last session seen in that terminal. */
 export type TabLedger = Record<string, TabNote>;
 
-/** The ledger with `shellPid` noted as holding `note`. A newer session replaces the older one. */
+/**
+ * The ledger with `shellPid` noted as holding `note`. A newer session in the same terminal
+ * replaces the older one, and a name lives in one terminal only: a live session's name is
+ * unique, so when it is seen in a terminal, any other terminal noted under that name ran an
+ * earlier session of it and is forgotten (a kill must not close that one too).
+ */
 export function noteTab(ledger: TabLedger, shellPid: number, note: TabNote): TabLedger {
-  const cur = ledger[String(shellPid)];
-  if (cur && cur.name === note.name && (cur.sessionId ?? '') === (note.sessionId ?? cur.sessionId ?? '')) return ledger;
-  return { ...ledger, [String(shellPid)]: { name: note.name, ...(note.sessionId ? { sessionId: note.sessionId } : {}) } };
+  const key = String(shellPid);
+  const cur = ledger[key];
+  const elsewhere = Object.keys(ledger).filter((k) => k !== key && ledger[k].name === note.name);
+  if (!elsewhere.length && cur && cur.name === note.name && (cur.sessionId ?? '') === (note.sessionId ?? cur.sessionId ?? '')) return ledger;
+  const out: TabLedger = {};
+  for (const k of Object.keys(ledger)) if (!elsewhere.includes(k)) out[k] = ledger[k];
+  const sessionId = note.sessionId ?? (cur && cur.name === note.name ? cur.sessionId : undefined);
+  out[key] = { name: note.name, ...(sessionId ? { sessionId } : {}) };
+  return out;
 }
 
 /** The ledger without the terminals that are no longer open. */

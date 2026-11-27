@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, currentNameIfStale, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
+import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, currentNameIfStale, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude, initTabLedger } from './rituals/runner';
 import { normalizeVerb } from './core/busVerbs';
 import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
@@ -45,7 +45,6 @@ import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { killReport } from './rituals/endedTabs';
-import { initTabLedger } from './rituals/runner';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
 
