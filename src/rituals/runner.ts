@@ -594,8 +594,7 @@ export async function findAgentTerminal(name: string, pid?: number): Promise<vsc
   }
   const ppidOf = await getPpidMap();
   const terminals = vscode.window.terminals;
-  const refs: TerminalRef[] = [];
-  for (const t of terminals) refs.push({ name: t.name, shellPid: await t.processId });
+  const refs: TerminalRef[] = await Promise.all(terminals.map(async (t) => ({ name: t.name, shellPid: await t.processId })));
   const i = matchTerminal(refs, name, pid, ppidOf);
   return i === -1 ? undefined : terminals[i];
 }

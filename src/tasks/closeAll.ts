@@ -65,7 +65,8 @@ export async function closeAll(): Promise<void> {
   const isPrimary = (name: string) => !!primary && name === primary;
 
   // Agent-first: the session registry carries the CORRECT status + pid. Resolve each agent to its
-  // terminal in THIS window via pid-ancestry (findAgentTerminal) — never term.name (unreliable).
+  // terminal in THIS window via pid-ancestry (findAgentTerminal) — never by a name that merely
+  // resembles it (an exact name counts only if the process table cannot be read at all).
   // Keep only sessions whose terminal is here, i.e. ones we can actually drive.
   let agents: Awaited<ReturnType<typeof listOperatorSessions>> = [];
   try { agents = await listOperatorSessions(); } catch { /* best-effort */ }
@@ -138,9 +139,9 @@ async function watchSessionsDone(keys: string[], killTerms: Map<string, { name: 
   const deadline = Date.now() + 180_000; // 3 min ceiling
   await sleep(2000); // grace so close-session can start (the session goes busy)
 
-  let sessions: Awaited<ReturnType<typeof listOperatorSessions>> = [];
   while (watch.watching.size > 0 && Date.now() < deadline) {
-    try { sessions = await listOperatorSessions(); } catch { /* keep last */ }
+    let sessions: Awaited<ReturnType<typeof listOperatorSessions>> = [];
+    try { sessions = await listOperatorSessions(); } catch { /* unreadable: every session reads as gone, and gone is never disposed */ }
     for (const key of closeWatchStep(watch, sessions).finished) {
       if (pendingKill.delete(key)) killTerms.get(key)?.term.dispose();
     }
