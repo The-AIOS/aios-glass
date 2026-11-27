@@ -131,8 +131,13 @@ export function isOperatorSession(a: { kind: string; entrypoint: string }): bool
   return a.kind === 'interactive' && !/^sdk-/i.test(a.entrypoint);
 }
 
+/** The operator's sessions out of everything registered. Pure. */
+export function operatorSessions(all: readonly RunningAgent[]): RunningAgent[] {
+  return all.filter(isOperatorSession);
+}
+
 export async function listOperatorSessions(): Promise<RunningAgent[]> {
-  return (await listRunningAgents()).filter(isOperatorSession);
+  return operatorSessions(await listRunningAgents());
 }
 
 /** True if the process is still running (ESRCH = dead; EPERM = alive, not ours). */
