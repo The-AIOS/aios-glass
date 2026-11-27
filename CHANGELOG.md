@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Glass follows `CLAUDE_CONFIG_DIR` everywhere.** With the variable set, Glass read the session registry, the quota cache, Claude's global settings, the signed-in account and the installed skills from `~/.claude`, where Claude Code was no longer writing, while its resume index followed the variable. It listed no live session, and a `resume` could open a second copy of one that was already running. Glass now resolves the folder in one place, the same rule as the AIOS App. One file stays in `~/.claude`: the marker for the statusline's "swapped account" banner, because the framework's statusline reads it only there. Nothing changes when the variable is not set. Part of The-AIOS/aios-app#226.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

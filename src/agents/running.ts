@@ -1,7 +1,7 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { recordedStart, sameProcessStart, processStartMs } from './procStart';
+import { claudeConfigDir } from './claudeDir';
 
 export interface RunningAgent {
   pid: number;
@@ -61,7 +61,7 @@ export async function listRunningAgents(): Promise<RunningAgent[]> {
 function listRegistryEntries(): Promise<{ agent: RunningAgent; recorded: number | undefined }[]> {
   return new Promise((resolve) => {
     try {
-      const dir = path.join(os.homedir(), '.claude', 'sessions');
+      const dir = path.join(claudeConfigDir(), 'sessions');
       let files: string[];
       try {
         files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));

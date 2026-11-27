@@ -2,10 +2,10 @@ import { resolveGlassTheme, shouldSyncToWorkbench } from './themeResolve';
 import { resolveBash } from './resolveBash';
 import { execFile } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
+import { claudeConfigDir, claudeJsonPath } from '../agents/claudeDir';
 import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
 import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
@@ -16,8 +16,7 @@ import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } f
  * for the signed-in account, `~/.claude/settings.json` for the default model).
  */
 
-const globalSettingsPath = (): string => path.join(os.homedir(), '.claude', 'settings.json');
-const claudeJsonPath = (): string => path.join(os.homedir(), '.claude.json');
+const globalSettingsPath = (): string => path.join(claudeConfigDir(), 'settings.json');
 
 /** The currently signed-in Anthropic account email (from ~/.claude.json). */
 export function currentAnthropicAccount(): string {
@@ -64,7 +63,7 @@ export async function setAutomaticUpdates(on: boolean): Promise<void> {
 export interface RateLimit { email: string; fiveHourPct: number; sevenDayPct: number; max: number; fiveHourResetsAt: number; sevenDayResetsAt: number; }
 export function rateLimit(): RateLimit | undefined {
   try {
-    const d = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.claude', 'rate-limit-cache.json'), 'utf8'));
+    const d = JSON.parse(fs.readFileSync(path.join(claudeConfigDir(), 'rate-limit-cache.json'), 'utf8'));
     const f = Number(d.five_hour_pct) || 0;
     const s = Number(d.seven_day_pct) || 0;
     return {

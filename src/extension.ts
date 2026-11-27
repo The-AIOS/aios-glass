@@ -36,6 +36,7 @@ import { openConfigMenu } from './home/configMenu';
 import { TERMINAL_OPTIONS, setTerminalMode, syncGlassToWorkbench, themePref } from './home/config';
 import { createCustom, CreateKind, CREATE_KINDS } from './create/create';
 import { listRunningAgents, listOperatorSessions } from './agents/running';
+import { claudeConfigDir } from './agents/claudeDir';
 import { createAttentionBar } from './agents/attentionBar';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
@@ -1014,7 +1015,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // we haven't observed.
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
   const transcriptFor = (sessionId: string): string | undefined => {
-    const projects = path.join(os.homedir(), '.claude', 'projects');
+    const projects = path.join(claudeConfigDir(), 'projects');
     try {
       for (const d of fs.readdirSync(projects)) {
         const p = path.join(projects, d, `${sessionId}.jsonl`);
