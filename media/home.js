@@ -468,13 +468,17 @@
         qline.style.display = '';
       } else { qline.style.display = 'none'; }
       const qw = document.getElementById('quotaWarn');
+      // While the watcher is paused, the button says until when (the answer can be a minute old: an ended pause is not shown).
+      const pausedTxt = (q.showSwap && q.pausedUntil && q.pausedUntil * 1000 > Date.now())
+        ? ' · ' + NLS('running.quotaWarn.paused', 'rotation paused until {time}').replace('{time}', new Date(q.pausedUntil * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        : '';
       if (q.showSwap && q.to) {
-        qw.textContent = '↔ Swap to ' + (q.to.split('@')[0]);
+        qw.textContent = '↔ Swap to ' + (q.to.split('@')[0]) + pausedTxt;
         qw.setAttribute('data-to', q.to);
         qw.style.display = '';
       } else if (q.showSwap) {
         // Near the cap with nowhere to go: hiding the button would read as nothing being wrong.
-        qw.textContent = '⚠ No account available';
+        qw.textContent = '⚠ No account available' + pausedTxt;
         qw.setAttribute('data-to', '');
         qw.style.display = '';
       } else { qw.style.display = 'none'; }

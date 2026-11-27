@@ -58,6 +58,7 @@
   "running.toggle.title": "Show / hide your live Claude sessions",
   "running.terms.toggle.title": "Show / hide open terminals",
   "running.quotaWarn.title": "Swap to your other account — silent, in-place (statusline shows it)",
+  "running.quotaWarn.paused": "rotation paused until {time}",
   "card.workspaces.title": "Workspaces",
   "workspaces.browseFiles": "📁 Browse files",
   "workspaces.browseFiles.k": "finder view",

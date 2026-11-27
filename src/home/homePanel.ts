@@ -7,7 +7,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { swallow } from '../log';
+import { swallow, log } from '../log';
+import { swapOffer, LEGACY_SWAP_RULE } from './swapRule';
 import { operatorName, primaryName, countNotes, vaultRoot, frameworkRoot } from './vault';
 import { launchAios, runInPrimarySession, runInActiveClaude, terminalHasClaude } from '../rituals/runner';
 import { discoverAgents } from '../agents/agents';
@@ -22,7 +23,7 @@ import { frequentTaskCount } from '../tasks/frequent';
 import { recentLearnings, nudgeState, observedDirPath, recentOutputs } from '../insights/insights';
 import { recentReports } from '../tasks/reports';
 import { readCompanies, readCollabSpaces, readFrameworkStatus, checkForUpdates, testingBranch } from '../spaces/spaces';
-import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, showHints, showNudges, currentTheme, toggleTheme, showMemory, showWeekNumbers } from './config';
+import { currentTerminalMode, rateLimit, nextAccount, anthropicAccounts, swapRule, showHints, showNudges, currentTheme, toggleTheme, showMemory, showWeekNumbers } from './config';
 import { getFilesVisible } from '../files/filesState';
 import { effectiveLocale, webviewCatalog } from '../i18n';
 
@@ -298,21 +299,29 @@ export class HomeViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** The "framework sends no thresholds" line, said once per window. */
+  private toldLegacySwapRule = false;
+
   private async refreshRunning(): Promise<void> {
     const running = await listOperatorSessions();
     this.lastRunningCount = running.length; // feeds the daytime "wrap your sessions" nudge
     // Usage line (green→red) + swap button. Read live each 2s poll (the cache
-    // updates ~per statusline turn). The swap is offered only with 2+ accounts.
-    // TESTING: QUOTA_SWAP_ALWAYS forces the button visible to tune the UX —
-    // flip to false to gate it on ≥95% (the real behavior).
-    const QUOTA_SWAP_ALWAYS = false; // gated: swap button shows at 5h≥95% / 7d≥99%
+    // updates ~per statusline turn). The swap is offered only with 2+ accounts,
+    // at the usage the framework names (home/swapRule.ts), the same rule as the App.
+    // TESTING: QUOTA_SWAP_ALWAYS forces the button visible to tune the UX.
+    const QUOTA_SWAP_ALWAYS = false;
     const rl = rateLimit();
-    const multi = anthropicAccounts().length > 1;
-    // 5h is the binding constraint; 7d only escalates at the extreme (≥99).
-    const showSwap = !!rl && multi && (QUOTA_SWAP_ALWAYS || rl.fiveHourPct >= 95 || rl.sevenDayPct >= 99);
+    const accounts = anthropicAccounts().length;
+    const rule = swapRule();
+    if (!rule && accounts > 1 && !this.toldLegacySwapRule) {
+      this.toldLegacySwapRule = true;
+      log('quota: the account answer carries no rotation thresholds (an older framework?), so the swap button keeps Glass\'s previous 5h 95% / 7d 99% — update the framework to get its own');
+    }
+    const offer = rl ? swapOffer({ fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, accounts, rule: rule ?? LEGACY_SWAP_RULE, next: accounts > 1 ? nextAccount() : '' }) : undefined;
+    const showSwap = !!offer && (offer.showSwap || (QUOTA_SWAP_ALWAYS && accounts > 1));
     const quota = rl
-      ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, fr: rl.fiveHourResetsAt, sr: rl.sevenDayResetsAt, showSwap, to: multi ? nextAccount() : '' }
-      : { has: false, fiveHour: 0, sevenDay: 0, showSwap: false, to: '' };
+      ? { has: true, fiveHour: rl.fiveHourPct, sevenDay: rl.sevenDayPct, fr: rl.fiveHourResetsAt, sr: rl.sevenDayResetsAt, showSwap, to: showSwap && accounts > 1 ? nextAccount() : '', pausedUntil: showSwap ? (rule?.pausedUntil ?? null) : null }
+      : { has: false, fiveHour: 0, sevenDay: 0, showSwap: false, to: '', pausedUntil: null };
     // Project label = the session cwd's basename; omitted when it's just the
     // framework root (the default vault session — labeling it adds no signal).
     let fwReal = '';

@@ -58,6 +58,7 @@
   "running.toggle.title": "Εμφάνιση / απόκρυψη των ενεργών συνεδριών Claude",
   "running.terms.toggle.title": "Εμφάνιση / απόκρυψη των ανοικτών terminals",
   "running.quotaWarn.title": "Άλλαξε στον άλλο σου λογαριασμό — αθόρυβα, επιτόπου (φαίνεται στη γραμμή κατάστασης)",
+  "running.quotaWarn.paused": "η εναλλαγή σε παύση έως {time}",
   "card.workspaces.title": "Χώροι εργασίας",
   "workspaces.browseFiles": "📁 Περιήγηση αρχείων",
   "workspaces.browseFiles.k": "προβολή finder",
