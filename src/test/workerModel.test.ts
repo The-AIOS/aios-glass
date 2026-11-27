@@ -115,7 +115,9 @@ test('wiring: the bus resolves before it launches, refuses by dead letter, and t
   const lookup = read('src', 'home', 'resolveTier.ts');
   assert.match(lookup, /\['hooks\/pipeline\/resolve-tier', 'hooks\/resolve-tier'\]/);
   assert.match(lookup, /execFileSync\(bash, \[hook, \.\.\.args\]/);
-  assert.match(read('src', 'home', 'configMenu.ts'), /modelOptions\(\)\.map\(/, 'the picker asks the ladder when it opens');
+  assert.match(read('src', 'home', 'configMenu.ts'), /const options = modelOptions\(\);/, 'the picker asks the ladder when it opens');
+  assert.match(ext, /const wantsModel = action === 'spawn' \|\| \(action === 'resume' && req\.fallback === 'spawn'\);/, 'a plain resume is not refused for a field it never uses');
+  assert.match(ext, /const r = resolveTier\(tf\.tier\);[\s\S]{0,120}if \(mf\.model\) return \{ model: mf\.model \};/, 'a tier beside a model is still checked; the model wins after');
 });
 
 test('against a real resolve-tier, when a framework is at hand: every listed rung resolves to what the list says', (t) => {

@@ -1441,20 +1441,25 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
     /* The worker's model (aios-app#230), decided before anything launches. `model` and `tier` say
-       what a NEW session runs on, so they are read for a spawn and for a resume (whose fallback is
-       a spawn). A value that cannot be used is dead-lettered naming the field; a rung is resolved
-       by the framework's resolve-tier, lazily, only on the path that launches. */
-    const wantsModel = action === 'spawn' || action === 'resume';
+       what a NEW session runs on, so they are read where one can start: a spawn, and a resume that
+       asked for "fallback":"spawn". A plain resume starts nothing new, so the fields mean nothing
+       to it and are no reason to refuse it. A value that cannot be used is dead-lettered naming
+       the field; a rung is resolved by the framework's resolve-tier, lazily, only on the path
+       that launches. */
+    const wantsModel = action === 'spawn' || (action === 'resume' && req.fallback === 'spawn');
     const mf = wantsModel ? modelField(req.model) : {};
     const tf = wantsModel ? tierField(req.tier) : {};
     const badField = mf.fieldError ?? tf.fieldError;
     if (badField) { releaseRequest(held, true, badField.reason); return; }
     /** An explicit model wins over the tier, as in the wrapper. `false` = refused, already dead-lettered. */
     const workerModel = (): { model?: string } | false => {
-      if (mf.model) return { model: mf.model };
-      if (!tf.tier) return {};
+      if (!tf.tier) return { model: mf.model };
+      /* A written tier is always put to the script, even beside a model that wins over it: the
+         wrapper refuses an unknown --tier before it looks at --model, and a rung nobody checked is
+         a rung dropped in silence. */
       const r = resolveTier(tf.tier);
       if ('error' in r) { releaseRequest(held, true, r.error); return false; }
+      if (mf.model) return { model: mf.model };
       log(`spawn-inbox: '${name}' tier ${tf.tier} → ${r.model ?? "the wrapper's default"}`);
       return r;
     };

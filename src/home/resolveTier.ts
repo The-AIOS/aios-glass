@@ -11,6 +11,11 @@ import { resolveTierWith, parseLadder, ladderModelOptions, type HookRun } from '
  *
  * Every failure to ask is a refusal with its reason, never a default model: no framework root,
  * no script (it arrives with /aios:update), no bash for this process (Windows: Git for Windows).
+ * That includes a rung the installed wrapper would have taken by itself: a tier nobody could
+ * check is not passed on.
+ *
+ * The call is synchronous and short (one small bash script; a 10 s ceiling): once per bus spawn
+ * that names a tier, and twice when the model picker opens.
  */
 function hookRunner(): ((args: string[]) => HookRun) | { error: string } {
   const root = frameworkRoot();
