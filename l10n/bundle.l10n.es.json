@@ -321,5 +321,8 @@
   "Should Claude answer in the language you write in again?": "¿Quieres que Claude vuelva a responder en el idioma en que escribes?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass ahora está en {lang}. ¿Quieres que Claude también responda en {lang}?",
   "Yes, match": "Sí, igualar",
-  "No, keep it": "No, dejarlo así"
+  "No, keep it": "No, dejarlo así",
+  "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.": "Una sesión abrió este archivo, así que acá es de sólo lectura. Para escribir, usá «Abrir para editar» en la barra del título.",
+  "This copy is no longer available. Open the file from the explorer.": "Esta copia ya no está disponible. Abrí el archivo desde el explorador.",
+  "The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.": "El archivo cambió desde que se tomó esta copia, así que no se abrió. Abrilo desde el explorador si lo querés."
 }

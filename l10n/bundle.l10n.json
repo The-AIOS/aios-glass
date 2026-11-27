@@ -28,5 +28,8 @@
   "Should Claude answer in the language you write in again?": "Should Claude answer in the language you write in again?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass is in {lang} now. Should Claude answer in {lang} too?",
   "Yes, match": "Yes, match",
-  "No, keep it": "No, keep it"
+  "No, keep it": "No, keep it",
+  "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.": "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.",
+  "This copy is no longer available. Open the file from the explorer.": "This copy is no longer available. Open the file from the explorer.",
+  "The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.": "The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it."
 }

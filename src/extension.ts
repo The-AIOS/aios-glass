@@ -46,6 +46,9 @@ import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
+import { decideOpen, readChecked, rememberDecided, prepareRoots, type DecidedOpen, type PreparedRoot } from '@the-aios/core/openRequest';
+import { ASSET_EXT } from '@the-aios/core/readClass';
+import { SnapshotFs, SNAPSHOT_SCHEME, tabUri, snapshotTabs } from './bus/openSnapshot';
 
 // The AIOS operating manual lives on the website (theme-aware reader + PDF
 // download) at the `#manual` section of the homepage — there is no standalone
@@ -74,6 +77,8 @@ function noteWhen(ts: number): string {
 }
 
 
+const snapshots = new SnapshotFs();
+
 export function activate(context: vscode.ExtensionContext): void {
   sweepHandoffDirs();   // aios#231: handoff folders older than a day
   // Banner so the diagnostics channel is never blank — an empty Output pane
@@ -84,6 +89,46 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const home = new HomeViewProvider(context.extensionUri);
   initGlassState(context); // tasks/routines state: vault file, globalState as migration source
+  /* Contract 5: a file a session asked to open is a read-only snapshot served from here. */
+  context.subscriptions.push(
+    vscode.workspace.registerFileSystemProvider(SNAPSHOT_SCHEME, snapshots, {
+      isCaseSensitive: true,
+      isReadonly: new vscode.MarkdownString(t('A session opened this file, so it is read only here. To write in it, use "Open to edit" in the title bar.')),
+    }),
+    vscode.commands.registerCommand('aios.openSnapshotForEdit', async (arg?: vscode.Uri) => {
+      /* From the title bar the snapshot's own URI arrives; from the palette, the active TAB's (an image
+         snapshot has no text editor). Close THAT tab, never "the active editor": in a split view the
+         operator's own file may be the active one. */
+      const uri = arg ?? tabUri(vscode.window.tabGroups.activeTabGroup.activeTab);
+      const snap = uri && uri.scheme === SNAPSHOT_SCHEME ? snapshots.get(uri) : undefined;
+      if (!uri || !snap) { void vscode.window.showInformationMessage(t('This copy is no longer available. Open the file from the explorer.')); return; }
+      /* The real file is checked again before it opens (spec, "Showing it"): a session that swapped it
+         for a link to a key after the snapshot was taken must not get the key opened for editing. */
+      const again = readChecked(snap.real, snap.identity, { roots: openRoots, asBytes: snap.asset });
+      if (!again.ok) { void vscode.window.showWarningMessage(t('The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.')); return; }
+      const same = (x: vscode.Tab) => tabUri(x)?.toString() === uri.toString();
+      const tab = snapshotTabs().find((x) => same(x) && x.group === vscode.window.tabGroups.activeTabGroup) ?? snapshotTabs().find(same);
+      const column = tab?.group.viewColumn;
+      /* Open first, then close the copy: closing the last tab of a group first would renumber the columns.
+         Between the check and this open a session racing the click could still swap the file; the API
+         opens by path, so that stays, as the spec's proportion says, outside what open decides. */
+      await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(snap.real), { viewColumn: column });   // the operator's own open
+      if (tab) await vscode.window.tabGroups.close(tab);
+    }),
+    /* A snapshot's bytes go when its tab closes. */
+    vscode.window.tabGroups.onDidChangeTabs((e) => {
+      /* Only when no tab shows it any more: moving a tab to another group, splitting it or reopening it
+         with another editor also reports the source tab as closed. */
+      for (const tab of e.closed) {
+        const u = tabUri(tab);
+        if (u?.scheme !== SNAPSHOT_SCHEME) continue;
+        setTimeout(() => { if (!snapshotTabs().some((x) => tabUri(x)?.path === u.path)) snapshots.drop(u.path); }, 0);
+      }
+    }),
+  );
+  /* Tabs VS Code restored from the last window session point at snapshots this window never had:
+     they are closed, never refilled with something else. */
+  void vscode.window.tabGroups.close(snapshotTabs()).then(undefined, () => undefined);
 
   /* #22 — the standing "what is waiting on you" counter, and the source of truth for #23's
      jump order. An extension does not own the Dock icon, so the App's badge becomes a
@@ -1367,8 +1412,113 @@ export function activate(context: vscode.ExtensionContext): void {
     } catch { /* already gone */ }
   };
 
+  /* ── contract 5: `open` ──────────────────────────────────────────────────────────────────────
+     The decision is the shared one (@the-aios/core/openRequest, framework inbox-contract-5.md).
+     THE ROOT is the framework root only, prepared once when the bus starts: the workspace-folder
+     list lives in a file any session can write, so it does not count for a session's request; a
+     root that does not look like a framework turns `open` off. What the operator gets is the App's
+     rule (27/11): a read-only snapshot that never reloads, in a tab, with "Open to edit" in the
+     title bar. Glass never moves the keyboard (preserveFocus) and never raises its window. */
+  const firstSeen = new Map<string, { ino: number; at: number }>();
+  const presentAtStart = new Set<string>();
+  let draining = false;
+  let decidedOpens: DecidedOpen[] = [];
+  let openRoots: PreparedRoot[] = [];
+  let openOff = '';
+  const prepareOpenRoots = (): void => {
+    const fw = frameworkRoot();
+    openRoots = fw ? prepareRoots([fw], os.homedir()) : [];
+    /* prepareRoots already drops a root that does not hold vault/ and plugins/aios/. The root stays as
+       prepared until the window reloads. */
+    openOff = !openRoots.length ? 'there is no usable framework root (missing, the home folder, inside a hidden folder, or without vault/ and plugins/aios/); it is read when the window starts' : '';
+    if (openOff) log(`spawn-inbox: open is OFF: ${openOff}`);
+  };
+  let floodDropped = 0;
+  let floodLast: Record<string, unknown> | undefined;
+  let floodTimer: NodeJS.Timeout | undefined;
+  const flushFlood = (): void => {
+    if (floodTimer) { clearTimeout(floodTimer); floodTimer = undefined; }
+    const last = floodLast; const n = floodDropped;
+    floodLast = undefined; floodDropped = 0;
+    if (!last || !n) return;
+    const reason = `open refused (flood): ${n} open request(s) dropped in the last minute; more than 20 a minute are not shown`;
+    const dest = path.join(spawnInboxDir, `open-flood-${Date.now()}-${process.pid}.json.undelivered`);
+    try {
+      fs.writeFileSync(dest, JSON.stringify({ ...last, _undelivered: { reason, at: Date.now(), surface: MY_SURFACE } }, null, 2), 'utf8');
+      log(`spawn-inbox: left ${path.basename(dest)} on disk — ${reason}`);
+    } catch (e) { log(`spawn-inbox: flood notice NOT written (${e instanceof Error ? e.message : String(e)}) — ${reason}`); }
+  };
+  context.subscriptions.push({ dispose: flushFlood });   // written when the window closes, rather than lost
+  const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {
+    const now = Date.now();
+    /* Open off: no roots, so the decision refuses at check 8, after the flood and rate counting. */
+    const d = decideOpen({ body, seenAgoMs: seen.seenAgoMs, presentAtStart: seen.atStart, nowMs: now, roots: openRoots, decided: decidedOpens });
+    if (d.do === 'open' || d.counted) decidedOpens = rememberDecided(decidedOpens, { name: d.do === 'open' ? d.name : (d.name ?? '?'), at: now }, now);
+    if (d.do === 'refuse') {
+      if (d.why === 'flood') {
+        /* A flood: each extra request goes at once, with no dead letter of its own. A minute after the first
+           drop (or when the window closes) ONE dead letter, under a name of its own (never a request's: a
+           session may reuse its file name), counts them and carries the last one's fields. */
+        floodDropped++;
+        floodLast = { action: 'open', name: body.name, path: body.path };
+        releaseRequest(held, false);
+        if (!floodTimer) floodTimer = setTimeout(flushFlood, 60_000);
+        return;
+      }
+      releaseRequest(held, true, d.why === 'unavailable' && openOff
+        ? `open refused (unavailable): open is off in this window: ${openOff}` : `open refused (${d.why}): ${d.reason}`);
+      return;
+    }
+    /* Glass has no viewer of its own for PDF: VS Code would hand it to whatever extension claims it,
+       with that extension's rules for scripts and launch actions. */
+    if (/\.pdf$/i.test(d.path)) { releaseRequest(held, true, 'open refused (unreadable): Glass has no viewer of its own for PDF documents'); return; }
+    const asset = ASSET_EXT.test(d.path);
+    const r = readChecked(d.path, d.identity, { roots: openRoots, asBytes: asset });
+    if (!r.ok) { releaseRequest(held, true, `open refused (unavailable): ${r.reason}`); return; }
+    const bytes = typeof r.content === 'string' ? Buffer.from(r.content, 'utf8') : r.content;
+    const uri = snapshots.add({ real: d.path, bytes, by: d.name, identity: d.identity, asset });
+    /* Never into the editor the operator is typing in: VS Code would reuse that widget, and the keys
+       would land in the snapshot. Beside it, then. */
+    /* From the active TAB, not the text editor: a webview, a terminal in the editor area or an image has
+       no text editor, and opening into its group would hide what the operator is using. */
+    const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+    const viewColumn = activeTab && tabUri(activeTab)?.scheme !== SNAPSHOT_SCHEME ? vscode.ViewColumn.Beside : undefined;
+    try {
+      if (asset) {
+        /* VS Code's own image preview (an <img> under a strict policy), never an editor another
+           extension associates with the type. */
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'imagePreview.previewEditor', { preview: false, preserveFocus: true, viewColumn });
+      } else {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const ed = await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true, viewColumn });
+        if (d.line) {
+          const ln = Math.min(Math.max(0, d.line - 1), Math.max(0, doc.lineCount - 1));
+          const at = new vscode.Position(ln, 0);
+          ed.selection = new vscode.Selection(at, at);
+          ed.revealRange(new vscode.Range(at, at), vscode.TextEditorRevealType.InCenter);
+        }
+      }
+      releaseRequest(held, false);
+      log(`spawn-inbox: open ${path.basename(d.path)} for '${d.name}', read only`);
+    } catch (e) {
+      snapshots.drop(uri.path);
+      releaseRequest(held, true, `open failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const consumeSpawnRequest = async (fsPath: string): Promise<void> => {
     const base = path.basename(fsPath);
+    /* Contract 5: when THIS window first saw the request, by its own clock (never the file's), and
+       whether it was already waiting when Glass started. Only `open` uses it. */
+    let seen = { seenAgoMs: Infinity, atStart: true };   // an adopted hold: an `open` in it is late by definition
+    if (!isHoldPath(fsPath)) {
+      let ino = -1;
+      try { ino = fs.statSync(fsPath).ino; } catch { /* gone: the claim will say so */ }
+      const prior = firstSeen.get(fsPath);
+      if (!prior || prior.ino !== ino) { firstSeen.set(fsPath, { ino, at: Date.now() }); presentAtStart.delete(fsPath); }   // a new request under an old name
+      if (draining) presentAtStart.add(fsPath);
+      seen = { seenAgoMs: Date.now() - (firstSeen.get(fsPath) as { at: number }).at, atStart: presentAtStart.has(fsPath) };
+    }
     if (isHoldPath(fsPath)) {
       // Recovery: only adopt a hold whose claimer is gone, or that is stale. Adopting a
       // FRESH hold belonging to a live process (the App, or a sibling window) would
@@ -1387,7 +1537,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const tried = triedBy(fresh);
       const myId = fulfillerId(MY_SURFACE, process.pid);
       const verdict = claimVerdict(fresh.surface, MY_SURFACE, ageOf(fsPath), TARGET_TTL_MS, tried, myId);
-      if (verdict === 'skip') { return; }             // addressed elsewhere, or already tried here
+      if (verdict === 'skip') { firstSeen.delete(fsPath); presentAtStart.delete(fsPath); return; }   // addressed elsewhere, or already tried here
       if (verdict === 'retire') {
         /* Two ways here: addressed to an absent surface, or handed back by me and left untaken.
            Name the second one precisely — a sibling had its chance and did not take it. */
@@ -1396,10 +1546,12 @@ export function activate(context: vscode.ExtensionContext): void {
           : `addressed to another surface, unclaimed for over ${Math.round(TARGET_TTL_MS / 60000)} min`;
         const h = claimRequest(fsPath);
         if (h) { releaseRequest(h, true, why); }
+        firstSeen.delete(fsPath); presentAtStart.delete(fsPath);
         return;
       }
     }
     const held = claimRequest(fsPath);
+    firstSeen.delete(fsPath); presentAtStart.delete(fsPath);
     if (!held) { return; }                            // another handler/window claimed it
     let raw: string;
     try { raw = fs.readFileSync(held, 'utf8'); } catch { return; }
@@ -1418,6 +1570,8 @@ export function activate(context: vscode.ExtensionContext): void {
        typo'd `"resmue"` performs exactly the substitution resume exists to prevent. */
     const written = (typeof req.action === 'string' ? req.action : '').trim().toLowerCase();
     const action = normalizeVerb(req.action);
+    /* Contract 5: `name` is who ASKS, and the shared decision checks it (with everything else). */
+    if (action === 'open') { await runOpen(held, req as Record<string, unknown>, seen); return; }
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
     /* A request addressing a LIVE session (send, kill, resume-to-live) reaches it whatever its name's
        case: the real registry name is used from here on (shared core/nameMatch, app#58's idea). A
@@ -1427,7 +1581,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     if (action === 'unknown') {
       releaseRequest(held, true,
-        `unknown action '${written}' — this surface implements spawn, kill, send and resume. `
+        `unknown action '${written}' — this surface implements spawn, kill, send, resume and open. `
         + 'Omit "action" entirely for a plain spawn.');
       return;
     }
@@ -1591,6 +1745,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const deadLetterTimer = setInterval(surfaceDeadLetters, 5 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(deadLetterTimer) });
   // Drain any requests dropped while Glass was closed.
+  prepareOpenRoots();   // contract 5: the root is resolved once, here
+  draining = true;      // contract 5: an `open` already waiting at start is never shown late
   try {
     for (const f of fs.readdirSync(spawnInboxDir)) {
       // New requests dropped while Glass was closed…
@@ -1605,6 +1761,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   } catch { /* empty/absent inbox */ }
+  draining = false;
   /* Adoption also runs PERIODICALLY, not only at startup (review should-fix 8): a hold left by a
      surface that died would otherwise block its target until the next restart. consumeSpawnRequest
      applies canAdoptHold, so a live hold — ours or a sibling's — is never taken. */

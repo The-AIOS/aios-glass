@@ -29,5 +29,8 @@
   "Should Claude answer in the language you write in again?": "Να απαντά ξανά ο Claude στη γλώσσα που γράφεις;",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Το Glass είναι τώρα στα {lang}. Να απαντά και ο Claude στα {lang};",
   "Yes, match": "Ναι, ίδια",
-  "No, keep it": "Όχι, ως έχει"
+  "No, keep it": "Όχι, ως έχει",
+  "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.": "Το αρχείο το άνοιξε μια συνεδρία, γι’ αυτό εδώ είναι μόνο για ανάγνωση. Για να γράψεις, πάτα «Άνοιγμα για επεξεργασία» στη γραμμή τίτλου.",
+  "This copy is no longer available. Open the file from the explorer.": "Αυτό το αντίγραφο δεν είναι πια διαθέσιμο. Άνοιξε το αρχείο από τον εξερευνητή.",
+  "The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.": "Το αρχείο άλλαξε από τότε που πάρθηκε αυτό το αντίγραφο, γι’ αυτό δεν άνοιξε. Ανοίξτε το από την εξερεύνηση αν το θέλετε."
 }

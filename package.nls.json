@@ -28,5 +28,6 @@
   "cmd.askAios": "AIOS: Ask AIOS",
   "cmd.frequentMenu": "AIOS: Frequent Tasks & Routines",
   "cmd.palette": "AIOS: Search Everything (Palette)",
-  "cmd.nextWaiting": "AIOS: Jump to the Next Waiting Session"
+  "cmd.nextWaiting": "AIOS: Jump to the Next Waiting Session",
+  "cmd.openSnapshotForEdit": "Open to edit"
 }
