@@ -1616,9 +1616,9 @@ export function activate(context: vscode.ExtensionContext): void {
   }, 5 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(holdSweep) });
   /* And the waiting `*.json` themselves, every minute (The-AIOS/aios-app#218). A request Glass
-     skips — addressed to another surface, or handed back by an earlier run of this window — sends
-     no further file event, so without this nothing asks `claimVerdict` again and its `retire` is
-     never reached. Same consume as the watcher: one set of rules, one atomic rename per claim. */
+     skips because it is addressed to another surface sends no further file event, so without this
+     nothing asks `claimVerdict` again and its `retire` is never reached. Same consume as the
+     watcher: one set of rules, one atomic rename per claim. */
   const stopInboxSweep = startInboxSweep(spawnInboxDir, (p) => { void consumeSpawnRequest(p); });
   context.subscriptions.push({ dispose: stopInboxSweep });
   }   // end if (!busDisabled)
