@@ -28,5 +28,6 @@
   "cmd.askAios": "AIOS: Ρώτα το AIOS",
   "cmd.frequentMenu": "AIOS: Συχνές Εργασίες & Ρουτίνες",
   "cmd.palette": "AIOS: Αναζήτηση Παντού (Palette)",
-  "cmd.nextWaiting": "AIOS: Μετάβαση στην επόμενη συνεδρία σε αναμονή"
+  "cmd.nextWaiting": "AIOS: Μετάβαση στην επόμενη συνεδρία σε αναμονή",
+  "cmd.openSnapshotForEdit": "Άνοιγμα για επεξεργασία"
 }

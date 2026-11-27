@@ -46,6 +46,9 @@ import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
+import { decideOpen, readChecked, rememberDecided, prepareRoots, looksLikeFramework, type DecidedOpen, type PreparedRoot } from '@the-aios/core/openRequest';
+import { ASSET_EXT } from '@the-aios/core/readClass';
+import { SnapshotFs, SNAPSHOT_SCHEME } from './bus/openSnapshot';
 
 // The AIOS operating manual lives on the website (theme-aware reader + PDF
 // download) at the `#manual` section of the homepage — there is no standalone
@@ -74,6 +77,8 @@ function noteWhen(ts: number): string {
 }
 
 
+const snapshots = new SnapshotFs();
+
 export function activate(context: vscode.ExtensionContext): void {
   sweepHandoffDirs();   // aios#231: handoff folders older than a day
   // Banner so the diagnostics channel is never blank — an empty Output pane
@@ -84,6 +89,20 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const home = new HomeViewProvider(context.extensionUri);
   initGlassState(context); // tasks/routines state: vault file, globalState as migration source
+  /* Contract 5: a file a session asked to open is a read-only snapshot served from here. */
+  context.subscriptions.push(
+    vscode.workspace.registerFileSystemProvider(SNAPSHOT_SCHEME, snapshots, {
+      isCaseSensitive: true,
+      isReadonly: new vscode.MarkdownString(t('A session opened this file, so it is read only here. To write in it, use "Open to edit" in the title bar.')),
+    }),
+    vscode.commands.registerCommand('aios.openSnapshotForEdit', async (arg?: vscode.Uri) => {
+      const uri = arg ?? vscode.window.activeTextEditor?.document.uri;
+      const real = uri && uri.scheme === SNAPSHOT_SCHEME ? snapshots.realPathOf(uri) : undefined;
+      if (!real) { void vscode.window.showInformationMessage(t('This copy is no longer available. Open the file from the explorer.')); return; }
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(real));   // the operator's own open
+    }),
+  );
 
   /* #22 — the standing "what is waiting on you" counter, and the source of truth for #23's
      jump order. An extension does not own the Dock icon, so the App's badge becomes a
@@ -1367,8 +1386,82 @@ export function activate(context: vscode.ExtensionContext): void {
     } catch { /* already gone */ }
   };
 
+  /* ── contract 5: `open` ──────────────────────────────────────────────────────────────────────
+     The decision is the shared one (@the-aios/core/openRequest, framework inbox-contract-5.md).
+     THE ROOT is the framework root only, prepared once when the bus starts: the workspace-folder
+     list lives in a file any session can write, so it does not count for a session's request; a
+     root that does not look like a framework turns `open` off. What the operator gets is the App's
+     rule (27/11): a read-only snapshot that never reloads, in a tab, with "Open to edit" in the
+     title bar. Glass never moves the keyboard (preserveFocus) and never raises its window. */
+  const firstSeen = new Map<string, { ino: number; at: number }>();
+  const presentAtStart = new Set<string>();
+  let draining = false;
+  let decidedOpens: DecidedOpen[] = [];
+  let openRoots: PreparedRoot[] = [];
+  let openOff = '';
+  const prepareOpenRoots = (): void => {
+    const fw = frameworkRoot();
+    openRoots = fw ? prepareRoots([fw], os.homedir()) : [];
+    openOff = !openRoots.length ? 'there is no usable framework root (missing, the home folder, or inside a hidden folder)'
+      : !looksLikeFramework(openRoots[0].real) ? 'the framework root does not hold vault/ and plugins/aios/' : '';
+    if (openOff) log(`spawn-inbox: open is OFF: ${openOff}`);
+  };
+  let floodDropped = 0;
+  let floodLetterAt = 0;
+  const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {
+    const now = Date.now();
+    if (openOff) { releaseRequest(held, true, `open refused (unavailable): open is off in this window: ${openOff}`); return; }
+    const d = decideOpen({ body, seenAgoMs: seen.seenAgoMs, presentAtStart: seen.atStart, nowMs: now, roots: openRoots, decided: decidedOpens });
+    if (d.do === 'open' || d.counted) decidedOpens = rememberDecided(decidedOpens, { name: d.do === 'open' ? d.name : (d.name ?? '?'), at: now }, now);
+    if (d.do === 'refuse') {
+      if (d.why === 'flood') {
+        /* A flood: no dead letter per request, one a minute that says how many were dropped. */
+        floodDropped++;
+        if (now - floodLetterAt >= 60_000) { floodLetterAt = now; releaseRequest(held, true, `open refused (flood): ${floodDropped} open request(s) dropped in the last minute; more than 20 a minute are not shown`); floodDropped = 0; }
+        else releaseRequest(held, false);
+        return;
+      }
+      releaseRequest(held, true, `open refused (${d.why}): ${d.reason}`);
+      return;
+    }
+    const asset = ASSET_EXT.test(d.path);
+    const r = readChecked(d.path, d.identity, { roots: openRoots, asBytes: asset });
+    if (!r.ok) { releaseRequest(held, true, `open refused (unavailable): ${r.reason}`); return; }
+    const bytes = typeof r.content === 'string' ? Buffer.from(r.content, 'utf8') : r.content;
+    const uri = snapshots.add(d.path, bytes, d.name);
+    try {
+      if (asset) {
+        await vscode.commands.executeCommand('vscode.open', uri, { preview: false, preserveFocus: true });
+      } else {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const ed = await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
+        if (d.line) {
+          const ln = Math.min(Math.max(0, d.line - 1), Math.max(0, doc.lineCount - 1));
+          const at = new vscode.Position(ln, 0);
+          ed.selection = new vscode.Selection(at, at);
+          ed.revealRange(new vscode.Range(at, at), vscode.TextEditorRevealType.InCenter);
+        }
+      }
+      releaseRequest(held, false);
+      log(`spawn-inbox: open ${path.basename(d.path)} for '${d.name}', read only`);
+    } catch (e) {
+      releaseRequest(held, true, `open failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const consumeSpawnRequest = async (fsPath: string): Promise<void> => {
     const base = path.basename(fsPath);
+    /* Contract 5: when THIS window first saw the request, by its own clock (never the file's), and
+       whether it was already waiting when Glass started. Only `open` uses it. */
+    let seen = { seenAgoMs: Infinity, atStart: true };   // an adopted hold: an `open` in it is late by definition
+    if (!isHoldPath(fsPath)) {
+      let ino = -1;
+      try { ino = fs.statSync(fsPath).ino; } catch { /* gone: the claim will say so */ }
+      const prior = firstSeen.get(fsPath);
+      if (!prior || prior.ino !== ino) { firstSeen.set(fsPath, { ino, at: Date.now() }); presentAtStart.delete(fsPath); }   // a new request under an old name
+      if (draining) presentAtStart.add(fsPath);
+      seen = { seenAgoMs: Date.now() - (firstSeen.get(fsPath) as { at: number }).at, atStart: presentAtStart.has(fsPath) };
+    }
     if (isHoldPath(fsPath)) {
       // Recovery: only adopt a hold whose claimer is gone, or that is stale. Adopting a
       // FRESH hold belonging to a live process (the App, or a sibling window) would
@@ -1400,6 +1493,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
     const held = claimRequest(fsPath);
+    firstSeen.delete(fsPath); presentAtStart.delete(fsPath);
     if (!held) { return; }                            // another handler/window claimed it
     let raw: string;
     try { raw = fs.readFileSync(held, 'utf8'); } catch { return; }
@@ -1418,6 +1512,8 @@ export function activate(context: vscode.ExtensionContext): void {
        typo'd `"resmue"` performs exactly the substitution resume exists to prevent. */
     const written = (typeof req.action === 'string' ? req.action : '').trim().toLowerCase();
     const action = normalizeVerb(req.action);
+    /* Contract 5: `name` is who ASKS, and the shared decision checks it (with everything else). */
+    if (action === 'open') { await runOpen(held, req as Record<string, unknown>, seen); return; }
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
     /* A request addressing a LIVE session (send, kill, resume-to-live) reaches it whatever its name's
        case: the real registry name is used from here on (shared core/nameMatch, app#58's idea). A
@@ -1427,7 +1523,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     if (action === 'unknown') {
       releaseRequest(held, true,
-        `unknown action '${written}' — this surface implements spawn, kill, send and resume. `
+        `unknown action '${written}' — this surface implements spawn, kill, send, resume and open. `
         + 'Omit "action" entirely for a plain spawn.');
       return;
     }
@@ -1591,6 +1687,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const deadLetterTimer = setInterval(surfaceDeadLetters, 5 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(deadLetterTimer) });
   // Drain any requests dropped while Glass was closed.
+  prepareOpenRoots();   // contract 5: the root is resolved once, here
+  draining = true;      // contract 5: an `open` already waiting at start is never shown late
   try {
     for (const f of fs.readdirSync(spawnInboxDir)) {
       // New requests dropped while Glass was closed…
@@ -1605,6 +1703,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   } catch { /* empty/absent inbox */ }
+  draining = false;
   /* Adoption also runs PERIODICALLY, not only at startup (review should-fix 8): a hold left by a
      surface that died would otherwise block its target until the next restart. consumeSpawnRequest
      applies canAdoptHold, so a live hold — ours or a sibling's — is never taken. */

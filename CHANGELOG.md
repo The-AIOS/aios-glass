@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **A session can show you a file in a Glass editor tab** (spawn-inbox contract 5, the `open` verb; The-AIOS/aios-app#198). A session that used to open a note with the system opener, which handed it to whatever app your computer has for `.md`, asks Glass instead. The file opens as a read-only copy, with a lock and a line saying why it cannot be written; "Open to edit" in the title bar opens the real file your usual way. Glass keeps your cursor where it is, never brings its window forward, and never reloads the copy from disk. Only files inside the framework folder (your vault included) can be opened this way, and never a secret by its name (environment files, keys, tokens, anything under `.git`, `.obsidian` or `agent-secrets`), a binary, an executable, or a file with a second hard link; a session gets five a minute. The rules are the framework's `inbox-contract-5.md`, decided by the shared `@the-aios/core/openRequest`, the same code as the AIOS App. The README stamp stays at contract 4 until both surfaces ship the verb.
+
 ### Fixed
 - **Agent, skill and command descriptions read their quotes right.** A description written in YAML single quotes with a doubled apostrophe (`'in the user''s voice'`) showed both apostrophes in the pickers; it now reads "the user's voice", and `\"` inside double quotes reads as `"`. Nine bundled agents and one skill are written that way. Same `core/frontmatter.ts` as the AIOS App since 0.15.2.
 - **The "used" chip on a session row survives a compaction.** When a session compacts, Claude Code stores the summary as a user record; Glass took it for a new prompt and cleared the chip. It is no longer counted as one. Same `core/toolUse.ts` as the AIOS App since 0.15.0.

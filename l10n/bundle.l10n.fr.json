@@ -28,5 +28,7 @@
   "Should Claude answer in the language you write in again?": "Claude doit-il de nouveau répondre dans la langue dans laquelle vous écrivez ?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass est maintenant en {lang}. Claude doit-il aussi répondre en {lang} ?",
   "Yes, match": "Oui, aligner",
-  "No, keep it": "Non, garder"
+  "No, keep it": "Non, garder",
+  "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.": "Une session a ouvert ce fichier : il est en lecture seule ici. Pour écrire, utilisez « Ouvrir pour modifier » dans la barre de titre.",
+  "This copy is no longer available. Open the file from the explorer.": "Cette copie n’est plus disponible. Ouvrez le fichier depuis l’explorateur."
 }

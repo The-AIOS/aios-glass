@@ -219,6 +219,11 @@
       {
         "command": "aios.nextWaiting",
         "title": "%cmd.nextWaiting%"
+      },
+      {
+        "command": "aios.openSnapshotForEdit",
+        "title": "%cmd.openSnapshotForEdit%",
+        "icon": "$(edit)"
       }
     ],
     "keybindings": [
@@ -343,6 +348,11 @@
         {
           "command": "aios.openHome",
           "group": "navigation"
+        },
+        {
+          "command": "aios.openSnapshotForEdit",
+          "when": "resourceScheme == aios-open",
+          "group": "navigation"
         }
       ],
       "view/title": [
@@ -380,6 +390,10 @@
         {
           "command": "aios.openCapability",
           "when": "false"
+        },
+        {
+          "command": "aios.openSnapshotForEdit",
+          "when": "resourceScheme == aios-open"
         }
       ]
     },
