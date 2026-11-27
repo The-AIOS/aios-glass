@@ -322,5 +322,5 @@
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass ahora está en {lang}. ¿Quieres que Claude también responda en {lang}?",
   "Yes, match": "Sí, igualar",
   "No, keep it": "No, dejarlo así",
-  "has ended; its terminal was left open (something may be running in it, or it was renamed). See the AIOS Glass log.": "terminó; su terminal quedó abierto (puede haber algo corriendo en él, o fue renombrado). Mirá el registro de AIOS Glass."
+  "has ended; its terminal was left open (something may be running in it, or it was renamed). See the AIOS Glass log.": "terminó; su terminal quedó abierto (puede haber algo corriendo en él, o fue renombrado). Consulta el registro de AIOS Glass."
 }

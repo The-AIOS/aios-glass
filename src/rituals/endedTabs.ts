@@ -44,6 +44,13 @@ export function noteTab(ledger: TabLedger, shellPid: number, note: TabNote): Tab
   return out;
 }
 
+/** The ledger with the noted title of `shellPid` set to `title`: Glass renamed that tab itself. */
+export function retitleTab(ledger: TabLedger, shellPid: number, title: string): TabLedger {
+  const cur = ledger[String(shellPid)];
+  if (!cur || cur.tabName === title) return ledger;
+  return { ...ledger, [String(shellPid)]: { ...cur, tabName: title } };
+}
+
 /** The ledger without the terminals that are no longer open. */
 export function pruneLedger(ledger: TabLedger, openShellPids: readonly number[]): TabLedger {
   const open = new Set(openShellPids.map(String));

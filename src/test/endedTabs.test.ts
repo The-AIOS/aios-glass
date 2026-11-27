@@ -2,7 +2,7 @@
    which session each terminal last held — never by a name (The-AIOS/aios-glass#40). */
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { killPlan, killReport, noteTab, pruneLedger, tabsLeftBy, childrenOf, renamedTabs, type TabLedger } from '../rituals/endedTabs';
+import { killPlan, killReport, noteTab, pruneLedger, tabsLeftBy, childrenOf, renamedTabs, retitleTab, type TabLedger } from '../rituals/endedTabs';
 import { parsePpidTable } from '../rituals/terminalMatch';
 
 // shells 100 and 200 are terminals; 300 runs under shell 200
@@ -78,6 +78,10 @@ test('a tab the operator renamed is theirs: it is not closed, and the kill is no
   assert.deepEqual(killPlan({ terminalHere: false, live: false, left: [100], ppidOf: TABLE, renamed }),
     { do: 'close-left', close: [], busy: [], renamed: [100] });
   assert.equal(killReport('w', { did: 'closed-left', closed: 0, busy: [], renamed: [100] }), "kill 'w': no live session; left 1 open because it was renamed");
+  // Glass's own rename (a resume tab takes the session's name) is recorded, so it is not the operator's
+  const own = retitleTab(noteTab({}, 100, { name: 'w', tabName: 'resume' }), 100, 'w');
+  assert.deepEqual(renamedTabs(own, [100], new Map([[100, 'w']])), []);
+  assert.equal(retitleTab({}, 100, 'w')['100'], undefined, 'nothing noted, nothing to retitle');
 });
 
 test('the log line says what happened, and never "closed" when nothing closed', () => {

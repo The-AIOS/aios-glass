@@ -8,7 +8,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents, listOperatorSessions } from '../agents/running';
 import { processStartMs } from '../agents/procStart';
-import { killPlan, killLeftOpen, noteTab, pruneLedger, renamedTabs, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
+import { killPlan, killLeftOpen, noteTab, pruneLedger, renamedTabs, retitleTab, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
@@ -148,7 +148,7 @@ async function runInSession(slash: string, style?: TermStyle): Promise<void> {
   // existing (Claude-less) terminal, rename its tab to match — we just show()'d
   // it so it's the active terminal, which is what renameWithArg acts on.
   if (!target.isNew && n) {
-    try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: n }); } catch { /* command unavailable — best effort */ }
+    try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: n }); afterOwnRename(target.terminal); } catch { /* command unavailable — best effort */ }
   }
   const nameArg = n && /^[a-z0-9][a-z0-9-]*$/.test(n) ? `--name ${n} ` : '';
   const line = `${claudeBin()} ${nameArg}${shellQuote(slash)}`;
@@ -221,6 +221,15 @@ function rememberTab(shellPid: number, note: { name: string; sessionId?: string;
   void processStartMs(shellPid)
     .then((shellStart) => saveTabLedger(noteTab(tabLedger, shellPid, { ...note, ...(shellStart !== undefined ? { shellStart } : {}) })))
     .catch((e) => swallow('tabLedger', e));
+}
+/**
+ * After Glass renames a tab itself (renameWithArg), record the title the editor now reports, so its
+ * own rename is never read as the operator's. Read a moment later: the rename lands asynchronously.
+ */
+function afterOwnRename(term: vscode.Terminal): void {
+  setTimeout(() => {
+    void Promise.resolve(term.processId).then((sp) => { if (sp) saveTabLedger(retitleTab(tabLedger, sp, term.name)); }).catch((e: unknown) => swallow('tabLedger', e));
+  }, 500);
 }
 async function openShellPids(): Promise<{ term: vscode.Terminal; shellPid: number }[]> {
   const all = await Promise.all(vscode.window.terminals.map(async (term) => ({ term, shellPid: await term.processId })));
@@ -605,7 +614,7 @@ export async function launchResume(): Promise<void> {
         }
         if (ours) {
           if (vscode.window.activeTerminal === t) {
-            try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: a.name }); } catch { /* best effort */ }
+            try { await vscode.commands.executeCommand('workbench.action.terminal.renameWithArg', { name: a.name }); afterOwnRename(t); } catch { /* best effort */ }
             sub.dispose();
             return;
           }
@@ -647,8 +656,8 @@ function getPpidMap(): Promise<Map<number, number>> {
 /**
  * The integrated terminal in THIS window that holds a running session, or undefined.
  * Matches by PROCESS TREE (rename-proof): the terminal whose shell is an ancestor of the
- * session's claude PID. Never by name — renaming a tab doesn't update `terminal.name`, and
- * a name that merely resembles the session's belongs to some other terminal (see
+ * session's claude PID. Never by name — a tab's name is not an identity (it can be renamed, and
+ * whether `terminal.name` follows a rename depends on the editor), and a name that merely resembles the session's belongs to some other terminal (see
  * matchTerminal for the rule and its one exception). Undefined means "not in this window":
  * every caller already handles that, by saying so or by handing the request to a sibling.
  */
