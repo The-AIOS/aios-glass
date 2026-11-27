@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **A `model` the request names is passed or refused, never dropped.** One shape decides (letters, digits, dot, dash, underscore, optionally ending in `[1m]`), the same as in the App: an id ending in `[1m]` now passes, and a value outside the shape becomes a dead letter that names the field.
 
 ### Changed
+- **A session started with no model asked for runs on your saved model, as in the App.** Glass starts sessions through the framework's `spawn`, which pins its own model (Opus with the 1M context) unless a tier or a model is given. So a spawn request with no `tier` and no `model`, and every session started from Glass's own buttons (a new agent, go with agents, onboarding, the builder), ran that pinned model, while the App started the same thing on the model you saved with `/model`. Glass now tells `spawn` to start with no model (`--inherit-model`), so both surfaces start the same. `"tier":"judgment"` still starts the pinned model on both. This needs a framework whose `spawn` knows the flag (`/aios:update`, then a new terminal): Glass reads the installed wrapper, and with an older one it starts the pinned model as before and says so in its log. A `spawn` you type in a terminal is not changed.
 - **The default-model picker lists the models the tier ladder starts,** read from the framework when the picker opens. The fixed list it replaces still named the previous model generation.
 
 ## [0.5.17] — 2026-11-22

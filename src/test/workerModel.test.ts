@@ -7,7 +7,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { MODEL_SHAPE, modelField, tierField, resolveTierWith, parseLadder, ladderModelOptions, type HookRun } from '../core/workerModel';
+import { MODEL_SHAPE, modelField, tierField, resolveTierWith, spawnModelFlag, parseLadder, ladderModelOptions, type HookRun } from '../core/workerModel';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (...p: string[]) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
@@ -68,7 +68,7 @@ const TABLE = { top: 'model-top', middle: '', low: 'model-low', older: 'model-lo
 test('tier: whatever the script knows resolves, whatever it does not is refused with its list', () => {
   assert.deepEqual(resolveTierWith('low', script(TABLE)), { model: 'model-low' });
   /* Empty at exit 0 is a real answer: no flag, and the wrapper starts its own default. */
-  assert.deepEqual(resolveTierWith('middle', script(TABLE)), {});
+  assert.deepEqual(resolveTierWith('middle', script(TABLE)), { launcherDefault: true }, 'an empty answer is the rung the wrapper pins, not "nothing asked"');
   const r = resolveTierWith('turbo', script(TABLE));
   assert.ok('error' in r);
   assert.match(r.error, /unknown rung 'turbo'/);
@@ -101,6 +101,21 @@ test('no rung list and no model id of its own: a surface cannot disagree with re
   }
 });
 
+test('the typed model flag: a model, the wrapper\'s pin, or the operator\'s saved model (what the App starts)', () => {
+  const INHERIT = '--inherit-model ';
+  assert.deepEqual(spawnModelFlag({ model: 'model-low' }, INHERIT), { flag: '--model model-low ' }, 'an asked model, and never the inherit flag beside it');
+  assert.deepEqual(spawnModelFlag({ model: 'model-big[1m]' }, INHERIT), { flag: "--model 'model-big[1m]' " }, 'a bracket is quoted: bare, zsh reads it as a glob');
+  assert.deepEqual(spawnModelFlag({ launcherDefault: true }, INHERIT), { flag: '' }, 'the pinned rung: no flag, the wrapper starts its pin');
+  assert.deepEqual(spawnModelFlag({}, INHERIT), { flag: INHERIT }, 'nothing asked: the saved model, as the App starts a plain claude');
+  assert.deepEqual(spawnModelFlag({ model: '' }, INHERIT), { flag: INHERIT }, 'an empty model is nothing asked');
+  assert.deepEqual(spawnModelFlag({}, '-InheritModel '), { flag: '-InheritModel ' }, 'the PowerShell spelling passes through');
+  assert.deepEqual(spawnModelFlag({}, ''), { flag: '', fellBack: true }, 'CONTROL: a wrapper without the flag keeps the old command, and says it fell back');
+  assert.deepEqual(spawnModelFlag({ model: 'model-low', launcherDefault: true }, INHERIT), { flag: '--model model-low ' }, 'a model wins over the pinned rung');
+  for (const bad of ["x'; touch pwned; '", 'a b', '$(id)', '-rf', 'm[2m]']) {
+    assert.throws(() => spawnModelFlag({ model: bad }, INHERIT), /not one a command line may carry/, `${bad} never reaches the command`);
+  }
+});
+
 test('wiring: the bus resolves before it launches, refuses by dead letter, and the runner takes a model only', () => {
   const ext = read('src', 'extension.ts');
   assert.match(ext, /const mf = wantsModel \? modelField\(req\.model\) : \{\};/);
@@ -110,7 +125,10 @@ test('wiring: the bus resolves before it launches, refuses by dead letter, and t
   assert.equal((ext.match(/const wm = workerModel\(\);\s*\n\s*if \(!wm\) return;/g) || []).length, 2, 'the spawn and the resume fallback both resolve first');
   assert.doesNotMatch(code(ext), /launchSpawn\([^)]*\btier\b/, 'a tier never reaches the runner');
   const runner = read('src', 'rituals', 'runner.ts');
-  assert.match(runner, /if \(!MODEL_SHAPE\.test\(opts\.model\)\) throw new Error\(/);
+  assert.match(runner, /const mf = spawnModelFlag\(\{ model: opts\?\.model, launcherDefault: opts\?\.launcherDefault \? true : undefined \},\s*\n\s*asked \? '' : inheritModelFlag\(process\.platform, os\.homedir\(\), process\.env, readRc\)\);/);
+  assert.match(runner, /let flag = mf\.flag;\s*\n\s*if \(mf\.fellBack\) log\(/, 'a fallback to the pin is said in the log');
+  assert.doesNotMatch(code(runner), /--inherit-model|-InheritModel|--model /, 'the model flags are spelled in workerModel and wrapperCaps only');
+  assert.equal((ext.match(/\{ model: wm\.model, launcherDefault: wm\.launcherDefault, bus: true, \.\.\.c4Launch \}/g) || []).length, 2, 'both bus launches hand over which of the three cases it is');
   assert.doesNotMatch(code(runner), /--tier/, 'the runner passes the resolved model, not a rung');
   const lookup = read('src', 'home', 'resolveTier.ts');
   assert.match(lookup, /\['hooks\/pipeline\/resolve-tier', 'hooks\/resolve-tier'\]/);
@@ -131,7 +149,7 @@ test('against a real resolve-tier, when a framework is at hand: every listed run
   const ladder = parseLadder(run(['--list']).stdout);
   assert.ok(ladder.length >= 4, 'the ladder has at least four rungs');
   for (const row of ladder) {
-    assert.deepEqual(resolveTierWith(row.rung, run), row.model ? { model: row.model } : {}, `${row.rung} resolves to what --list says`);
+    assert.deepEqual(resolveTierWith(row.rung, run), row.model ? { model: row.model } : { launcherDefault: true }, `${row.rung} resolves to what --list says`);
     assert.deepEqual(tierField(row.rung.toUpperCase()), { tier: row.rung });
   }
   assert.ok('error' in resolveTierWith('definitely-not-a-rung', run));

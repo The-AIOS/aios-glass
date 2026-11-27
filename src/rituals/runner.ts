@@ -14,13 +14,13 @@ import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
 import { askSessionName, identityNamesIn } from '../core/sessionName';
 import { writeHandoffFile } from '../bus/handoffDir';   // aios#231: one private folder per handed-over file
-import { addDirFlag } from '../bus/wrapperCaps';
+import { addDirFlag, inheritModelFlag } from '../bus/wrapperCaps';
 import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
-import { MODEL_SHAPE } from '../core/workerModel';
+import { spawnModelFlag } from '../core/workerModel';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -317,24 +317,30 @@ export async function runRitualPicker(): Promise<void> {
 // ── Always-new actions ────────────────────────────────────────────────────
 
 /** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
-export async function launchSpawn(name: string, task?: string, opts?: { model?: string; bus?: boolean; effort?: string; advisorModel?: string }): Promise<void> {
+export async function launchSpawn(name: string, task?: string, opts?: { model?: string; launcherDefault?: boolean; bus?: boolean; effort?: string; advisorModel?: string }): Promise<void> {
   // Icon comes from the agent's own context (declared frontmatter `icon:`, else
   // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
   // a graph, etc. Builder keeps a distinct amber tab.
   const agent = discoverAgents().find((a) => a.name === name);
   const icon = iconForAgent(agent ?? { name });
   const color = name === 'aios-builder' ? 'terminal.ansiYellow' : 'terminal.ansiCyan';
-  /* The worker's model, already decided by the caller (aios-app#230): an explicit `model`, or what
-     the framework's resolve-tier answered for the request's `tier`. There is no rung list here: a
-     closed one lived on this line, went stale each time the ladder grew, and a rung it did not
-     know started the worker on the default model in silence. No model = no flag, and the wrapper
-     starts its own default. A value outside MODEL_SHAPE never reaches the command line: it
-     throws, and the bus handler turns that into a dead letter. */
-  let flag = '';
-  if (opts?.model !== undefined && opts.model !== '') {
-    if (!MODEL_SHAPE.test(opts.model)) throw new Error('model is not one a command line may carry — not spawned');
-    flag = `--model ${/^[A-Za-z0-9._-]+$/.test(opts.model) ? opts.model : shellQuote(opts.model)} `;
-  }
+  /* The worker's model, already decided by the caller (aios-app#230): an explicit `model`, what
+     the framework's resolve-tier answered for the request's `tier`, or the wrapper's own default
+     for the rung it pins (`launcherDefault`). There is no rung list here: a closed one lived on
+     this line, went stale each time the ladder grew, and a rung it did not know started the
+     worker on the default model in silence.
+     NOTHING asked for (no model, no tier: every launch from Glass's own buttons, and a bus request
+     that names neither) starts what the App starts in the same case, a session on the operator's
+     SAVED model. The wrapper pins its own model unless told `--inherit-model`, so that flag is
+     typed whenever the installed wrapper knows it (wrapperCaps reads the wrapper; an older one
+     would take the flag as the worker's name). A value outside MODEL_SHAPE never reaches the
+     command line: spawnModelFlag throws, and the bus handler turns that into a dead letter. */
+  const readRc = (f: string) => { try { return fs.readFileSync(f, 'utf8'); } catch { return undefined; } };
+  const asked = !!opts?.model || !!opts?.launcherDefault;
+  const mf = spawnModelFlag({ model: opts?.model, launcherDefault: opts?.launcherDefault ? true : undefined },
+    asked ? '' : inheritModelFlag(process.platform, os.homedir(), process.env, readRc));
+  let flag = mf.flag;
+  if (mf.fellBack) log(`spawn '${name}': no model was asked for, and the installed spawn wrapper cannot start without one (it is older than that flag: run /aios:update, then open a new terminal); it starts on the wrapper's pinned model instead of your saved one`);
   /* Contract 4 through the wrapper's own flags (canonical v0.8.9): it writes the advisor settings
      to a unique file and appends the consult instruction. The advisor arrives as a MODEL ID,
      resolved from the contract's table, so the wrapper never maps `judgment` to "default". */
@@ -359,8 +365,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
          wrapper and answers '' when it cannot take the flag: then the command is today's. */
       const taskFile = writeHandoffFile(`aios-spawn-task-${name}.md`, taskText);
       inlineTask = `Read ${taskFile} and follow the instructions inside.`;
-      const grant = addDirFlag(path.dirname(taskFile), process.platform, os.homedir(), process.env,
-        (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return undefined; } });
+      const grant = addDirFlag(path.dirname(taskFile), process.platform, os.homedir(), process.env, readRc);
       if (grant) flag += grant;
       else log(`spawn '${name}': the installed spawn wrapper takes no folder grant (canonical < v0.8.13); under blockReadsOutsideWorkingDirectories the worker cannot read ${taskFile}`);
     } catch (e) {

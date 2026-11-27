@@ -45,7 +45,7 @@ import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
-import { modelField, tierField } from './core/workerModel';
+import { modelField, tierField, type WorkerModel } from './core/workerModel';
 import { resolveTier } from './home/resolveTier';
 import { initI18n, t } from './i18n';
 
@@ -1451,8 +1451,9 @@ export function activate(context: vscode.ExtensionContext): void {
     const tf = wantsModel ? tierField(req.tier) : {};
     const badField = mf.fieldError ?? tf.fieldError;
     if (badField) { releaseRequest(held, true, badField.reason); return; }
-    /** An explicit model wins over the tier, as in the wrapper. `false` = refused, already dead-lettered. */
-    const workerModel = (): { model?: string } | false => {
+    /** An explicit model wins over the tier, as in the wrapper. Neither written = nothing asked for:
+     *  launchSpawn then starts the operator's saved model, as the App does. `false` = refused, already dead-lettered. */
+    const workerModel = (): WorkerModel | false => {
       if (!tf.tier) return { model: mf.model };
       /* A written tier is always put to the script, even beside a model that wins over it: the
          wrapper refuses an unknown --tier before it looks at --model, and a rung nobody checked is
@@ -1460,7 +1461,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const r = resolveTier(tf.tier);
       if ('error' in r) { releaseRequest(held, true, r.error); return false; }
       if (mf.model) return { model: mf.model };
-      log(`spawn-inbox: '${name}' tier ${tf.tier} → ${r.model ?? "the wrapper's default"}`);
+      log(`spawn-inbox: '${name}' tier ${tf.tier} → ${r.model ?? "the wrapper's pinned model"}`);
       return r;
     };
     /* A field only the App implements (cwd, App PR #77) is refused, never ignored: ignoring it
@@ -1569,7 +1570,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const wm = workerModel();
         if (!wm) return;
         log(`spawn-inbox: resume '${name}' — no transcript; falling back to spawn as asked`);
-        await launchSpawn(name, prompt, { model: wm.model, bus: true, ...c4Launch });
+        await launchSpawn(name, prompt, { model: wm.model, launcherDefault: wm.launcherDefault, bus: true, ...c4Launch });
         releaseRequest(held, false);
       } else {
         // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose).
@@ -1584,7 +1585,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const wm = workerModel();
         if (!wm) return;
         log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${wm.model ? ` [model ${wm.model}]` : ''}`);
-        await launchSpawn(name, task, { model: wm.model, bus: true, ...c4Launch });
+        await launchSpawn(name, task, { model: wm.model, launcherDefault: wm.launcherDefault, bus: true, ...c4Launch });
         releaseRequest(held, false);
       }
     } catch (e) {

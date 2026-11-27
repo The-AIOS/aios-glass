@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { frameworkRoot } from './vault';
 import { resolveBash } from './resolveBash';
-import { resolveTierWith, parseLadder, ladderModelOptions, type HookRun } from '../core/workerModel';
+import { resolveTierWith, parseLadder, ladderModelOptions, type HookRun, type WorkerModel } from '../core/workerModel';
 
 /**
  * Ask the framework's `resolve-tier` (aios-app#230). THE LOOKING lives here; the deciding lives
@@ -39,8 +39,8 @@ function hookRunner(): ((args: string[]) => HookRun) | { error: string } {
   };
 }
 
-/** A rung → the model the wrapper is told to start (none = the wrapper's own default), or a refusal. */
-export function resolveTier(tier: string): { model?: string } | { error: string } {
+/** A rung → the model the wrapper is told to start (`launcherDefault` = the wrapper's own pin), or a refusal. */
+export function resolveTier(tier: string): WorkerModel | { error: string } {
   const run = hookRunner();
   if (typeof run !== 'function') return { error: `cannot resolve tier '${tier}': ${run.error}` };
   return resolveTierWith(tier, run);
