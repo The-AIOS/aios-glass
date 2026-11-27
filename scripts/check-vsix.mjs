@@ -9,7 +9,8 @@
  *
  * Two questions, both from the archive's own file list:
  *   1. every module of the installed @the-aios/core is in the .vsix, with its package.json
- *      (the subpath imports resolve through its `exports`);
+ *      (the subpath imports resolve through its `exports`) and its LICENSE, and no other file
+ *      of it: no source maps, no type declarations, no cases files;
  *   2. nothing else under node_modules is. A second dependency that slips in unannounced ships
  *      to every operator; adding one is a decision, made by listing it here.
  *
@@ -50,6 +51,15 @@ for (const dep of ALLOWED) {
   if (missing.length) {
     fail(`the .vsix is missing ${missing.length} file(s) of ${dep}; the extension would fail on its first require:\n  ${missing.slice(0, 8).join('\n  ')}`);
   }
-  console.log(`check-vsix ✓ ${dep}: ${modules.length} modules and package.json are in the .vsix`);
+  /* And only those. In vsce a `!` line in .vscodeignore puts back everything it matches, whatever
+     exclusions follow it, so a negation written one level too wide ships the package's source
+     maps (which carry its source), its type declarations and its cases files, silently. */
+  const allowed = new Set([`${NM}${dep}/package.json`, `${NM}${dep}/LICENSE`, ...modules.map((m) => `${NM}${dep}/dist/${m}`)]);
+  const extra = inModules.filter((e) => e.startsWith(`${NM}${dep}/`) && !allowed.has(e));
+  if (extra.length) {
+    fail(`the .vsix carries ${extra.length} file(s) of ${dep} the extension never loads, e.g.:\n  ${extra.slice(0, 8).join('\n  ')}\n  Only package.json, LICENSE and dist/*.js belong there — check the ! lines in .vscodeignore.`);
+  }
+  if (!entries.includes(`${NM}${dep}/LICENSE`)) fail(`the .vsix redistributes ${dep} without its LICENSE`);
+  console.log(`check-vsix ✓ ${dep}: ${modules.length} modules, package.json and LICENSE are in the .vsix, and nothing else of it`);
 }
 console.log(`check-vsix ✓ nothing else from node_modules (${inModules.length} file(s), all allowed)`);
