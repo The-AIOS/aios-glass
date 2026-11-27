@@ -1424,7 +1424,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (action === 'send' || action === 'kill' || action === 'resume') {
       const addressed = name;
       name = busTargetName(action, name, await listRunningAgents());
-      if (action === 'kill' && name.toLowerCase() !== addressed.toLowerCase()) log(`spawn-inbox: kill '${addressed}' → renamed '${name}'`);
+      if (action === 'kill' && sessionKey(name) !== sessionKey(addressed)) log(`spawn-inbox: kill '${addressed}' → renamed '${name}'`);
     }
     if (action === 'unknown') {
       releaseRequest(held, true,
