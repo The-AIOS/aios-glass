@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { identityRowsIn, choosePrimaryIdentity } from '../core/primaryIdentity';
+import { identityRowsIn, choosePrimaryIdentity } from '@the-aios/core/primaryIdentity';
 import { resolveCommandsDir, expandHome } from '../aios/commands';
 import * as vscode from 'vscode';
 

@@ -1,4 +1,4 @@
-import { freshness, parseLsRemote } from '../core/freshness';
+import { freshness, parseLsRemote } from '@the-aios/core/freshness';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';

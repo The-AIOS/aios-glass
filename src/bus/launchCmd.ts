@@ -4,7 +4,7 @@
  * pointing into the private run dir; that dir is granted with `--add-dir` (aios#231, core/addDir),
  * placed straight after the binary because the flag is variadic.
  */
-import { addDirArgs } from '../core/addDir';
+import { addDirArgs } from '@the-aios/core/addDir';
 
 /** POSIX single-quote for a command typed into a shell. */
 export function shq(s: string): string {

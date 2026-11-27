@@ -2,6 +2,9 @@
 src/**
 out/**/*.map
 node_modules/**
+!node_modules/@the-aios/core/package.json
+!node_modules/@the-aios/core/LICENSE
+!node_modules/@the-aios/core/dist/*.js
 tsconfig.json
 .gitignore
 **/*.ts

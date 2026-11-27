@@ -1,8 +1,8 @@
 /* #78 twin — the side-effecting half: when the process holding a pid started. The comparison
    itself is pure and shared with the App: src/core/procStart.ts. */
 import { execFile } from 'child_process';
-import { parseLstartUtc } from '../core/procStart';
-export { PROC_START_TOLERANCE_MS, parseLstartUtc, parseFiletime, recordedStart, sameProcessStart } from '../core/procStart';
+import { parseLstartUtc } from '@the-aios/core/procStart';
+export { PROC_START_TOLERANCE_MS, parseLstartUtc, parseFiletime, recordedStart, sameProcessStart } from '@the-aios/core/procStart';
 
 /* ── reading the actual start time (side effects; cached) ─────────────────────────────── */
 

@@ -4,7 +4,7 @@ import * as path from 'path';
 import { resolveCommandsDir } from '../aios/commands';
 import { vaultRoot } from './vault';
 import { currentAnthropicAccount } from './config';
-import { routineRows, routineNeedsAttention, type RoutineRow } from '../core/routineHealth';
+import { routineRows, routineNeedsAttention, type RoutineRow } from '@the-aios/core/routineHealth';
 
 /**
  * Health / setup card.

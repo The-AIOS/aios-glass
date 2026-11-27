@@ -6,8 +6,8 @@
  */
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { parseFrontmatter } from '../core/frontmatter';
-import { slug, migrateTask, stepText, askSessionName, FreqTask } from '../core/taskModel';
+import { parseFrontmatter } from '@the-aios/core/frontmatter';
+import { slug, migrateTask, stepText, askSessionName, FreqTask } from '@the-aios/core/taskModel';
 
 // ── frontmatter ──────────────────────────────────────────────────────────────
 
@@ -101,7 +101,7 @@ test('askSessionName: caps length without trailing dash', () => {
 
 // ── ttlMemo (discovery cache) ────────────────────────────────────────────────
 
-import { ttlMemo } from '../core/memo';
+import { ttlMemo } from '@the-aios/core/memo';
 
 test('ttlMemo: caches within TTL, recomputes after, injectable clock', () => {
   let clock = 0;

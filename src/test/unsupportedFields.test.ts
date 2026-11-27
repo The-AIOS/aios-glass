@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import { unsupportedFieldReason } from '../bus/unsupportedFields';
-import { normalizeVerb } from '../core/busVerbs';
+import { normalizeVerb } from '@the-aios/core/busVerbs';
 
 test('a spawn or resume carrying cwd is refused, naming the field and the surface that has it', () => {
   for (const req of [{ name: 'heron', cwd: '/tmp/x' }, { action: 'spawn', name: 'heron', cwd: '/tmp/x' }, { action: 'resume', name: 'heron', cwd: '' }]) {

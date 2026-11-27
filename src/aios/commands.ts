@@ -1,9 +1,9 @@
 import * as fs from 'fs';
-import { ttlMemo } from '../core/memo';
+import { ttlMemo } from '@the-aios/core/memo';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseFrontmatter } from '../core/frontmatter';
+import { parseFrontmatter } from '@the-aios/core/frontmatter';
 
 /**
  * An AIOS slash command, discovered at runtime from the framework's
@@ -134,8 +134,8 @@ function dirExists(p: string): boolean {
 
 
 // Moved to the pure core (unit-testable); re-exported for existing consumers.
-export { parseFrontmatter } from '../core/frontmatter';
-export type { Frontmatter } from '../core/frontmatter';
+export { parseFrontmatter } from '@the-aios/core/frontmatter';
+export type { Frontmatter } from '@the-aios/core/frontmatter';
 
 // 5s TTL: rapid picker/palette/refresh re-opens reuse one scan; a new file
 // still shows within seconds. See core/memo.ts.

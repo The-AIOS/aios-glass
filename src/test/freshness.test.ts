@@ -1,7 +1,7 @@
 /** Freshness — synced / BEHIND / TESTING, matching canonical's freshness-probe.sh. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseLsRemote, freshness } from '../core/freshness';
+import { parseLsRemote, freshness } from '@the-aios/core/freshness';
 
 const LS = [
   'ref: refs/heads/main\tHEAD',

@@ -13,6 +13,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 - `core/frontmatter.ts`, `core/toolUse.ts` and `core/routineHealth.ts` are byte-identical to the AIOS App's copies again (the third differed only in a comment). Step 1 of The-AIOS/aios-app#228.
+- **Glass runs the shared package, `@the-aios/core`, where it kept its own copies.** The 26 files in `src/core/` were copies of AIOS App files, held in step by digests compared across the two repositories. They are gone: Glass depends on an exact version of the package the App also runs, so a rule both surfaces follow is changed in one place. Nothing you would notice changes. The tests of those modules live in the package; Glass keeps the ones that read its own code, and the digests of the three files that are still shared as copies. The `.vsix` now carries its one runtime dependency, and CI fails if it is missing or if anything else from `node_modules` rides along. The-AIOS/aios-app#228.
 
 ## [0.5.17] — 2026-11-22
 

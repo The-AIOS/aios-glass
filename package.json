@@ -619,6 +619,9 @@
     "smoke": "node scripts/smoke.mjs",
     "test": "npm run compile && node --test out/test/*.test.js"
   },
+  "dependencies": {
+    "@the-aios/core": "0.1.0"
+  },
   "devDependencies": {
     "@types/node": "^20.x",
     "@types/vscode": "^1.85.0",

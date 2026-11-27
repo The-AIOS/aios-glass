@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { ttlMemo } from '../core/memo';
+import { ttlMemo } from '@the-aios/core/memo';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from '../home/vault';

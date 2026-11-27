@@ -16,7 +16,7 @@ import * as vscode from 'vscode';
 import {
   attentionTick, markNotified, mayBanner, normalizeNotifyLevel, sessionKey,
   EMPTY_ATTENTION, type AttentionState,
-} from '../core/attention';
+} from '@the-aios/core/attention';
 import { listOperatorSessions, type RunningAgent } from './running';
 import { t } from '../i18n';
 

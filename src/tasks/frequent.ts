@@ -6,11 +6,11 @@ import { discoverSkills } from '../capabilities/capabilities';
 import { Routine, listRoutines, runRoutine, removeRoutine, addRoutineFlow } from './routines';
 import { swallow } from '../log';
 import { stateGet, stateSet } from '../state';
-import { FreqTask, slug, migrateTask } from '../core/taskModel';
+import { FreqTask, slug, migrateTask } from '@the-aios/core/taskModel';
 import { t } from '../i18n';
 // Re-exported: routines.ts + extension.ts import these from here.
-export { slug } from '../core/taskModel';
-export type { FreqTask } from '../core/taskModel';
+export { slug } from '@the-aios/core/taskModel';
+export type { FreqTask } from '@the-aios/core/taskModel';
 
 /**
  * Frequent tasks: intent-first launchers. The operator picks *what they want

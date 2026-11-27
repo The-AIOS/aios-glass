@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { nudgeShort } from '../core/nudgeCommand';
+import { nudgeShort } from '@the-aios/core/nudgeCommand';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
 
