@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {
-  MODEL_OPTIONS, MODE_OPTIONS, TERMINAL_OPTIONS,
+  modelOptions, MODE_OPTIONS, TERMINAL_OPTIONS,
   setGlobalModel, setMode, setTerminalMode,
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
@@ -242,7 +242,7 @@ export async function openConfigMenu(): Promise<void> {
     }
     case 'model': {
       const m = await vscode.window.showQuickPick(
-        MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+        modelOptions().map((o) => ({ label: o.label, value: o.value })),
         { title: t('Default model — writes ~/.claude/settings.json') }
       );
       if (m) await setGlobalModel(m.value);
