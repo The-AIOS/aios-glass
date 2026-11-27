@@ -1443,8 +1443,10 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!last || !n) return;
     const reason = `open refused (flood): ${n} open request(s) dropped in the last minute; more than 20 a minute are not shown`;
     const dest = path.join(spawnInboxDir, `open-flood-${Date.now()}-${process.pid}.json.undelivered`);
-    try { fs.writeFileSync(dest, JSON.stringify({ ...last, _undelivered: { reason, at: Date.now(), surface: MY_SURFACE } }, null, 2), 'utf8'); } catch { /* inbox gone */ }
-    log(`spawn-inbox: left ${path.basename(dest)} on disk — ${reason}`);
+    try {
+      fs.writeFileSync(dest, JSON.stringify({ ...last, _undelivered: { reason, at: Date.now(), surface: MY_SURFACE } }, null, 2), 'utf8');
+      log(`spawn-inbox: left ${path.basename(dest)} on disk — ${reason}`);
+    } catch (e) { log(`spawn-inbox: flood notice NOT written (${e instanceof Error ? e.message : String(e)}) — ${reason}`); }
   };
   context.subscriptions.push({ dispose: flushFlood });   // written when the window closes, rather than lost
   const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {

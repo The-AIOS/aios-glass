@@ -56,6 +56,7 @@ test('a flood writes one dead letter a minute, not one per request', () => {
   assert.match(flush, /path\.join\(spawnInboxDir, `open-flood-\$\{Date\.now\(\)\}-\$\{process\.pid\}\.json\.undelivered`\)/, 'under a name of its own');
   assert.match(flush, /\$\{n\} open request\(s\) dropped in the last minute/, 'with the full count');
   assert.match(ext, /context\.subscriptions\.push\(\{ dispose: flushFlood \}\);/, 'and when the window closes');
+  assert.match(flush, /floodLast = undefined; floodDropped = 0;\s*if \(!last \|\| !n\) return;/, 'state is reset first, so a late timer after close writes nothing');
   assert.match(ext, /if \(verdict === 'skip'\) \{ firstSeen\.delete\(fsPath\); presentAtStart\.delete\(fsPath\); return; \}/, 'no first-seen entry outlives a request this window will not take');
 });
 
