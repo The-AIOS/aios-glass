@@ -29,5 +29,6 @@
   "Should Claude answer in the language you write in again?": "Να απαντά ξανά ο Claude στη γλώσσα που γράφεις;",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Το Glass είναι τώρα στα {lang}. Να απαντά και ο Claude στα {lang};",
   "Yes, match": "Ναι, ίδια",
-  "No, keep it": "Όχι, ως έχει"
+  "No, keep it": "Όχι, ως έχει",
+  "has ended; its terminal was left open (something may be running in it, or it was renamed). See the AIOS Glass log.": "έχει τερματιστεί· το τερματικό της έμεινε ανοιχτό (ίσως τρέχει κάτι σε αυτό ή μετονομάστηκε). Δείτε το αρχείο καταγραφής του AIOS Glass."
 }
