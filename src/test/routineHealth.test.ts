@@ -57,6 +57,7 @@ test('Glass shows the jobs in its Health card, with "Let Claude help" and hover-
   assert.match(css, /\.hcheck \.hdetail\{opacity:0/, 'detail hidden at rest');
   assert.match(css, /\.hcheck:hover \.hdetail/, 'shown on hover');
   assert.match(health, /never edit or delete a status file to make it look green/, 'the helper may not fake a green');
+  assert.match(health, /hooks\/pipeline\/aios-health\.py \(hooks\/aios-health\.py before v0\.8\.19\)/, 'the brief names the script where it lives now, and where it lived');
   assert.match(fs.readFileSync('src/bus/launchCmd.ts', 'utf8'), /--permission-mode default --name health-help/, 'asks before every command');
   assert.match(fs.readFileSync('src/rituals/runner.ts', 'utf8'), /healthHelpCmd\(/, 'the Health card launches through that builder');
 });
