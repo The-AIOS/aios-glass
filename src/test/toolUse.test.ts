@@ -28,6 +28,14 @@ test('it accumulates across incremental reads within a turn (a transcript is rea
   assert.deepEqual(u.skills, ['a', 'b']);
 });
 
+test('a compaction summary is not a new prompt: the chip survives it, a typed prompt does not', () => {
+  const prompt = (extra: object) => JSON.stringify({ type: 'user', message: { role: 'user', content: 'text' }, ...extra });
+  const u = usageIn([use('Skill', { skill: 'a' }), prompt({ isCompactSummary: true })].join('\n'));
+  assert.deepEqual(u.skills, ['a']);
+  const control = usageIn([use('Skill', { skill: 'a' }), prompt({})].join('\n'));
+  assert.deepEqual(control.skills, [], 'control: the same line, not flagged, clears it');
+});
+
 test('Glass rows carry the chip, escaped, under the shared parser', () => {
   const fs = require('node:fs') as typeof import('node:fs');
   const path = require('node:path') as typeof import('node:path');

@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Agent, skill and command descriptions read their quotes right.** A description written in YAML single quotes with a doubled apostrophe (`'in the user''s voice'`) showed both apostrophes in the pickers; it now reads "the user's voice", and `\"` inside double quotes reads as `"`. Ten bundled agents and one skill are written that way. Same `core/frontmatter.ts` as the AIOS App since 0.15.2.
+- **The "used" chip on a session row survives a compaction.** When a session compacts, Claude Code stores the summary as a user record; Glass took it for a new prompt and cleared the chip. It is no longer counted as one. Same `core/toolUse.ts` as the AIOS App since 0.15.0.
+- **"Let Claude help" in the Health card names the health script where it lives now** (`hooks/pipeline/aios-health.py`, and `hooks/aios-health.py` before framework v0.8.19).
+
+### Changed
+- `core/frontmatter.ts`, `core/toolUse.ts` and `core/routineHealth.ts` are byte-identical to the AIOS App's copies again (the third differed only in a comment). Step 1 of The-AIOS/aios-app#228.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.
