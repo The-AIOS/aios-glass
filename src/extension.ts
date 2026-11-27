@@ -1,7 +1,8 @@
 import { settingsToFile } from './bus/advisorFile';
 import { sweepHandoffDirs } from './bus/handoffDir';
 import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
-import { resolveSessionName, sessionKey } from './core/nameMatch';
+import { sessionKey } from './core/nameMatch';
+import { busTargetName } from './bus/busTarget';
 import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
 import { cleanFrom } from './core/contract4';
 import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
@@ -1419,11 +1420,9 @@ export function activate(context: vscode.ExtensionContext): void {
     const written = (typeof req.action === 'string' ? req.action : '').trim().toLowerCase();
     const action = normalizeVerb(req.action);
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
-    /* A request addressing a LIVE session (send, kill, resume-to-live) reaches it whatever its name's
-       case: the real registry name is used from here on (shared core/nameMatch, app#58's idea). A
-       spawn creates the name, so it is left as written. */
+    /* A request addressing a LIVE session reaches it by its real registry name (bus/busTarget). */
     if (action === 'send' || action === 'kill' || action === 'resume') {
-      name = resolveSessionName(name, (await listRunningAgents()).map((a) => a.name)) ?? name;
+      name = busTargetName(action, name, await listRunningAgents());
     }
     if (action === 'unknown') {
       releaseRequest(held, true,
