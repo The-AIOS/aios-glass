@@ -46,6 +46,7 @@ import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
+import { startInboxSweep, addresseeRunning, unclaimedReason } from './bus/inboxSweep';
 
 // The AIOS operating manual lives on the website (theme-aware reader + PDF
 // download) at the `#manual` section of the homepage — there is no standalone
@@ -1393,7 +1394,7 @@ export function activate(context: vscode.ExtensionContext): void {
            Name the second one precisely — a sibling had its chance and did not take it. */
         const why = tried.includes(myId)
           ? `handed back for a sibling over ${Math.round(TARGET_TTL_MS / 60000)} min ago and no other surface took it`
-          : `addressed to another surface, unclaimed for over ${Math.round(TARGET_TTL_MS / 60000)} min`;
+          : unclaimedReason(String(fresh.surface), ageOf(fsPath), addresseeRunning(String(fresh.surface), pidAlive));
         const h = claimRequest(fsPath);
         if (h) { releaseRequest(h, true, why); }
         return;
@@ -1614,6 +1615,12 @@ export function activate(context: vscode.ExtensionContext): void {
     } catch { /* inbox gone */ }
   }, 5 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(holdSweep) });
+  /* And the waiting `*.json` themselves, every minute (The-AIOS/aios-app#218). A request Glass
+     skips because it is addressed to another surface sends no further file event, so without this
+     nothing asks `claimVerdict` again and its `retire` is never reached. Same consume as the
+     watcher: one set of rules, one atomic rename per claim. */
+  const stopInboxSweep = startInboxSweep(spawnInboxDir, (p) => { void consumeSpawnRequest(p); });
+  context.subscriptions.push({ dispose: stopInboxSweep });
   }   // end if (!busDisabled)
 
   // Always-visible reopen button — survives moving the view to the secondary
