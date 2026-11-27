@@ -17,6 +17,9 @@ permissions:
 
 jobs:
   publish:
+    # OVSX_TOKEN lives in the `release` environment, not the repository: GitHub gives it to this job
+    # only on main or a v* tag, and only after the owner approves the run (PUBLISHING.md).
+    environment: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

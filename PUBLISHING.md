@@ -15,11 +15,13 @@ The publish is automated by [`.github/workflows/publish.yml`](.github/workflows/
    ```bash
    npx --yes ovsx create-namespace the-aios -p <YOUR_TOKEN>
    ```
-5. **Add the token as a repo secret** so the Action can publish:
+5. **Add the token as a secret of the `release` environment** (never a repository secret) so the Action can publish:
    ```bash
-   gh secret set OVSX_TOKEN --repo The-AIOS/aios-glass --body "<YOUR_TOKEN>"
+   gh secret set OVSX_TOKEN --env release --repo The-AIOS/aios-glass
    ```
-   (or GitHub → repo *Settings* → *Secrets and variables* → *Actions* → New secret `OVSX_TOKEN`.)
+   (it prompts for the value, so the token stays out of your shell history; or GitHub → repo *Settings* → *Environments* → `release` → *Add environment secret*.)
+
+   **Why an environment.** Anyone with write access can push a branch, and a workflow on that branch can read every repository secret. The `release` environment hands `OVSX_TOKEN` only to the publish job, only when it runs from `main` or a `v*` tag, and only after the owner approves the run.
 
 That's it — never repeated.
 
@@ -29,17 +31,17 @@ That's it — never repeated.
 
 1. Make your changes.
 2. **Bump the version** in `package.json` (e.g. `0.1.0` → `0.1.1`). Open VSX rejects re-publishing the same version, so this must increment.
-3. Commit, then tag + push:
+3. Land the change on `main` through a pull request (`main` accepts no direct push and needs an approving review).
+4. **The owner tags the merge commit** (only the owner can create `v*` tags):
    ```bash
-   git commit -am "feat: <what changed>"
-   git tag v0.1.1
-   git push origin main --tags
+   git tag -a v0.1.1 -m "AIOS Glass 0.1.1" <merge-commit>
+   git push origin v0.1.1
    ```
-4. The **Publish to Open VSX** Action runs → packages → publishes. Teammates auto-update.
+5. The **Publish to Open VSX** run waits for approval: open it → *Review deployments* → `release` → *Approve and deploy*. It then packages and publishes. Teammates auto-update.
 
 > The tag is just the trigger; the version that actually publishes is whatever `package.json` says — keep the tag and `package.json` version in sync.
 
-**Manual run:** Actions tab → *Publish to Open VSX* → *Run workflow* (uses the current `package.json` version). Useful for the very first publish after setup.
+**Manual run:** Actions tab → *Publish to Open VSX* → *Run workflow* from `main` (uses the current `package.json` version; other branches are refused, and the run waits for the owner's approval). Useful for the very first publish after setup.
 
 ---
 
