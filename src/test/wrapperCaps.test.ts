@@ -96,6 +96,7 @@ test('against the real installer, when a framework is at hand: the flag only whe
   const sh = fs.readFileSync(path.join(root, 'hooks', 'claude-identity', 'install-wrappers.sh'), 'utf8');
   const ps = fs.readFileSync(path.join(root, 'hooks', 'claude-identity', 'install-wrappers.ps1'), 'utf8');
   /* The installer's own source is the block it writes: does that framework's spawn take the flag? */
+  assert.ok(wrapperBlock(sh) && wrapperBlock(ps), 'the installer sources carry the managed block, so the answers below are about it');
   const has = /^\s*--inherit-model\)/m.test(sh);
   assert.equal(blockAcceptsInheritModel(wrapperBlock(sh), 'posix'), has, 'the block install-wrappers.sh writes is read as it is');
   assert.equal(blockAcceptsInheritModel(wrapperBlock(ps), 'powershell'), has, 'and the PowerShell one agrees with it');

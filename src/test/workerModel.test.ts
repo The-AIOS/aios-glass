@@ -52,14 +52,10 @@ test('tier: case is not a reason to drop a rung; a value that is not a rung name
 });
 
 /* A stand-in for the framework's script, with rung names no surface could have hardcoded. */
-function script(table: Record<string, string>, launch?: Record<string, string>): (args: string[]) => HookRun {
+function script(table: Record<string, string>): (args: string[]) => HookRun {
   const unknown = (r: string): HookRun => ({ status: 2, stdout: '', stderr: `resolve-tier: unknown rung '${r}'\nrungs: ${Object.keys(table).join(' ')}` });
   return (args) => {
     if (args[0] === '--list') return { status: 0, stdout: Object.entries(table).map(([r, m]) => `${r.padEnd(11)} ${m || '<inherit default>'}`).join('\n') + '\n', stderr: '' };
-    if (args[0] === '--launch-model') {
-      if (!launch) return unknown('--launch-model');
-      return args[1] in launch ? { status: 0, stdout: launch[args[1]] + '\n', stderr: '' } : unknown(args[1]);
-    }
     return args[0] in table ? { status: 0, stdout: table[args[0]] ? table[args[0]] + '\n' : '', stderr: '' } : unknown(args[0]);
   };
 }
