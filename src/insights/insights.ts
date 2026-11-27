@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import { nudgeShort } from '../core/nudgeCommand';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
+import { isDayClosed } from './dayClosed';
 
 /** A recent thing Claude noticed/learned — for the "What Claude's learned" card. */
 export interface Learning { title: string; date: string; source: string; file: string; line: number; }
@@ -185,7 +186,7 @@ export function nudgeState(hour: number, weekday: number, runningCount: number):
   if (!isToday) return { kind: 'plan', icon: '☀️', label: 'Plan your day', command: '/aios:today' };
   let md = '';
   try { md = fs.readFileSync(note as string, 'utf8'); } catch { return null; }
-  const isClosed = /close[\s-]?of[\s-]?day|^#{1,4}.*\bclose\b.*\bday\b/im.test(md);
+  const isClosed = isDayClosed(md);
   if (hour >= 17 && !isClosed) {
     return { kind: 'close', icon: '🌙', label: "Close the day: save what you learned before it's lost", command: '/aios:close-day' };
   }
