@@ -20,6 +20,7 @@ import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarg
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
+import { matchTerminal, parsePpidTable, type TerminalRef } from './terminalMatch';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -557,14 +558,7 @@ export async function launchKill(name: string): Promise<void> {
 function getPpidMap(): Promise<Map<number, number>> {
   return new Promise((resolve) => {
     execFile('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 }, (err, out) => {
-      const m = new Map<number, number>();
-      if (!err && out) {
-        for (const line of out.split('\n')) {
-          const mm = line.trim().match(/^(\d+)\s+(\d+)$/);
-          if (mm) m.set(Number(mm[1]), Number(mm[2]));
-        }
-      }
-      resolve(m);
+      resolve(!err && out ? parsePpidTable(out) : new Map<number, number>());
     });
   });
 }
@@ -587,23 +581,12 @@ export async function findAgentTerminal(name: string, pid?: number): Promise<vsc
     try { pid = (await listRunningAgents()).find((a) => a.name === name)?.pid; }
     catch { /* registry unreadable → fall through to the name-match below */ }
   }
-  if (pid) {
-    const ppidOf = await getPpidMap();
-    const ancestors = new Set<number>([pid]);
-    let cur = pid;
-    for (let i = 0; i < 256; i++) {
-      const pp = ppidOf.get(cur);
-      if (pp === undefined || pp === 0 || pp === 1) break;
-      ancestors.add(pp);
-      cur = pp;
-    }
-    for (const t of vscode.window.terminals) {
-      const sp = await t.processId;
-      if (sp && ancestors.has(sp)) return t;
-    }
-  }
-  // Fallback: name match in this window.
-  return vscode.window.terminals.find((t) => t.name === name || t.name.includes(name));
+  const ppidOf = pid ? await getPpidMap() : new Map<number, number>();
+  const terminals = vscode.window.terminals;
+  const refs: TerminalRef[] = [];
+  for (const t of terminals) refs.push({ name: t.name, shellPid: pid ? await t.processId : undefined });
+  const i = matchTerminal(refs, name, pid, ppidOf);
+  return i === -1 ? undefined : terminals[i];
 }
 
 export async function revealAgentTerminal(name: string, pid?: number): Promise<void> {

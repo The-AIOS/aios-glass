@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { findAgentTerminal, launchPrimary } from '../rituals/runner';
 import { listOperatorSessions } from '../agents/running';
 import { primaryName } from '../home/vault';
+import { newCloseWatch, closeWatchStep } from './closeWatch';
 import { t } from '../i18n';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -126,26 +127,18 @@ export async function closeAll(): Promise<void> {
  * leave it than risk killing mid-capture). Never disposes anything not in killTerms.
  */
 async function watchSessionsDone(allNames: string[], killTerms: Map<string, vscode.Terminal>): Promise<void> {
-  const seenBusy = new Set<string>();
+  const watch = newCloseWatch(allNames);
   const pendingKill = new Set(killTerms.keys());
-  const stillWatching = new Set(allNames);
   const deadline = Date.now() + 180_000; // 2 min ceiling
   await sleep(2000); // grace so close-session can start (the session goes busy)
 
-  while (stillWatching.size > 0 && Date.now() < deadline) {
-    let status = new Map<string, string>();
-    try { status = new Map((await listOperatorSessions()).map((a) => [a.name, a.status])); } catch { /* keep last */ }
-
-    for (const name of [...stillWatching]) {
-      const st = status.get(name);
-      if (st === 'busy') { seenBusy.add(name); continue; }
-      const gone = st === undefined;
-      const done = gone || (seenBusy.has(name) && st !== 'busy');
-      if (!done) continue;
-      stillWatching.delete(name);
-      if (pendingKill.has(name) && !gone) { pendingKill.delete(name); killTerms.get(name)?.dispose(); }
+  let sessions: Awaited<ReturnType<typeof listOperatorSessions>> = [];
+  while (watch.watching.size > 0 && Date.now() < deadline) {
+    try { sessions = await listOperatorSessions(); } catch { /* keep last */ }
+    for (const name of closeWatchStep(watch, sessions).finished) {
+      if (pendingKill.delete(name)) killTerms.get(name)?.dispose();
     }
-    if (stillWatching.size > 0) await sleep(1500);
+    if (watch.watching.size > 0) await sleep(1500);
   }
 
   if (pendingKill.size > 0) {
