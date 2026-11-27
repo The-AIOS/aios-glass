@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
+import { claudeConfigDir, claudeJsonPath } from '../agents/claudeDir';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
@@ -470,7 +471,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
  * tmp+rename, so concurrent writers can only lose a little incremental work, never corrupt it.
  */
 const resumeIndex = new ResumeIndex(
-  path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects'),   // review 18: honour CLAUDE_CONFIG_DIR
+  path.join(claudeConfigDir(), 'projects'),
   path.join(os.homedir(), '.aios', 'resume-index.json'),
 );
 export function resumeIdFor(name: string, excludeSessionId?: string): Promise<string | undefined> {
@@ -883,7 +884,7 @@ export async function launchAccountSwap(email: string): Promise<void> {
   const root = frameworkRoot();
   if (!root) { void vscode.window.showWarningMessage(t('AIOS Glass: framework path not found — cannot swap account.')); return; }
   const script = path.join(root, 'hooks', 'claude-identity', 'claude-identity.sh');
-  const claudeJson = path.join(os.homedir(), '.claude.json');
+  const claudeJson = claudeJsonPath();
   const readAccount = (): string => {
     try { return JSON.parse(fs.readFileSync(claudeJson, 'utf8'))?.oauthAccount?.emailAddress || ''; } catch { return ''; }
   };
@@ -898,7 +899,7 @@ export async function launchAccountSwap(email: string): Promise<void> {
       // TTL — exactly what the autopilot (_watch.py) does after its swaps.
       try {
         fs.writeFileSync(
-          path.join(os.homedir(), '.claude', 'swap-notification.json'),
+          path.join(claudeConfigDir(), 'swap-notification.json'),
           JSON.stringify({ from: fromEmail, to: readAccount() || email, ts: Math.floor(Date.now() / 1000), reason: 'manual (AIOS Glass)' })
         );
       } catch { /* banner is best-effort */ }

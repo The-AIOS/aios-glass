@@ -1,11 +1,11 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import type { UsageIo } from '../core/usageReader';
+import { claudeConfigDir } from '../agents/claudeDir';
 
 /** Claude Code's projects folder — honours CLAUDE_CONFIG_DIR, like Claude Code itself. */
 export function projectsDir(): string {
-  return path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects');
+  return path.join(claudeConfigDir(), 'projects');
 }
 
 /** The async file access the shared usage reader needs. Nothing here blocks the thread. */

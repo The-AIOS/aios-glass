@@ -4,6 +4,7 @@ import * as path from 'path';
 import { resolveCommandsDir } from '../aios/commands';
 import { vaultRoot } from './vault';
 import { currentAnthropicAccount } from './config';
+import { claudeConfigDir } from '../agents/claudeDir';
 import { routineRows, routineNeedsAttention, type RoutineRow } from '../core/routineHealth';
 
 /**
@@ -56,7 +57,7 @@ export function computeHealth(): HealthCheck[] {
   //    or they silently don't load. Amber if the skills dir is empty/missing.
   let skillCount = 0;
   try {
-    const skillsDir = path.join(os.homedir(), '.claude', 'skills');
+    const skillsDir = path.join(claudeConfigDir(), 'skills');
     skillCount = fs.existsSync(skillsDir) ? fs.readdirSync(skillsDir).length : 0;
   } catch { skillCount = 0; }
   checks.push(skillCount > 0
