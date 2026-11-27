@@ -4,6 +4,8 @@ import * as vscode from 'vscode';
 import { vaultRoot } from './vault';
 import { openNotesIn } from './config';
 import { t } from '../i18n';
+import { dayOpenDecision, localIso } from './dayOpen';
+import { runInPrimarySession } from '../rituals/runner';
 
 export interface DayCell {
   /** ISO date YYYY-MM-DD, or null for padding cells */
@@ -120,11 +122,11 @@ export function getMonthData(year: number, month: number): MonthData {
 }
 
 /**
- * Open the daily note for an ISO date, creating a minimal stub if missing.
+ * Open the daily note for an ISO date. It never creates one: the note is written by `/aios:today`
+ * (see home/dayOpen). Today without a note offers "Plan your day"; another day without one says so.
  * Existing notes honor the `aiosGlass.openNotesIn` setting (default: rendered
  * preview — Foam renders [[wikilinks]] there). `forceEditor` (⌘/Ctrl-click)
- * always opens the source. Freshly-created stubs always open in the editor
- * so you can start writing.
+ * always opens the source.
  */
 export async function openDailyNote(iso: string, opts: { forceEditor?: boolean; forcePreview?: boolean } = {}): Promise<void> {
   const target = dailyNotePath(iso);
@@ -132,21 +134,22 @@ export async function openDailyNote(iso: string, opts: { forceEditor?: boolean; 
     void vscode.window.showWarningMessage(t('AIOS Glass: could not resolve the vault calendar path.'));
     return;
   }
-  let created = false;
-  if (!fs.existsSync(target)) {
-    const dir = path.dirname(target);
-    fs.mkdirSync(dir, { recursive: true });
-    const heading = new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-    fs.writeFileSync(target, `# ${heading}\n\n`, 'utf8');
-    created = true;
+  const decision = dayOpenDecision(iso, fs.existsSync(target), localIso(new Date()));
+  if (decision === 'offer-plan') {
+    const plan = t('Plan your day');
+    const pick = await vscode.window.showInformationMessage(t("AIOS Glass: there is no note for today yet. Planning your day writes it."), plan);
+    if (pick === plan) await runInPrimarySession('/aios:today');
+    return;
+  }
+  if (decision === 'no-note') {
+    void vscode.window.showInformationMessage(t('AIOS Glass: there is no note for that day.'));
+    return;
   }
 
   const uri = vscode.Uri.file(target);
   const mode = opts.forcePreview
     ? 'preview'
-    : created || opts.forceEditor
+    : opts.forceEditor
     ? 'editor'
     : openNotesIn(); // shared with the Explorer — 'previewToSide' | 'editor'
 

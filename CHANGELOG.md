@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **"Open today's note" no longer creates the note.** When today had no note, the `⌘⌥G Y` chord wrote a file with one heading line. That file was enough for the "Plan your day" nudge to stop showing, and in the evening Glass asked you to close a day that was never planned. Glass now opens the note when it exists and otherwise offers **Plan your day**, which runs `/aios:today` in your primary session: the same choice the AIOS App makes. A day in the calendar is still clickable only when it has a note, so opening a day never creates one. Part of The-AIOS/aios-app#226.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.
