@@ -18,7 +18,7 @@ import {
   currentLanguage, setLanguage, GlassLang,
   openNotesIn, setOpenNotesIn, OpenNotesMode
 } from './config';
-import { canSwitchTo, rowLabel } from '../core/accounts';
+import { canSwitchTo, rowLabel } from '@the-aios/core/accounts';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 import { HomeViewProvider } from './homePanel';
 import { t } from '../i18n';

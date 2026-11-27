@@ -7,19 +7,19 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
-import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
+import { needsPointer, pointerText, byteLength, isStalePayload } from '@the-aios/core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
 import { primaryName } from '../home/vault';
 import { swallow, log } from '../log';
-import { askSessionName, identityNamesIn } from '../core/sessionName';
+import { askSessionName, identityNamesIn } from '@the-aios/core/sessionName';
 import { writeHandoffFile } from '../bus/handoffDir';   // aios#231: one private folder per handed-over file
 import { addDirFlag } from '../bus/wrapperCaps';
 import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
-import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarget';
+import { latestAgentName, pickResume, staleResumeName } from '@the-aios/core/resumeTarget';
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
-import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
+import { nameStartedBy, heldElsewhere } from '@the-aios/core/nameHolder';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via

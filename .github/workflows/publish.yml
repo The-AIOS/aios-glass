@@ -34,7 +34,12 @@ jobs:
         run: npm run compile
 
       - name: Package
-        run: npx --yes @vscode/vsce package --no-dependencies -o aios-glass.vsix
+        run: npx --yes @vscode/vsce package -o aios-glass.vsix
+
+      # Glass has one runtime dependency, @the-aios/core, and no bundler: the .vsix has to carry it,
+      # and only it. Packaged without it the extension installs and fails on its first require.
+      - name: The .vsix carries @the-aios/core, and nothing else from node_modules
+        run: node scripts/check-vsix.mjs aios-glass.vsix
 
       # Re-tagging or a manual re-run must not fail on "version already exists".
       # Query Open VSX for this package.json version; only publish if it's new.

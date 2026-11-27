@@ -1,5 +1,5 @@
-import { usageChip, type ToolUsage } from '../core/toolUse';
-import { UsageReader } from '../core/usageReader';
+import { usageChip, type ToolUsage } from '@the-aios/core/toolUse';
+import { UsageReader } from '@the-aios/core/usageReader';
 import { fsUsageIo } from './usageIo';
 import * as vscode from 'vscode';
 import { getMonthData, openDailyNote } from './calendar';

@@ -1,11 +1,11 @@
 import { settingsToFile } from './bus/advisorFile';
 import { sweepHandoffDirs } from './bus/handoffDir';
-import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from './core/supersede';
-import { resolveSessionName, sessionKey } from './core/nameMatch';
-import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from './core/sendQueue';
-import { cleanFrom } from './core/contract4';
-import { normalizeVerb as normalizeVerbQ } from './core/busVerbs';
-import { contract4Fields, contract4LaunchArgs, advisorModelFor } from './core/contract4';
+import { supersededName, supersededBody, SUPERSEDED_SUFFIX, SUPERSEDED_KEEP_MS } from '@the-aios/core/supersede';
+import { resolveSessionName, sessionKey } from '@the-aios/core/nameMatch';
+import { queueTurn, stampAge, parseClaim as parseClaimQ, withQueuedAt, queuedAtOf, isQueuedDelivery, supersedes, type QueuedSend } from '@the-aios/core/sendQueue';
+import { cleanFrom } from '@the-aios/core/contract4';
+import { normalizeVerb as normalizeVerbQ } from '@the-aios/core/busVerbs';
+import { contract4Fields, contract4LaunchArgs, advisorModelFor } from '@the-aios/core/contract4';
 import { recordTyped } from './bus/busSent';
 import { TranscriptSince } from './bus/transcriptSince';
 import { unsupportedFieldReason, appPreferredGroup } from './bus/unsupportedFields';
@@ -15,8 +15,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
 import { runRitual, launchAios, launchSkill, runRitualPicker, launchResume, launchKill, revealAgentTerminal, findAgentTerminal, disposeAgentTerminal, killGuardedDispose, closeSessionInTerminal, interruptSessionTerminal, sendToSession, spillIfLong, askAios, launchPrimary, launchSpawn, launchResumeSession, resumeIdFor, currentNameIfStale, warmResumeIndex, launchAccountSwap, launchClaude, runInPrimarySession, runInActiveClaude, terminalHasClaude } from './rituals/runner';
-import { normalizeVerb } from './core/busVerbs';
-import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
+import { normalizeVerb } from '@the-aios/core/busVerbs';
+import { parsePresenceRecord, presenceVerdict, mayRetract } from '@the-aios/core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
@@ -40,8 +40,8 @@ import { createAttentionBar } from './agents/attentionBar';
 import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HOLD_SUFFIX,
   INBOX_CONTRACT, claimVerdict, canAdoptHold, parseClaim, shouldReleaseForSibling, shouldWriteDoc,
   TIMINGS, countDeliveries, verifyVerdict, decideAfterVerifyMiss, isDeliverable, maxAttemptsFor,
-  triedBy, withTried, fulfillerId, processTreeRoot, type Surface } from './core/sendQueue';
-import { byteLength } from './core/busPayload';
+  triedBy, withTried, fulfillerId, processTreeRoot, type Surface } from '@the-aios/core/sendQueue';
+import { byteLength } from '@the-aios/core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';

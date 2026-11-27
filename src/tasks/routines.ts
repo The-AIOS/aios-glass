@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { launchInSession } from '../rituals/runner';
 import { listFrequentTasks, slug, FreqTask } from './frequent';
 import { stateGet, stateSet } from '../state';
-import { stepText } from '../core/taskModel';
+import { stepText } from '@the-aios/core/taskModel';
 import { t } from '../i18n';
 
 /**

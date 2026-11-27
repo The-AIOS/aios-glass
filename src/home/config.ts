@@ -6,9 +6,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
-import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
+import { claudeLanguageChoice, claudeLanguageSuggestion } from '@the-aios/core/claudeLanguage';
 import { effectiveLocale } from '../i18n';
-import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
+import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '@the-aios/core/accounts';
 
 /**
  * Read/write Claude Code's own global configuration. Glass surfaces these as

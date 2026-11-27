@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
-import { claudeLanguageFor, claudeLanguageSuggestion, CLAUDE_LANGUAGES } from '../core/claudeLanguage';
+import { claudeLanguageFor, claudeLanguageSuggestion, CLAUDE_LANGUAGES } from '@the-aios/core/claudeLanguage';
 
 const ROOT = path.join(__dirname, '..', '..');
 const read = (p: string): string => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -13,12 +13,6 @@ test('every shipped catalog has a Claude language; English matching means "the l
   for (const l of langs) assert.ok(CLAUDE_LANGUAGES.some((c) => c.locale === l), `${l} has no Claude language`);
   assert.equal(claudeLanguageFor('en'), null);
   assert.equal(claudeLanguageFor('fr'), 'French');
-});
-
-test('the shared module is byte-identical to the App\'s, when the App is checked out beside Glass', () => {
-  const app = path.join(ROOT, '..', 'aios-app', 'src', 'core', 'claudeLanguage.ts');
-  if (!fs.existsSync(app)) return;
-  assert.equal(read('src/core/claudeLanguage.ts'), fs.readFileSync(app, 'utf8'));
 });
 
 test('matching is suggested only when Claude does not already match', () => {

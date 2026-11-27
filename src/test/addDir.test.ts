@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs';
-import { addDirArgs, dirOfFile } from '../core/addDir';
+import { addDirArgs, dirOfFile } from '@the-aios/core/addDir';
 import { resumeCmd, healthHelpCmd } from '../bus/launchCmd';
 
 const RUN = '/Users/heron/.aios/run';

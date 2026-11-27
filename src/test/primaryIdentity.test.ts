@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
-import { identityRowsIn, choosePrimaryIdentity } from '../core/primaryIdentity';
+import { identityRowsIn, choosePrimaryIdentity } from '@the-aios/core/primaryIdentity';
 
 const USER_MD = ['## Identity', '', '| Name | Role | Greeting style |', '|---|---|---|', '| `laptop-main` | Laptop primary | Warm. |', '| `agent-box` | Agent machine | Brief. |', '', '## Settings'].join('\n');
 

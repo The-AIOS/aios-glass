@@ -66,7 +66,7 @@ test('listRunningAgents drops an entry whose procStart does not match the live p
 });
 
 test('a recorded start that disagrees with the entry\'s own startedAt is a misreading, never a reason to hide a session', async () => {
-  const { recordedStart: rs } = await import('../core/procStart');
+  const { recordedStart: rs } = await import('@the-aios/core/procStart');
   const real = Date.UTC(2026, 9, 28, 1, 33, 15);
   const ft = String((BigInt(real) + 11644473600000n) * 10000n);   // FILETIME for `real`
   assert.equal(rs({ procStartFt: ft, startedAt: real + 3000 }), real, 'a FILETIME seconds before startedAt is trusted');
