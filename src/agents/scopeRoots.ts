@@ -51,6 +51,33 @@ export function appWorkspaceFolders(frameworkRoot: string | undefined,
   return raw.filter((p): p is string => typeof p === 'string' && fs.existsSync(p) && !broad(p));
 }
 
+/** Session ids whose process descends from one of `shellPids` (walking pid → ppid). Pure. */
+export function sessionsUnder(all: readonly { pid: number; sessionId: string }[], shellPids: ReadonlySet<number>,
+  ppidOf: ReadonlyMap<number, number>): Set<string> {
+  const ids = new Set<string>();
+  if (!shellPids.size) return ids;
+  for (const a of all) {
+    let cur = a.pid;
+    for (let i = 0; i < 256 && cur > 1; i++) {
+      if (shellPids.has(cur)) { if (a.sessionId) ids.add(a.sessionId); break; }
+      const pp = ppidOf.get(cur);
+      if (pp === undefined) break;
+      cur = pp;
+    }
+  }
+  return ids;
+}
+
+/** Parse a process table into pid → ppid: `pid ppid` rows (ps) or `pid,ppid` rows (Windows). */
+export function parsePidTable(out: string): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const line of String(out).split(/\r?\n/)) {
+    const mm = line.trim().match(/^(\d+)[\s,]+(\d+)$/);
+    if (mm) m.set(Number(mm[1]), Number(mm[2]));
+  }
+  return m;
+}
+
 const realOr = (p: string): string => { try { return fs.realpathSync(p); } catch { return p; } };
 
 /** Framework root + the App's folders + this window's folders (too-broad ones dropped), as real paths, once each. */

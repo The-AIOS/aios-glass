@@ -6,8 +6,9 @@ import { frameworkRoot } from '../home/vault';
 import { busLogPath } from '../bus/busSent';
 import { identityNamesIn } from '../core/sessionName';
 import { busNamesFrom, type SessionScope } from './sessionScope';
-import { appWorkspaceFolders, scopeRoots } from './scopeRoots';
+import { appWorkspaceFolders, scopeRoots, sessionsUnder, parsePidTable } from './scopeRoots';
 import { setScopeSource, type RunningAgent } from './running';
+import { swallow } from '../log';
 
 /**
  * The operator's scope for THIS window, as the App builds its own (src/main/aios.ts sessionScope):
@@ -20,44 +21,48 @@ import { setScopeSource, type RunningAgent } from './running';
  */
 let cache: { at: number; key: string; scope: SessionScope } | undefined;
 
+/** The process table as pid → ppid: `ps` on macOS and Linux, PowerShell on Windows (no `ps` there;
+ *  the AIOS App reads Win32_Process too). Empty when it cannot be read: no tab membership then, and
+ *  the other rules still apply. */
 function ppidTable(): Promise<Map<number, number>> {
   return new Promise((resolve) => {
-    const m = new Map<number, number>();
-    if (process.platform === 'win32') { resolve(m); return; }   // no ps: no tab membership, the other rules still apply
-    execFile('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 }, (err, out) => {
-      if (!err && out) for (const line of String(out).split('\n')) {
-        const mm = line.trim().match(/^(\d+)\s+(\d+)$/);
-        if (mm) m.set(Number(mm[1]), Number(mm[2]));
+    const done = (err: Error | null, out: string | Buffer) => resolve(!err && out ? parsePidTable(String(out)) : new Map());
+    try {
+      if (process.platform === 'win32') {
+        execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+          'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId),$($_.ParentProcessId)" }'],
+          { maxBuffer: 8 * 1024 * 1024, timeout: 10000, windowsHide: true }, done);
+        return;
       }
-      resolve(m);
-    });
+      execFile('ps', ['-axo', 'pid=,ppid='], { maxBuffer: 8 * 1024 * 1024, timeout: 5000 }, done);
+    } catch { resolve(new Map()); }
   });
 }
 
 /** Session ids whose process descends from the shell of a terminal of this window. */
 async function sessionsInMyTabs(all: readonly RunningAgent[]): Promise<Set<string>> {
-  const ids = new Set<string>();
-  if (!all.length || !vscode.window.terminals.length) return ids;
+  if (!all.length || !vscode.window.terminals.length) return new Set();
   const shells = new Set((await Promise.all(vscode.window.terminals.map((t) => t.processId))).filter((p): p is number => !!p));
-  if (!shells.size) return ids;
-  const ppidOf = await ppidTable();
-  for (const a of all) {
-    let cur = a.pid;
-    for (let i = 0; i < 256 && cur > 1; i++) {
-      if (shells.has(cur)) { if (a.sessionId) ids.add(a.sessionId); break; }
-      const pp = ppidOf.get(cur);
-      if (pp === undefined) break;
-      cur = pp;
-    }
-  }
-  return ids;
+  if (!shells.size) return new Set();
+  return sessionsUnder(all, shells, await ppidTable());
 }
+
+let pending: { key: string; p: Promise<SessionScope> } | undefined;
 
 async function buildScope(all: readonly RunningAgent[]): Promise<SessionScope> {
   const fw = frameworkRoot();
   const windowFolders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
-  const key = `${fw ?? ''}|${windowFolders.join('|')}|${all.map((a) => a.pid).join(',')}|${vscode.window.terminals.length}`;
+  const shellPids = (await Promise.all(vscode.window.terminals.map((t) => t.processId))).filter((p): p is number => !!p);
+  const key = `${fw ?? ''}|${windowFolders.join('|')}|${all.map((a) => a.pid).join(',')}|${shellPids.join(',')}`;
   if (cache && cache.key === key && Date.now() - cache.at < 1500) return cache.scope;
+  // The attention bar and the Home poll can ask at the same moment: one build serves both.
+  if (pending && pending.key === key) return pending.p;
+  const p = build(all, fw, windowFolders, key).finally(() => { if (pending?.p === p) pending = undefined; });
+  pending = { key, p };
+  return p;
+}
+
+async function build(all: readonly RunningAgent[], fw: string | undefined, windowFolders: string[], key: string): Promise<SessionScope> {
   let primaries = new Set<string>();
   try { if (fw) primaries = identityNamesIn(fs.readFileSync(path.join(fw, 'USER.md'), 'utf8')); } catch { /* no USER.md */ }
   let busNames = new Set<string>();
@@ -75,5 +80,5 @@ async function buildScope(all: readonly RunningAgent[]): Promise<SessionScope> {
 
 /** Call once from activate(): from then on every list of the operator's sessions is scoped. */
 export function initOperatorScope(): void {
-  setScopeSource(buildScope);
+  setScopeSource((all) => buildScope(all).catch((e: unknown) => { swallow('operatorScope', e); throw e; }));
 }

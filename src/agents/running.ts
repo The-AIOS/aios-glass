@@ -154,6 +154,8 @@ export function setScopeSource(fn: (all: readonly RunningAgent[]) => Promise<Ses
 export async function listOperatorSessions(): Promise<RunningAgent[]> {
   const all = await listRunningAgents();
   let scope: SessionScope | undefined;
+  // A scope that cannot be built lists everything, as before: never hide a session that may need the operator.
+  // (the source logs its own failure; this module stays vscode-free)
   try { scope = scopeSource ? await scopeSource(all) : undefined; } catch { scope = undefined; }
   return operatorSessions(all, scope);
 }
