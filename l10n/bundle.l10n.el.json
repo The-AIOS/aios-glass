@@ -29,5 +29,8 @@
   "Should Claude answer in the language you write in again?": "Να απαντά ξανά ο Claude στη γλώσσα που γράφεις;",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Το Glass είναι τώρα στα {lang}. Να απαντά και ο Claude στα {lang};",
   "Yes, match": "Ναι, ίδια",
-  "No, keep it": "Όχι, ως έχει"
+  "No, keep it": "Όχι, ως έχει",
+  "AIOS Glass: there is no note for today yet. Planning your day writes it.": "AIOS Glass: δεν υπάρχει ακόμη σημείωση για σήμερα. Γράφεται όταν σχεδιάζετε τη μέρα σας.",
+  "AIOS Glass: there is no note for that day.": "AIOS Glass: αυτή η μέρα δεν έχει σημείωση.",
+  "Plan your day": "Σχεδιάστε τη μέρα σας"
 }

@@ -19,6 +19,7 @@ import { normalizeVerb } from './core/busVerbs';
 import { parsePresenceRecord, presenceVerdict, mayRetract } from './core/presence';
 import { addSessionNote, getSessionNotes, deleteSessionNote } from './agents/sessionNotes';
 import { openDailyNote } from './home/calendar';
+import { localIso } from './home/dayOpen';
 import { runFrequentTask, openFrequentMenu, listFrequentTasks } from './tasks/frequent';
 import { listRoutines, runRoutine } from './tasks/routines';
 import { runReports } from './tasks/reports';
@@ -218,9 +219,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aios.toggleHome', () => HomeViewProvider.current?.toggleHome()),
 
     vscode.commands.registerCommand('aios.openToday', async () => {
-      const d = new Date();
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      await openDailyNote(iso, { forcePreview: true });
+      await openDailyNote(localIso(new Date()), { forcePreview: true });
     }),
 
     vscode.commands.registerCommand('aios.dailyPicker', async () => {

@@ -28,5 +28,8 @@
   "Should Claude answer in the language you write in again?": "Should Claude answer in the language you write in again?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass is in {lang} now. Should Claude answer in {lang} too?",
   "Yes, match": "Yes, match",
-  "No, keep it": "No, keep it"
+  "No, keep it": "No, keep it",
+  "AIOS Glass: there is no note for today yet. Planning your day writes it.": "AIOS Glass: there is no note for today yet. Planning your day writes it.",
+  "AIOS Glass: there is no note for that day.": "AIOS Glass: there is no note for that day.",
+  "Plan your day": "Plan your day"
 }

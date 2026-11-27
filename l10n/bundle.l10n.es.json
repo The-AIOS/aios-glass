@@ -321,5 +321,8 @@
   "Should Claude answer in the language you write in again?": "¿Quieres que Claude vuelva a responder en el idioma en que escribes?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass ahora está en {lang}. ¿Quieres que Claude también responda en {lang}?",
   "Yes, match": "Sí, igualar",
-  "No, keep it": "No, dejarlo así"
+  "No, keep it": "No, dejarlo así",
+  "AIOS Glass: there is no note for today yet. Planning your day writes it.": "AIOS Glass: todavía no hay nota de hoy. Se escribe al planificar tu día.",
+  "AIOS Glass: there is no note for that day.": "AIOS Glass: ese día no tiene nota.",
+  "Plan your day": "Planificar tu día"
 }
