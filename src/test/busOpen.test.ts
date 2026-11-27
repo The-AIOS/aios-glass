@@ -64,7 +64,8 @@ test('what is shown is the checked file\'s bytes, from a read-only file system t
   assert.match(snap, /const MAX_BYTES = 256 \* 1024 \* 1024;/);
   assert.match(snap, /this\.items\.size > MAX_SNAPSHOTS \|\| \(this\.bytes > MAX_BYTES/);
   assert.match(snap, /private readonly activation = crypto\.randomBytes\(4\)/, 'a tab restored after a reload never shows a new snapshot');
-  assert.match(ext, /for \(const tab of e\.closed\) \{ const u = tabUri\(tab\); if \(u\?\.scheme === SNAPSHOT_SCHEME\) snapshots\.drop\(u\.path\); \}/, 'bytes go when the tab closes');
+  assert.match(ext, /setTimeout\(\(\) => \{ if \(!snapshotTabs\(\)\.some\(\(x\) => tabUri\(x\)\?\.path === u\.path\)\) snapshots\.drop\(u\.path\); \}, 0\);/, 'bytes go when no tab shows them any more (a move reports a close too)');
+  assert.match(snap, /const victim = \[\.\.\.this\.items\.keys\(\)\]\.find\(\(k\) => k !== key && !shown\.has\(k\)\)/, 'the bound evicts a snapshot no tab shows first');
   assert.match(ext, /void vscode\.window\.tabGroups\.close\(snapshotTabs\(\)\)/, 'restored snapshot tabs are closed at start');
   assert.doesNotMatch(runOpen, /Uri\.file\(|markdown\.showPreview/, 'never the real file, never a preview that loads what the note points at');
   assert.match(ext, /registerFileSystemProvider\(SNAPSHOT_SCHEME, snapshots, \{\s*isCaseSensitive: true,\s*isReadonly: new vscode\.MarkdownString\(t\(/);
@@ -77,7 +78,7 @@ test('what is shown is the checked file\'s bytes, from a read-only file system t
 
 test('the keyboard never moves and nothing is handed to the desktop', () => {
   assert.equal((runOpen.match(/preserveFocus: true, viewColumn \}/g) ?? []).length, 2, 'both the text and the image path keep the focus');
-  assert.match(runOpen, /const viewColumn = active && active\.document\.uri\.scheme !== SNAPSHOT_SCHEME \? vscode\.ViewColumn\.Beside : undefined;/, 'never into the editor being typed in');
+  assert.match(runOpen, /const activeTab = vscode\.window\.tabGroups\.activeTabGroup\.activeTab;\s*const viewColumn = activeTab && tabUri\(activeTab\)\?\.scheme !== SNAPSHOT_SCHEME \? vscode\.ViewColumn\.Beside : undefined;/, 'never into the group of whatever tab is in use, a webview or a terminal included');
   for (const banned of ['openExternal', 'revealFileInOS', 'env.open', 'focus()', 'workbench.action.focus']) {
     assert.ok(!runOpen.includes(banned), `runOpen must not use ${banned}`);
   }
@@ -87,7 +88,8 @@ test('"Open to edit" closes the copy and opens the real file the operator\'s own
   const cmd = between(ext, "registerCommand('aios.openSnapshotForEdit'", '\n    }),');
   assert.match(cmd, /const again = readChecked\(snap\.real, snap\.identity, \{ roots: openRoots, asBytes: snap\.asset \}\);\s*if \(!again\.ok\)/, 'the real file is checked again first');
   assert.ok(cmd.indexOf('readChecked(') < cmd.indexOf("'vscode.open'"));
-  assert.match(cmd, /await vscode\.window\.tabGroups\.close\(tab\);/, 'the snapshot tab itself is closed');
+  assert.match(cmd, /if \(tab\) await vscode\.window\.tabGroups\.close\(tab\);/, 'the snapshot tab itself is closed');
+  assert.ok(cmd.indexOf("'vscode.open'") < cmd.indexOf('tabGroups.close(tab)'), 'after the real file opens, so no column renumbers under it');
   assert.doesNotMatch(cmd, /closeActiveEditor/, 'never "the active editor": in a split view that is the operator\'s own file');
   assert.match(cmd, /executeCommand\('vscode\.open', vscode\.Uri\.file\(snap\.real\), \{ viewColumn: column \}\)/);
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));

@@ -41,8 +41,11 @@ export class SnapshotFs implements vscode.FileSystemProvider {
     const key = `/${this.activation}-${++this.seq}/${path.basename(s.real)}`;
     this.items.set(key, { ...s, at: Date.now() });
     this.bytes += s.bytes.length;
+    /* Over a bound, the oldest snapshot no tab shows goes first; only then the oldest at all. */
     while (this.items.size > MAX_SNAPSHOTS || (this.bytes > MAX_BYTES && this.items.size > 1)) {
-      this.drop(this.items.keys().next().value as string);
+      const shown = new Set(snapshotTabs().map((t) => tabUri(t)?.path));
+      const victim = [...this.items.keys()].find((k) => k !== key && !shown.has(k)) ?? (this.items.keys().next().value as string);
+      this.drop(victim);
     }
     return vscode.Uri.from({ scheme: SNAPSHOT_SCHEME, path: key });
   }

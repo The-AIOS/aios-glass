@@ -106,14 +106,24 @@ export function activate(context: vscode.ExtensionContext): void {
          for a link to a key after the snapshot was taken must not get the key opened for editing. */
       const again = readChecked(snap.real, snap.identity, { roots: openRoots, asBytes: snap.asset });
       if (!again.ok) { void vscode.window.showWarningMessage(t('The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.')); return; }
-      const tab = snapshotTabs().find((x) => tabUri(x)?.toString() === uri.toString());
+      const same = (x: vscode.Tab) => tabUri(x)?.toString() === uri.toString();
+      const tab = snapshotTabs().find((x) => same(x) && x.group === vscode.window.tabGroups.activeTabGroup) ?? snapshotTabs().find(same);
       const column = tab?.group.viewColumn;
-      if (tab) await vscode.window.tabGroups.close(tab);
+      /* Open first, then close the copy: closing the last tab of a group first would renumber the columns.
+         Between the check and this open a session racing the click could still swap the file; the API
+         opens by path, so that stays, as the spec's proportion says, outside what open decides. */
       await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(snap.real), { viewColumn: column });   // the operator's own open
+      if (tab) await vscode.window.tabGroups.close(tab);
     }),
     /* A snapshot's bytes go when its tab closes. */
     vscode.window.tabGroups.onDidChangeTabs((e) => {
-      for (const tab of e.closed) { const u = tabUri(tab); if (u?.scheme === SNAPSHOT_SCHEME) snapshots.drop(u.path); }
+      /* Only when no tab shows it any more: moving a tab to another group, splitting it or reopening it
+         with another editor also reports the source tab as closed. */
+      for (const tab of e.closed) {
+        const u = tabUri(tab);
+        if (u?.scheme !== SNAPSHOT_SCHEME) continue;
+        setTimeout(() => { if (!snapshotTabs().some((x) => tabUri(x)?.path === u.path)) snapshots.drop(u.path); }, 0);
+      }
     }),
   );
   /* Tabs VS Code restored from the last window session point at snapshots this window never had:
@@ -1455,8 +1465,10 @@ export function activate(context: vscode.ExtensionContext): void {
     const uri = snapshots.add({ real: d.path, bytes, by: d.name, identity: d.identity, asset });
     /* Never into the editor the operator is typing in: VS Code would reuse that widget, and the keys
        would land in the snapshot. Beside it, then. */
-    const active = vscode.window.activeTextEditor;
-    const viewColumn = active && active.document.uri.scheme !== SNAPSHOT_SCHEME ? vscode.ViewColumn.Beside : undefined;
+    /* From the active TAB, not the text editor: a webview, a terminal in the editor area or an image has
+       no text editor, and opening into its group would hide what the operator is using. */
+    const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+    const viewColumn = activeTab && tabUri(activeTab)?.scheme !== SNAPSHOT_SCHEME ? vscode.ViewColumn.Beside : undefined;
     try {
       if (asset) {
         /* VS Code's own image preview (an <img> under a strict policy), never an editor another
@@ -1475,6 +1487,7 @@ export function activate(context: vscode.ExtensionContext): void {
       releaseRequest(held, false);
       log(`spawn-inbox: open ${path.basename(d.path)} for '${d.name}', read only`);
     } catch (e) {
+      snapshots.drop(uri.path);
       releaseRequest(held, true, `open failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
