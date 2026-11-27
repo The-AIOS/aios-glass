@@ -323,5 +323,6 @@
   "Yes, match": "Sim, igualar",
   "No, keep it": "Não, manter",
   "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.": "Uma sessão abriu este arquivo, por isso aqui ele é somente leitura. Para escrever, use “Abrir para editar” na barra de título.",
-  "This copy is no longer available. Open the file from the explorer.": "Esta cópia não está mais disponível. Abra o arquivo pelo explorador."
+  "This copy is no longer available. Open the file from the explorer.": "Esta cópia não está mais disponível. Abra o arquivo pelo explorador.",
+  "The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.": "O arquivo mudou desde que esta cópia foi feita, por isso não foi aberto. Abra-o pelo explorador se quiser."
 }

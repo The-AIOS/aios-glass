@@ -30,5 +30,6 @@
   "Yes, match": "Oui, aligner",
   "No, keep it": "Non, garder",
   "A session opened this file, so it is read only here. To write in it, use \"Open to edit\" in the title bar.": "Une session a ouvert ce fichier : il est en lecture seule ici. Pour écrire, utilisez « Ouvrir pour modifier » dans la barre de titre.",
-  "This copy is no longer available. Open the file from the explorer.": "Cette copie n’est plus disponible. Ouvrez le fichier depuis l’explorateur."
+  "This copy is no longer available. Open the file from the explorer.": "Cette copie n’est plus disponible. Ouvrez le fichier depuis l’explorateur.",
+  "The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.": "Le fichier a changé depuis que cette copie a été prise, il n'a donc pas été ouvert. Ouvrez-le depuis l'explorateur si vous le voulez."
 }

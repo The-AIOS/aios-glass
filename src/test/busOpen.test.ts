@@ -32,9 +32,10 @@ test('the root is the framework root alone, prepared once when the bus starts, a
   const prep = between(ext, 'const prepareOpenRoots = (): void => {', '\n  };');
   assert.match(prep, /prepareRoots\(\[fw\], os\.homedir\(\)\)/);
   assert.doesNotMatch(prep, /workspace|WORKSPACE|stateGet/, 'the workspace-folder list is session-writable and is not a root');
-  assert.match(prep, /looksLikeFramework\(openRoots\[0\]\.real\)/);
+  assert.match(prep, /without vault\/ and plugins\/aios\/\); it is read when the window starts/, 'the dead letter says why, and that a reload re-reads it');
   assert.match(ext, /prepareOpenRoots\(\);   \/\/ contract 5: the root is resolved once, here/);
-  assert.match(runOpen, /if \(openOff\) \{ releaseRequest\(held, true,/);
+  assert.match(runOpen, /d\.why === 'unavailable' && openOff/, 'open off answers at check 8, after the flood and rate counting');
+  assert.doesNotMatch(runOpen.slice(0, runOpen.indexOf('decideOpen(')), /releaseRequest/, 'nothing is refused before the decision counts it');
 });
 
 test('the decision gets this window\'s own clock and counts every request but a too-old one', () => {
@@ -51,11 +52,20 @@ test('a flood writes one dead letter a minute, not one per request', () => {
   const flood = between(runOpen, "if (d.why === 'flood') {", '\n      }');
   assert.equal((flood.match(/releaseRequest\(held, true,/g) ?? []).length, 1);
   assert.match(flood, /else releaseRequest\(held, false\);/);
+  assert.match(flood, /if \(now - floodLastAt > 60_000\) floodDropped = 0;/, 'a new flood starts its own count');
+  assert.match(ext, /if \(verdict === 'skip'\) \{ firstSeen\.delete\(fsPath\); presentAtStart\.delete\(fsPath\); return; \}/, 'no first-seen entry outlives a request this window will not take');
 });
 
 test('what is shown is the checked file\'s bytes, from a read-only file system that never reloads', () => {
   assert.match(runOpen, /readChecked\(d\.path, d\.identity, \{ roots: openRoots, asBytes: asset \}\)/);
-  assert.match(runOpen, /const uri = snapshots\.add\(d\.path, bytes, d\.name\);/);
+  assert.match(runOpen, /const uri = snapshots\.add\(\{ real: d\.path, bytes, by: d\.name, identity: d\.identity, asset \}\);/);
+  assert.match(runOpen, /if \(\/\\\.pdf\$\/i\.test\(d\.path\)\) \{ releaseRequest\(held, true, 'open refused \(unreadable\)/, 'no viewer of its own for PDF: refused, never handed to another extension');
+  assert.match(runOpen, /executeCommand\('vscode\.openWith', uri, 'imagePreview\.previewEditor'/, 'images in VS Code\'s own preview only');
+  assert.match(snap, /const MAX_BYTES = 256 \* 1024 \* 1024;/);
+  assert.match(snap, /this\.items\.size > MAX_SNAPSHOTS \|\| \(this\.bytes > MAX_BYTES/);
+  assert.match(snap, /private readonly activation = crypto\.randomBytes\(4\)/, 'a tab restored after a reload never shows a new snapshot');
+  assert.match(ext, /for \(const tab of e\.closed\) \{ const u = tabUri\(tab\); if \(u\?\.scheme === SNAPSHOT_SCHEME\) snapshots\.drop\(u\.path\); \}/, 'bytes go when the tab closes');
+  assert.match(ext, /void vscode\.window\.tabGroups\.close\(snapshotTabs\(\)\)/, 'restored snapshot tabs are closed at start');
   assert.doesNotMatch(runOpen, /Uri\.file\(|markdown\.showPreview/, 'never the real file, never a preview that loads what the note points at');
   assert.match(ext, /registerFileSystemProvider\(SNAPSHOT_SCHEME, snapshots, \{\s*isCaseSensitive: true,\s*isReadonly: new vscode\.MarkdownString\(t\(/);
   for (const w of ['writeFile', 'delete', 'rename', 'createDirectory']) {
@@ -66,7 +76,8 @@ test('what is shown is the checked file\'s bytes, from a read-only file system t
 });
 
 test('the keyboard never moves and nothing is handed to the desktop', () => {
-  assert.equal((runOpen.match(/preserveFocus: true/g) ?? []).length, 2, 'both the text and the image path keep the focus');
+  assert.equal((runOpen.match(/preserveFocus: true, viewColumn \}/g) ?? []).length, 2, 'both the text and the image path keep the focus');
+  assert.match(runOpen, /const viewColumn = active && active\.document\.uri\.scheme !== SNAPSHOT_SCHEME \? vscode\.ViewColumn\.Beside : undefined;/, 'never into the editor being typed in');
   for (const banned of ['openExternal', 'revealFileInOS', 'env.open', 'focus()', 'workbench.action.focus']) {
     assert.ok(!runOpen.includes(banned), `runOpen must not use ${banned}`);
   }
@@ -74,8 +85,11 @@ test('the keyboard never moves and nothing is handed to the desktop', () => {
 
 test('"Open to edit" closes the copy and opens the real file the operator\'s own way', () => {
   const cmd = between(ext, "registerCommand('aios.openSnapshotForEdit'", '\n    }),');
-  assert.match(cmd, /snapshots\.realPathOf\(uri\)/);
-  assert.match(cmd, /executeCommand\('vscode\.open', vscode\.Uri\.file\(real\)\)/);
+  assert.match(cmd, /const again = readChecked\(snap\.real, snap\.identity, \{ roots: openRoots, asBytes: snap\.asset \}\);\s*if \(!again\.ok\)/, 'the real file is checked again first');
+  assert.ok(cmd.indexOf('readChecked(') < cmd.indexOf("'vscode.open'"));
+  assert.match(cmd, /await vscode\.window\.tabGroups\.close\(tab\);/, 'the snapshot tab itself is closed');
+  assert.doesNotMatch(cmd, /closeActiveEditor/, 'never "the active editor": in a split view that is the operator\'s own file');
+  assert.match(cmd, /executeCommand\('vscode\.open', vscode\.Uri\.file\(snap\.real\), \{ viewColumn: column \}\)/);
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const menu = pkg.contributes.menus['editor/title'].find((m: { command: string }) => m.command === 'aios.openSnapshotForEdit');
   assert.equal(menu?.when, 'resourceScheme == aios-open', 'the button shows on a snapshot only');
@@ -86,7 +100,8 @@ test('"Open to edit" closes the copy and opens the real file the operator\'s own
 
 test('the read-only notice and the gone-copy notice are translated', () => {
   const keys = ['A session opened this file, so it is read only here. To write in it, use "Open to edit" in the title bar.',
-    'This copy is no longer available. Open the file from the explorer.'];
+    'This copy is no longer available. Open the file from the explorer.',
+    'The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.'];
   for (const loc of ['es', 'fr', 'el', 'pt-br']) {
     const j = JSON.parse(fs.readFileSync(`l10n/bundle.l10n.${loc}.json`, 'utf8')) as Record<string, string>;
     for (const k of keys) assert.ok(j[k] && j[k] !== k, `${loc}: ${k.slice(0, 30)}…`);

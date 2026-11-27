@@ -46,9 +46,9 @@ import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
-import { decideOpen, readChecked, rememberDecided, prepareRoots, looksLikeFramework, type DecidedOpen, type PreparedRoot } from '@the-aios/core/openRequest';
+import { decideOpen, readChecked, rememberDecided, prepareRoots, type DecidedOpen, type PreparedRoot } from '@the-aios/core/openRequest';
 import { ASSET_EXT } from '@the-aios/core/readClass';
-import { SnapshotFs, SNAPSHOT_SCHEME } from './bus/openSnapshot';
+import { SnapshotFs, SNAPSHOT_SCHEME, tabUri, snapshotTabs } from './bus/openSnapshot';
 
 // The AIOS operating manual lives on the website (theme-aware reader + PDF
 // download) at the `#manual` section of the homepage — there is no standalone
@@ -96,13 +96,29 @@ export function activate(context: vscode.ExtensionContext): void {
       isReadonly: new vscode.MarkdownString(t('A session opened this file, so it is read only here. To write in it, use "Open to edit" in the title bar.')),
     }),
     vscode.commands.registerCommand('aios.openSnapshotForEdit', async (arg?: vscode.Uri) => {
-      const uri = arg ?? vscode.window.activeTextEditor?.document.uri;
-      const real = uri && uri.scheme === SNAPSHOT_SCHEME ? snapshots.realPathOf(uri) : undefined;
-      if (!real) { void vscode.window.showInformationMessage(t('This copy is no longer available. Open the file from the explorer.')); return; }
-      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-      await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(real));   // the operator's own open
+      /* From the title bar the snapshot's own URI arrives; from the palette, the active TAB's (an image
+         snapshot has no text editor). Close THAT tab, never "the active editor": in a split view the
+         operator's own file may be the active one. */
+      const uri = arg ?? tabUri(vscode.window.tabGroups.activeTabGroup.activeTab);
+      const snap = uri && uri.scheme === SNAPSHOT_SCHEME ? snapshots.get(uri) : undefined;
+      if (!uri || !snap) { void vscode.window.showInformationMessage(t('This copy is no longer available. Open the file from the explorer.')); return; }
+      /* The real file is checked again before it opens (spec, "Showing it"): a session that swapped it
+         for a link to a key after the snapshot was taken must not get the key opened for editing. */
+      const again = readChecked(snap.real, snap.identity, { roots: openRoots, asBytes: snap.asset });
+      if (!again.ok) { void vscode.window.showWarningMessage(t('The file changed since this copy was taken, so it was not opened. Open it from the explorer if you want it.')); return; }
+      const tab = snapshotTabs().find((x) => tabUri(x)?.toString() === uri.toString());
+      const column = tab?.group.viewColumn;
+      if (tab) await vscode.window.tabGroups.close(tab);
+      await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(snap.real), { viewColumn: column });   // the operator's own open
+    }),
+    /* A snapshot's bytes go when its tab closes. */
+    vscode.window.tabGroups.onDidChangeTabs((e) => {
+      for (const tab of e.closed) { const u = tabUri(tab); if (u?.scheme === SNAPSHOT_SCHEME) snapshots.drop(u.path); }
     }),
   );
+  /* Tabs VS Code restored from the last window session point at snapshots this window never had:
+     they are closed, never refilled with something else. */
+  void vscode.window.tabGroups.close(snapshotTabs()).then(undefined, () => undefined);
 
   /* #22 — the standing "what is waiting on you" counter, and the source of truth for #23's
      jump order. An extension does not own the Dock icon, so the App's badge becomes a
@@ -1402,39 +1418,53 @@ export function activate(context: vscode.ExtensionContext): void {
   const prepareOpenRoots = (): void => {
     const fw = frameworkRoot();
     openRoots = fw ? prepareRoots([fw], os.homedir()) : [];
-    openOff = !openRoots.length ? 'there is no usable framework root (missing, the home folder, or inside a hidden folder)'
-      : !looksLikeFramework(openRoots[0].real) ? 'the framework root does not hold vault/ and plugins/aios/' : '';
+    /* prepareRoots already drops a root that does not hold vault/ and plugins/aios/. The root stays as
+       prepared until the window reloads. */
+    openOff = !openRoots.length ? 'there is no usable framework root (missing, the home folder, inside a hidden folder, or without vault/ and plugins/aios/); it is read when the window starts' : '';
     if (openOff) log(`spawn-inbox: open is OFF: ${openOff}`);
   };
   let floodDropped = 0;
   let floodLetterAt = 0;
+  let floodLastAt = 0;
   const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {
     const now = Date.now();
-    if (openOff) { releaseRequest(held, true, `open refused (unavailable): open is off in this window: ${openOff}`); return; }
+    /* Open off: no roots, so the decision refuses at check 8, after the flood and rate counting. */
     const d = decideOpen({ body, seenAgoMs: seen.seenAgoMs, presentAtStart: seen.atStart, nowMs: now, roots: openRoots, decided: decidedOpens });
     if (d.do === 'open' || d.counted) decidedOpens = rememberDecided(decidedOpens, { name: d.do === 'open' ? d.name : (d.name ?? '?'), at: now }, now);
     if (d.do === 'refuse') {
       if (d.why === 'flood') {
         /* A flood: no dead letter per request, one a minute that says how many were dropped. */
+        if (now - floodLastAt > 60_000) floodDropped = 0;   // a new flood starts its own count
+        floodLastAt = now;
         floodDropped++;
         if (now - floodLetterAt >= 60_000) { floodLetterAt = now; releaseRequest(held, true, `open refused (flood): ${floodDropped} open request(s) dropped in the last minute; more than 20 a minute are not shown`); floodDropped = 0; }
         else releaseRequest(held, false);
         return;
       }
-      releaseRequest(held, true, `open refused (${d.why}): ${d.reason}`);
+      releaseRequest(held, true, d.why === 'unavailable' && openOff
+        ? `open refused (unavailable): open is off in this window: ${openOff}` : `open refused (${d.why}): ${d.reason}`);
       return;
     }
+    /* Glass has no viewer of its own for PDF: VS Code would hand it to whatever extension claims it,
+       with that extension's rules for scripts and launch actions. */
+    if (/\.pdf$/i.test(d.path)) { releaseRequest(held, true, 'open refused (unreadable): Glass has no viewer of its own for PDF documents'); return; }
     const asset = ASSET_EXT.test(d.path);
     const r = readChecked(d.path, d.identity, { roots: openRoots, asBytes: asset });
     if (!r.ok) { releaseRequest(held, true, `open refused (unavailable): ${r.reason}`); return; }
     const bytes = typeof r.content === 'string' ? Buffer.from(r.content, 'utf8') : r.content;
-    const uri = snapshots.add(d.path, bytes, d.name);
+    const uri = snapshots.add({ real: d.path, bytes, by: d.name, identity: d.identity, asset });
+    /* Never into the editor the operator is typing in: VS Code would reuse that widget, and the keys
+       would land in the snapshot. Beside it, then. */
+    const active = vscode.window.activeTextEditor;
+    const viewColumn = active && active.document.uri.scheme !== SNAPSHOT_SCHEME ? vscode.ViewColumn.Beside : undefined;
     try {
       if (asset) {
-        await vscode.commands.executeCommand('vscode.open', uri, { preview: false, preserveFocus: true });
+        /* VS Code's own image preview (an <img> under a strict policy), never an editor another
+           extension associates with the type. */
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'imagePreview.previewEditor', { preview: false, preserveFocus: true, viewColumn });
       } else {
         const doc = await vscode.workspace.openTextDocument(uri);
-        const ed = await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
+        const ed = await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true, viewColumn });
         if (d.line) {
           const ln = Math.min(Math.max(0, d.line - 1), Math.max(0, doc.lineCount - 1));
           const at = new vscode.Position(ln, 0);
@@ -1480,7 +1510,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const tried = triedBy(fresh);
       const myId = fulfillerId(MY_SURFACE, process.pid);
       const verdict = claimVerdict(fresh.surface, MY_SURFACE, ageOf(fsPath), TARGET_TTL_MS, tried, myId);
-      if (verdict === 'skip') { return; }             // addressed elsewhere, or already tried here
+      if (verdict === 'skip') { firstSeen.delete(fsPath); presentAtStart.delete(fsPath); return; }   // addressed elsewhere, or already tried here
       if (verdict === 'retire') {
         /* Two ways here: addressed to an absent surface, or handed back by me and left untaken.
            Name the second one precisely — a sibling had its chance and did not take it. */
@@ -1489,6 +1519,7 @@ export function activate(context: vscode.ExtensionContext): void {
           : `addressed to another surface, unclaimed for over ${Math.round(TARGET_TTL_MS / 60000)} min`;
         const h = claimRequest(fsPath);
         if (h) { releaseRequest(h, true, why); }
+        firstSeen.delete(fsPath); presentAtStart.delete(fsPath);
         return;
       }
     }
