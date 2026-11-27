@@ -50,9 +50,12 @@ test('the decision gets this window\'s own clock and counts every request but a 
 
 test('a flood writes one dead letter a minute, not one per request', () => {
   const flood = between(runOpen, "if (d.why === 'flood') {", '\n      }');
-  assert.doesNotMatch(flood, /releaseRequest\(held, true,/, 'no dead letter per request');
-  assert.match(flood, /if \(floodKept\) releaseRequest\(floodKept, false\);\s*floodKept = held;/, 'only the newest dropped request is kept');
-  assert.match(flood, /floodTimer = setTimeout\(\(\) => \{[^\n]*releaseRequest\(k, true, `open refused \(flood\): \$\{n\}/, 'one dead letter at the END of the minute, with the full count');
+  assert.doesNotMatch(flood, /releaseRequest\(held, true,/, 'no dead letter per request, and no request file becomes the notice');
+  assert.match(flood, /releaseRequest\(held, false\);\s*if \(!floodTimer\) floodTimer = setTimeout\(flushFlood, 60_000\);/, 'each goes at once; one notice at the end of the minute');
+  const flush = between(ext, 'const flushFlood = (): void => {', '\n  };');
+  assert.match(flush, /path\.join\(spawnInboxDir, `open-flood-\$\{Date\.now\(\)\}-\$\{process\.pid\}\.json\.undelivered`\)/, 'under a name of its own');
+  assert.match(flush, /\$\{n\} open request\(s\) dropped in the last minute/, 'with the full count');
+  assert.match(ext, /context\.subscriptions\.push\(\{ dispose: flushFlood \}\);/, 'and when the window closes');
   assert.match(ext, /if \(verdict === 'skip'\) \{ firstSeen\.delete\(fsPath\); presentAtStart\.delete\(fsPath\); return; \}/, 'no first-seen entry outlives a request this window will not take');
 });
 

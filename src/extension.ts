@@ -1434,8 +1434,19 @@ export function activate(context: vscode.ExtensionContext): void {
     if (openOff) log(`spawn-inbox: open is OFF: ${openOff}`);
   };
   let floodDropped = 0;
-  let floodKept: string | undefined;
+  let floodLast: Record<string, unknown> | undefined;
   let floodTimer: NodeJS.Timeout | undefined;
+  const flushFlood = (): void => {
+    if (floodTimer) { clearTimeout(floodTimer); floodTimer = undefined; }
+    const last = floodLast; const n = floodDropped;
+    floodLast = undefined; floodDropped = 0;
+    if (!last || !n) return;
+    const reason = `open refused (flood): ${n} open request(s) dropped in the last minute; more than 20 a minute are not shown`;
+    const dest = path.join(spawnInboxDir, `open-flood-${Date.now()}-${process.pid}.json.undelivered`);
+    try { fs.writeFileSync(dest, JSON.stringify({ ...last, _undelivered: { reason, at: Date.now(), surface: MY_SURFACE } }, null, 2), 'utf8'); } catch { /* inbox gone */ }
+    log(`spawn-inbox: left ${path.basename(dest)} on disk — ${reason}`);
+  };
+  context.subscriptions.push({ dispose: flushFlood });   // written when the window closes, rather than lost
   const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {
     const now = Date.now();
     /* Open off: no roots, so the decision refuses at check 8, after the flood and rate counting. */
@@ -1443,13 +1454,13 @@ export function activate(context: vscode.ExtensionContext): void {
     if (d.do === 'open' || d.counted) decidedOpens = rememberDecided(decidedOpens, { name: d.do === 'open' ? d.name : (d.name ?? '?'), at: now }, now);
     if (d.do === 'refuse') {
       if (d.why === 'flood') {
-        /* A flood: no dead letter per request. The newest dropped request is kept, held, and a minute after
-           the first drop it becomes ONE dead letter with the full count, so the number reaches the session
-           that flooded. */
+        /* A flood: each extra request goes at once, with no dead letter of its own. A minute after the first
+           drop (or when the window closes) ONE dead letter, under a name of its own (never a request's: a
+           session may reuse its file name), counts them and carries the last one's fields. */
         floodDropped++;
-        if (floodKept) releaseRequest(floodKept, false);
-        floodKept = held;
-        if (!floodTimer) floodTimer = setTimeout(() => { const k = floodKept; const n = floodDropped; floodTimer = undefined; floodKept = undefined; floodDropped = 0; if (k) releaseRequest(k, true, `open refused (flood): ${n} open request(s) dropped in the last minute; more than 20 a minute are not shown`); }, 60_000);
+        floodLast = { action: 'open', name: body.name, path: body.path };
+        releaseRequest(held, false);
+        if (!floodTimer) floodTimer = setTimeout(flushFlood, 60_000);
         return;
       }
       releaseRequest(held, true, d.why === 'unavailable' && openOff
