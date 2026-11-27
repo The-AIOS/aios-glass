@@ -8,7 +8,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents, listOperatorSessions } from '../agents/running';
 import { processStartMs } from '../agents/procStart';
-import { killPlan, noteTab, pruneLedger, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
+import { killPlan, killLeftOpen, noteTab, pruneLedger, renamedTabs, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
@@ -200,7 +200,7 @@ function runNew(cmdline: string, style?: TermStyle, session?: string): void {
     term.show();
     term.sendText(cmdline);
     // The terminal was made for this session: note it now, before the session reaches the registry.
-    if (session) { const sp = await term.processId; if (sp) rememberTab(sp, { name: session }); }
+    if (session) { const sp = await term.processId; if (sp) rememberTab(sp, { name: session, tabName: term.name }); }
   })().catch((e) => swallow('runNew', e));
 }
 
@@ -216,7 +216,7 @@ function saveTabLedger(next: TabLedger): void {
   tabLedger = next;
   void tabLedgerStore?.update(TAB_LEDGER_KEY, next);
 }
-function rememberTab(shellPid: number, note: { name: string; sessionId?: string }): void {
+function rememberTab(shellPid: number, note: { name: string; sessionId?: string; tabName?: string }): void {
   // The shell's start time goes with the note, so a pid recycled by a later shell is not this one.
   void processStartMs(shellPid)
     .then((shellStart) => saveTabLedger(noteTab(tabLedger, shellPid, { ...note, ...(shellStart !== undefined ? { shellStart } : {}) })))
@@ -265,7 +265,7 @@ export async function noteLiveSessions(agents: readonly { name: string; pid: num
     if (a.name === '(unnamed)') continue;   // no name to kill it by
     const anc = ancestorsOf(a.pid, ppidOf);
     const hit = open.find((o) => anc.has(o.shellPid));
-    if (hit) rememberTab(hit.shellPid, { name: a.name, sessionId: a.sessionId });
+    if (hit) rememberTab(hit.shellPid, { name: a.name, sessionId: a.sessionId, tabName: hit.term.name });
   }
 }
 
@@ -669,7 +669,7 @@ export async function findAgentTerminal(name: string, pid?: number): Promise<vsc
   // Found by ancestry (a table and a pid): remember which session this terminal holds, so a
   // kill that arrives after the session ended still knows which tab it left.
   const sp = refs[i].shellPid;
-  if (pid && ppidOf.size > 0 && sp) rememberTab(sp, { name });
+  if (pid && ppidOf.size > 0 && sp) rememberTab(sp, { name, tabName: terminals[i].name });
   return terminals[i];
 }
 
@@ -787,14 +787,20 @@ export async function disposeAgentTerminal(name: string, pid?: number): Promise<
   const candidates = live ? [] : open.filter((o) => tabLedger[String(o.shellPid)]?.name === name);
   const startOf = new Map(await Promise.all(candidates.map(async (o) => [o.shellPid, await processStartMs(o.shellPid)] as [number, number | undefined])));
   const left = live ? [] : tabsLeftBy(tabLedger, name, candidates.map((o) => o.shellPid), startOf);
-  const plan = killPlan({ terminalHere: false, live, left, ppidOf: left.length ? await getPpidMap() : new Map() });
+  // A fresh process-table read, taken now, just before closing: never a cached one, in which a
+  // command started a moment ago would read as an idle shell.
+  // Renamed: compared only for terminals created with a fixed name. An unnamed terminal's title is
+  // its running process ("claude", then "zsh"), so a changed title there says nothing about the operator.
+  const named = open.filter((o) => !!(o.term.creationOptions as { name?: string } | undefined)?.name);
+  const renamed = renamedTabs(tabLedger, left, new Map(named.map((o) => [o.shellPid, o.term.name] as [number, string])));
+  const plan = killPlan({ terminalHere: false, live, left, ppidOf: left.length ? await getPpidMap() : new Map(), renamed });
   if (plan.do === 'spawn-kill') {
     runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
     return { did: 'spawn-kill', closed: 0, busy: [] };
   }
   if (plan.do === 'close-left') {
     for (const sp of plan.close) open.find((o) => o.shellPid === sp)?.term.dispose();
-    return { did: 'closed-left', closed: plan.close.length, busy: plan.busy };
+    return { did: 'closed-left', closed: plan.close.length, busy: plan.busy, renamed: plan.renamed };
   }
   return { did: 'nothing', closed: 0, busy: [] };
 }
@@ -849,7 +855,7 @@ export async function killGuardedDispose(name: string, pid?: number): Promise<vo
   if (noteCount) await harvestSessionNotes(name); // harvest before either close path — never drop a reminder
   if (choice === 'capture') { await closeSessionInTerminal(name, pid); return; }
   const outcome = await disposeAgentTerminal(name, pid);
-  if (outcome.busy.length) void vscode.window.showWarningMessage(`AIOS Glass: "${name}" ${t('has ended, and its terminal was left open because something is still running in it.')}`);
+  if (killLeftOpen(outcome)) void vscode.window.showWarningMessage(`AIOS Glass: "${name}" ${t('has ended; its terminal was left open (something may be running in it, or it was renamed). See the AIOS Glass log.')}`);
 }
 
 /** Launch native Claude with a natural-language prompt — fresh terminal. */

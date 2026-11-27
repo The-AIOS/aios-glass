@@ -44,7 +44,7 @@ import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HO
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
-import { killReport } from './rituals/endedTabs';
+import { killReport, killLeftOpen } from './rituals/endedTabs';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
 
@@ -1475,7 +1475,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const report = killReport(name, outcome);
         log(`spawn-inbox: ${report}`);
         // A terminal left open because its shell is busy is a kill that did not happen: say so on disk.
-        if (outcome.busy.length) releaseRequest(held, true, report); else releaseRequest(held, false);
+        if (killLeftOpen(outcome)) releaseRequest(held, true, report); else releaseRequest(held, false);
       } else if (action === 'send') {
         const prompt = typeof req.prompt === 'string' ? req.prompt : (typeof req.task === 'string' ? req.task : '');
         if (!prompt) { releaseRequest(held, true, "missing 'prompt'"); return; }

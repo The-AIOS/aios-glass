@@ -14,7 +14,10 @@ import { sameProcessStart } from '../core/procStart';
 
 /** The last session seen in a terminal, and when that terminal's shell started (epoch ms), so a
  *  shell pid reused by a later process is not taken for the same terminal. */
-export interface TabNote { name: string; sessionId?: string; shellStart?: number; }
+export interface TabNote { name: string; sessionId?: string; shellStart?: number;
+  /** The tab's title when the session was first seen in it: a different title at kill time means
+   *  the operator renamed the tab, and a renamed tab is theirs, not the session's. */
+  tabName?: string; }
 
 /** Shell pid (as a string key) → the last session seen in that terminal. */
 export type TabLedger = Record<string, TabNote>;
@@ -30,11 +33,14 @@ export function noteTab(ledger: TabLedger, shellPid: number, note: TabNote): Tab
   const cur = ledger[key];
   const elsewhere = Object.keys(ledger).filter((k) => k !== key && ledger[k].name === note.name);
   const shellStart = note.shellStart ?? cur?.shellStart;
-  if (!elsewhere.length && cur && cur.name === note.name && (cur.sessionId ?? '') === (note.sessionId ?? cur.sessionId ?? '') && cur.shellStart === shellStart) return ledger;
+  // The first title seen for this session in this terminal is the one kept; later notes do not move it.
+  const sameSession = !!cur && cur.name === note.name;
+  const tabName = sameSession ? (cur.tabName ?? note.tabName) : note.tabName;
+  if (!elsewhere.length && cur && cur.name === note.name && (cur.sessionId ?? '') === (note.sessionId ?? cur.sessionId ?? '') && cur.shellStart === shellStart && cur.tabName === tabName) return ledger;
   const out: TabLedger = {};
   for (const k of Object.keys(ledger)) if (!elsewhere.includes(k)) out[k] = ledger[k];
   const sessionId = note.sessionId ?? (cur && cur.name === note.name ? cur.sessionId : undefined);
-  out[key] = { name: note.name, ...(sessionId ? { sessionId } : {}), ...(shellStart !== undefined ? { shellStart } : {}) };
+  out[key] = { name: note.name, ...(sessionId ? { sessionId } : {}), ...(shellStart !== undefined ? { shellStart } : {}), ...(tabName !== undefined ? { tabName } : {}) };
   return out;
 }
 
@@ -78,22 +84,33 @@ export interface KillFacts {
   live: boolean;
   /** Open terminals the ledger says this session left (tabsLeftBy). */
   left: readonly number[];
-  /** pid → ppid; empty when the process table could not be read. */
+  /** pid → ppid, read fresh for this kill; empty when the process table could not be read. */
   ppidOf: ReadonlyMap<number, number>;
+  /** Of `left`, the terminals whose title is no longer the one noted (renamedTabs). */
+  renamed?: readonly number[];
+}
+
+/** Of `left`, the terminals whose current title differs from the title noted for the session. */
+export function renamedTabs(ledger: TabLedger, left: readonly number[], titleOf: ReadonlyMap<number, string>): number[] {
+  return left.filter((p) => {
+    const noted = ledger[String(p)]?.tabName;
+    const now = titleOf.get(p);
+    return noted !== undefined && now !== undefined && noted !== now;
+  });
 }
 
 export type KillPlan =
   | { do: 'dispose' }
   | { do: 'spawn-kill' }
-  | { do: 'close-left'; close: number[]; busy: BusyTab[] }
+  | { do: 'close-left'; close: number[]; busy: BusyTab[]; renamed: number[] }
   | { do: 'nothing' };
 
 /**
  * - Its terminal is here: dispose it (closing the tab stops the shell, claude and the wrapper).
  * - Live, but not in a terminal of this window: `spawn-kill`, which finds the process by name.
  * - Not live: close the terminals it left, except any whose shell has something running, which
- *   is reported and left alone. With no process table an idle shell cannot be told from a busy
- *   one, so nothing is closed. A session that left no terminal has nothing to close: no
+ *   is reported and left alone, and any the operator renamed. With no process table an idle shell
+ *   cannot be told from a busy one, so nothing is closed. A session that left no terminal has nothing to close: no
  *   `spawn-kill` terminal is opened for it, there being no process to kill.
  */
 export function killPlan(f: KillFacts): KillPlan {
@@ -102,11 +119,13 @@ export function killPlan(f: KillFacts): KillPlan {
   if (f.left.length === 0) return { do: 'nothing' };
   const close: number[] = [];
   const busy: BusyTab[] = [];
+  const renamed = new Set(f.renamed ?? []);
   for (const shellPid of f.left) {
+    if (renamed.has(shellPid)) continue;
     const running = childrenOf(shellPid, f.ppidOf);
     if (f.ppidOf.size > 0 && running.length === 0) close.push(shellPid); else busy.push({ shellPid, running });
   }
-  return { do: 'close-left', close, busy };
+  return { do: 'close-left', close, busy, renamed: f.left.filter((p) => renamed.has(p)) };
 }
 
 /** What a kill did, for the caller to report truthfully. */
@@ -114,8 +133,16 @@ export interface KillOutcome {
   did: 'disposed' | 'spawn-kill' | 'closed-left' | 'nothing';
   /** Terminals closed. */
   closed: number;
-  /** Terminals the session left that were NOT closed because their shell is busy. */
+  /** Terminals the session left that were NOT closed because their shell is busy, or because what
+   *  runs in it could not be read (running: []). */
   busy: BusyTab[];
+  /** Terminals the session left that were NOT closed because the operator renamed them. */
+  renamed?: number[];
+}
+
+/** True when the kill left open a terminal it was meant to close: the request is not done. */
+export function killLeftOpen(o: KillOutcome): boolean {
+  return o.busy.length > 0 || (o.renamed?.length ?? 0) > 0;
 }
 
 /** The log line for a kill, one wording for every outcome. It never says "closed" when nothing closed. */
@@ -123,7 +150,12 @@ export function killReport(name: string, o: KillOutcome): string {
   if (o.did === 'disposed') return `kill '${name}': closed its terminal`;
   if (o.did === 'spawn-kill') return `kill '${name}': live, but not in a terminal of this window: ran spawn-kill`;
   if (o.did === 'nothing') return `kill '${name}': no live session and no terminal left by one: nothing to close`;
-  const kept = o.busy.map((b) => (b.running.length ? `shell ${b.shellPid} is running pid ${b.running.join(', ')}` : `shell ${b.shellPid}: the process table could not be read`)).join('; ');
-  if (o.busy.length === 0) return `kill '${name}': no live session; closed the terminal it left`;
-  return `kill '${name}': no live session; ${o.closed ? `closed ${o.closed} terminal it left, and ` : ''}left ${o.busy.length} open because something is running in it (${kept})`;
+  if (!killLeftOpen(o)) return `kill '${name}': no live session; closed the terminal it left`;
+  const running = o.busy.filter((b) => b.running.length);
+  const unread = o.busy.filter((b) => !b.running.length);
+  const why: string[] = [];
+  if (running.length) why.push(`left ${running.length} open because something is running in it (${running.map((b) => `shell ${b.shellPid} is running pid ${b.running.join(', ')}`).join('; ')})`);
+  if (unread.length) why.push(`left ${unread.length} open because what is running in it could not be read`);
+  if (o.renamed?.length) why.push(`left ${o.renamed.length} open because it was renamed`);
+  return `kill '${name}': no live session; ${o.closed ? `closed ${o.closed} terminal it left, and ` : ''}${why.join('; ')}`;
 }

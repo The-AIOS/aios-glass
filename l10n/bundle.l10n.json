@@ -29,5 +29,5 @@
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass is in {lang} now. Should Claude answer in {lang} too?",
   "Yes, match": "Yes, match",
   "No, keep it": "No, keep it",
-  "has ended, and its terminal was left open because something is still running in it.": "has ended, and its terminal was left open because something is still running in it."
+  "has ended; its terminal was left open (something may be running in it, or it was renamed). See the AIOS Glass log.": "has ended; its terminal was left open (something may be running in it, or it was renamed). See the AIOS Glass log."
 }
