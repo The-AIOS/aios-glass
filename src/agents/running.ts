@@ -34,6 +34,8 @@ export interface RunningAgent {
   /** CLAUDE_CODE_ENTRYPOINT: 'cli' | 'claude-desktop' | 'claude-vscode' | 'remote' for a person;
    *  'sdk-cli' (`claude -p`) | 'sdk-py' | 'sdk-ts' for a program. */
   entrypoint: string;
+  /** Names the session had before it was renamed (the registry's `formerNames`), newest last. */
+  formerNames?: string[];
 }
 
 /**
@@ -56,6 +58,14 @@ export async function listRunningAgents(): Promise<RunningAgent[]> {
   const keep = await Promise.all(candidates.map(async ({ agent, recorded }) =>
     recorded === undefined || sameProcessStart(recorded, await processStartMs(agent.pid))));
   return candidates.filter((_, i) => keep[i]).map((c) => c.agent);
+}
+
+/** app#65: `formerNames` as the registry writes it — strings, or `{ name }` objects; anything else ignored.
+ *  The AIOS App's reader, unchanged. */
+export function formerNamesOf(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => (typeof x === 'string' ? x : x && typeof x === 'object' && typeof (x as { name?: unknown }).name === 'string' ? (x as { name: string }).name : ''))
+    .map((s) => s.trim()).filter(Boolean);
 }
 
 function listRegistryEntries(): Promise<{ agent: RunningAgent; recorded: number | undefined }[]> {
@@ -99,6 +109,7 @@ function listRegistryEntries(): Promise<{ agent: RunningAgent; recorded: number 
           ...(Number(d?.statusUpdatedAt) > 0 ? { statusUpdatedAt: Number(d.statusUpdatedAt) } : {}),
           kind: String(d?.kind ?? '').trim() || 'interactive',
           entrypoint: String(d?.entrypoint ?? '').trim(),
+          ...(formerNamesOf(d?.formerNames).length ? { formerNames: formerNamesOf(d?.formerNames) } : {}),
         } });
       }
 
