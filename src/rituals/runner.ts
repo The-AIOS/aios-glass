@@ -20,6 +20,7 @@ import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarg
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
+import { MODEL_SHAPE } from '../core/workerModel';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -316,22 +317,24 @@ export async function runRitualPicker(): Promise<void> {
 // ── Always-new actions ────────────────────────────────────────────────────
 
 /** Spawn a named worker via the spawn wrapper (always a fresh terminal). */
-export async function launchSpawn(name: string, task?: string, opts?: { model?: string; tier?: string; bus?: boolean; effort?: string; advisorModel?: string }): Promise<void> {
+export async function launchSpawn(name: string, task?: string, opts?: { model?: string; bus?: boolean; effort?: string; advisorModel?: string }): Promise<void> {
   // Icon comes from the agent's own context (declared frontmatter `icon:`, else
   // inferred from its name/group/description) — so `lawyer` gets ⚖, `accountant`
   // a graph, etc. Builder keeps a distinct amber tab.
   const agent = discoverAgents().find((a) => a.name === name);
   const icon = iconForAgent(agent ?? { name });
   const color = name === 'aios-builder' ? 'terminal.ansiYellow' : 'terminal.ansiCyan';
-  // Optional model/tier for the spawned worker (Calibrate-Don't-Choose: mechanical
-  // work → cheaper/faster model, judgment → frontier). Whitelisted to safe tokens so
-  // an inbox request can never inject arbitrary flags into the spawn command line. A
-  // concrete --model wins over --tier (matches the shell wrapper's own precedence).
+  /* The worker's model, already decided by the caller (aios-app#230): an explicit `model`, or what
+     the framework's resolve-tier answered for the request's `tier`. There is no rung list here: a
+     closed one lived on this line, went stale each time the ladder grew, and a rung it did not
+     know started the worker on the default model in silence. No model = no flag, and the wrapper
+     starts its own default. A value outside MODEL_SHAPE never reaches the command line: it
+     throws, and the bus handler turns that into a dead letter. */
   let flag = '';
-  if (opts?.model && /^[A-Za-z0-9.\-]+$/.test(opts.model)) { flag = `--model ${opts.model} `; }
-  /* Every rung the wrapper knows. This listed only mechanical and judgment, so a request for
-     `scale`, `fast` or `frontier` was SILENTLY dropped and the worker ran on the default model. */
-  else if (opts?.tier && /^(frontier|judgment|scale|fast|mechanical)$/.test(opts.tier)) { flag = `--tier ${opts.tier} `; }
+  if (opts?.model !== undefined && opts.model !== '') {
+    if (!MODEL_SHAPE.test(opts.model)) throw new Error('model is not one a command line may carry — not spawned');
+    flag = `--model ${/^[A-Za-z0-9._-]+$/.test(opts.model) ? opts.model : shellQuote(opts.model)} `;
+  }
   /* Contract 4 through the wrapper's own flags (canonical v0.8.9): it writes the advisor settings
      to a unique file and appends the consult instruction. The advisor arrives as a MODEL ID,
      resolved from the contract's table, so the wrapper never maps `judgment` to "default". */

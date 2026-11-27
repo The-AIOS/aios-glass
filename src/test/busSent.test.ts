@@ -30,7 +30,7 @@ test('contract 4: Glass dead-letters a contract-4 field it cannot honour, naming
   const runner = fs.readFileSync(path.join(ROOT, 'src', 'rituals', 'runner.ts'), 'utf8');
   assert.match(runner, /flag \+= `--effort \$\{opts\.effort\} `;/);
   assert.match(runner, /flag \+= `--advisor \$\{shellQuote\(opts\.advisorModel\)\} `;/);
-  assert.match(runner, /\(frontier\|judgment\|scale\|fast\|mechanical\)/, 'every rung, not only mechanical/judgment');
+  assert.doesNotMatch(runner, /frontier\|judgment|judgment\|scale/, 'no rung list of its own: resolve-tier decides (aios-app#230, workerModel.test.ts)');
   assert.equal((ext.match(/await deliverSend\(name, prompt, from(, held)?\);/g) || []).length, 2, 'send and live resume both carry from');
 });
 

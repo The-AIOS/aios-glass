@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A spawn request's tier is resolved by the framework, and an unknown one is refused.** Glass kept its own list of tier names, matched with exact case. A name it did not know (`Fast`, or one the framework adds later) left the request with no model, and the worker started on the default one with nothing said. Glass now asks the framework's `resolve-tier`, as the App does, and has no list of its own: a tier that script does not know becomes a dead letter that lists the valid ones (The-AIOS/aios-app#230).
+- **A `model` the request names is passed or refused, never dropped.** One shape decides (letters, digits, dot, dash, underscore, optionally ending in `[1m]`), the same as in the App: an id ending in `[1m]` now passes, and a value outside the shape becomes a dead letter that names the field.
+
+### Changed
+- **The default-model picker lists the models the tier ladder starts,** read from the framework when the picker opens. The fixed list it replaces still named the previous model generation.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

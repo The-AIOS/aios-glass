@@ -6,6 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
+import { ladderModels } from './resolveTier';
 import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
 import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
@@ -157,14 +158,20 @@ export interface ModelOption {
   value: string;
 }
 
-/** Curated model choices (latest Claude family) + a clear-to-default option. */
-export const MODEL_OPTIONS: ModelOption[] = [
-  { label: 'Opus 4.8 — 1M context', value: 'claude-opus-4-8[1m]' },
-  { label: 'Opus 4.8', value: 'claude-opus-4-8' },
-  { label: 'Sonnet 4.6', value: 'claude-sonnet-4-6' },
-  { label: 'Haiku 4.5', value: 'claude-haiku-4-5' },
-  { label: 'Default (clear the override)', value: '' }
-];
+/**
+ * The default-model choices: the models the framework's tier ladder starts, read from
+ * `resolve-tier --list` when the picker opens, plus a clear-to-default option (aios-app#230).
+ *
+ * A curated list lived here and still named the previous model generation long after the ladder
+ * had moved on; nothing tied the two. So there is no list: the ladder is asked. A framework that
+ * cannot be asked (no script, no bash) leaves only the clear option.
+ */
+export function modelOptions(ladder: { value: string; rungs: string[] }[] = ladderModels()): ModelOption[] {
+  return [
+    ...ladder.map((m) => ({ label: `${m.value} — ${m.rungs.join(', ')}`, value: m.value })),
+    { label: 'Default (clear the override)', value: '' },
+  ];
+}
 
 export const MODE_OPTIONS = ['default', 'auto', 'acceptEdits', 'plan', 'bypassPermissions'];
 
@@ -461,8 +468,7 @@ export function currentMode(): string {
 
 /** Pretty label for a model value (falls back to the raw value). */
 export function modelLabel(value: string): string {
-  if (!value) return 'default';
-  return MODEL_OPTIONS.find((m) => m.value === value)?.label ?? value;
+  return value || 'default';
 }
 
 /**
