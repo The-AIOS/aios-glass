@@ -162,7 +162,6 @@
   "Create a task from what you typed": "Criar uma tarefa com o que você digitou",
   "Declared": "Declarado",
   "Default model — writes ~/.claude/settings.json": "Modelo padrão — escreve ~/.claude/settings.json",
-  "AIOS Glass: the framework's model list could not be read (run /aios:update). You can still clear the override.": "AIOS Glass: não foi possível ler a lista de modelos do framework (execute /aios:update). Você ainda pode remover o modelo fixado.",
   "Enhanced": "Aprimorados",
   "Explorer": "Explorador",
   "Explorer icons": "Ícones do explorador",

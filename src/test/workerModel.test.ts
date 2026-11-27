@@ -7,7 +7,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { MODEL_SHAPE, modelField, tierField, resolveTierWith, spawnModelFlag, parseLadder, ladderModelOptions, type HookRun } from '../core/workerModel';
+import { MODEL_SHAPE, modelField, tierField, resolveTierWith, spawnModelFlag, type HookRun } from '../core/workerModel';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (...p: string[]) => fs.readFileSync(path.join(ROOT, ...p), 'utf8');
@@ -78,21 +78,12 @@ test('tier: whatever the script knows resolves, whatever it does not is refused 
   }
 });
 
-test('picker: the choices are the ladder\'s models, one per id, the launcher\'s default included when the framework names it', () => {
-  const ladder = parseLadder(script(TABLE)(['--list']).stdout);
-  assert.deepEqual(ladder, [{ rung: 'top', model: 'model-top' }, { rung: 'middle' }, { rung: 'low', model: 'model-low' }, { rung: 'older', model: 'model-low' }]);
-  assert.deepEqual(ladderModelOptions(ladder, () => undefined), [{ value: 'model-top', rungs: ['top'] }, { value: 'model-low', rungs: ['low', 'older'] }]);
-  assert.deepEqual(ladderModelOptions(ladder, (r) => (r === 'middle' ? 'model-pinned[1m]' : undefined)),
-    [{ value: 'model-top', rungs: ['top'] }, { value: 'model-pinned[1m]', rungs: ['middle'] }, { value: 'model-low', rungs: ['low', 'older'] }]);
-  assert.deepEqual(ladderModelOptions(ladder, () => '$(whoami)'), [{ value: 'model-top', rungs: ['top'] }, { value: 'model-low', rungs: ['low', 'older'] }]);
-  assert.deepEqual(parseLadder('usage: nothing useful\n\n'), []);
-});
-
 test('no rung list and no model id of its own: a surface cannot disagree with resolve-tier', () => {
   /* The check the issue asks for. Glass disagreed with the script because it kept a list; the
      only way to stay in agreement is to keep none. The advisor's rungs (contract 4, core/contract4)
-     are a different, fixed table and are not the worker's tier. */
-  for (const f of [['src', 'rituals', 'runner.ts'], ['src', 'extension.ts'], ['src', 'home', 'config.ts'], ['src', 'home', 'configMenu.ts'], ['src', 'home', 'resolveTier.ts'], ['src', 'core', 'workerModel.ts']]) {
+     are a different, fixed table and are not the worker's tier. The default-model picker
+     (home/config.ts) is a list of models, not of rungs, and is not part of this. */
+  for (const f of [['src', 'rituals', 'runner.ts'], ['src', 'extension.ts'], ['src', 'home', 'resolveTier.ts'], ['src', 'core', 'workerModel.ts']]) {
     const c = code(read(...f));
     assert.match(c, /function |=> /, `${f.join('/')}: the comment stripper ate the code`);
     assert.doesNotMatch(c, /(frontier|judgment|scale|fast|mechanical)\s*\|\s*(frontier|judgment|scale|fast|mechanical)/, `${f.join('/')} holds a rung list`);
@@ -147,7 +138,6 @@ test('wiring: the bus resolves before it launches, refuses by dead letter, and t
   const lookup = read('src', 'home', 'resolveTier.ts');
   assert.match(lookup, /\['hooks\/pipeline\/resolve-tier', 'hooks\/resolve-tier'\]/);
   assert.match(lookup, /execFileSync\(bash, \[hook, \.\.\.args\]/);
-  assert.match(read('src', 'home', 'configMenu.ts'), /const options = modelOptions\(\);/, 'the picker asks the ladder when it opens');
   assert.match(ext, /const wantsModel = action === 'spawn' \|\| \(action === 'resume' && req\.fallback === 'spawn'\);/, 'a plain resume is not refused for a field it never uses');
   assert.match(ext, /const r = resolveTier\(tf\.tier\);[\s\S]{0,120}if \(mf\.model\) return \{ model: mf\.model \};/, 'a tier beside a model is still checked; the model wins after');
 });
@@ -160,7 +150,9 @@ test('against a real resolve-tier, when a framework is at hand: every listed run
     try { return { status: 0, stdout: execFileSync('bash', [hook, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), stderr: '' }; }
     catch (e) { const err = e as { status?: number; stderr?: string }; return { status: err.status || 1, stdout: '', stderr: String(err.stderr ?? '') }; }
   };
-  const ladder = parseLadder(run(['--list']).stdout);
+  /* `--list` is `<rung> <model id>` per line, `<inherit default>` for the rung the launcher pins. */
+  const ladder = run(['--list']).stdout.split(/\r?\n/).map((l) => /^\s*([a-z][a-z0-9-]{1,23})\s+(\S+)/.exec(l)).filter((m): m is RegExpExecArray => !!m)
+    .map((m) => (MODEL_SHAPE.test(m[2]) ? { rung: m[1], model: m[2] } : { rung: m[1], model: undefined }));
   assert.ok(ladder.length >= 4, 'the ladder has at least four rungs');
   for (const row of ladder) {
     assert.deepEqual(resolveTierWith(row.rung, run), row.model ? { model: row.model } : { launcherDefault: true }, `${row.rung} resolves to what --list says`);

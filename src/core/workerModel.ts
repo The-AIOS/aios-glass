@@ -99,33 +99,3 @@ export function spawnModelFlag(m: WorkerModel, inheritFlag: string): { flag: str
   if (m.launcherDefault) return { flag: '' };
   return inheritFlag ? { flag: inheritFlag } : { flag: '', fellBack: true };
 }
-
-/** One row of `resolve-tier --list`: a rung and the model id it starts (absent = the launcher's default). */
-export interface LadderRung { rung: string; model?: string }
-
-/** Parse `resolve-tier --list` (`<rung> <model id>` per line; `<inherit default>` = no id). */
-export function parseLadder(out: string): LadderRung[] {
-  const rows: LadderRung[] = [];
-  for (const line of out.split(/\r?\n/)) {
-    const m = /^\s*([a-z][a-z0-9-]{1,23})\s+(\S.*?)\s*$/.exec(line);
-    if (!m) continue;
-    rows.push(MODEL_SHAPE.test(m[2]) ? { rung: m[1], model: m[2] } : { rung: m[1] });
-  }
-  return rows;
-}
-
-/**
- * The model picker's choices, from the ladder: one per distinct model id, labelled by the rungs
- * that start it. `launcherDefault` is the id the launcher starts for a rung with no id of its own
- * (`resolve-tier --launch-model <rung>`, when the framework has it).
- */
-export function ladderModelOptions(ladder: LadderRung[], launcherDefault: (rung: string) => string | undefined): { value: string; rungs: string[] }[] {
-  const out: { value: string; rungs: string[] }[] = [];
-  for (const row of ladder) {
-    const raw = row.model ?? launcherDefault(row.rung);
-    if (!raw || !MODEL_SHAPE.test(raw)) continue;
-    const hit = out.find((o) => o.value === raw);
-    if (hit) hit.rungs.push(row.rung); else out.push({ value: raw, rungs: [row.rung] });
-  }
-  return out;
-}

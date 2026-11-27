@@ -90,11 +90,16 @@ test('Windows: -InheritModel only when EVERY profile that carries the wrapper ha
   assert.equal(inheritModelFlag('win32', home, {}, files({ [pw7]: SH_INHERIT })), '', 'a POSIX block is not a PowerShell switch');
 });
 
-test('the fixtures match canonical: the real installer carries exactly these lines (when a framework is at hand)', (t) => {
+test('against the real installer, when a framework is at hand: the flag only where it exists, today\'s command where it does not', (t) => {
   const root = process.env.AIOS_FRAMEWORK_ROOT;
-  if (!root) { t.skip('set AIOS_FRAMEWORK_ROOT to a framework checkout that has --inherit-model'); return; }
+  if (!root) { t.skip('set AIOS_FRAMEWORK_ROOT to a framework checkout to run this'); return; }
   const sh = fs.readFileSync(path.join(root, 'hooks', 'claude-identity', 'install-wrappers.sh'), 'utf8');
   const ps = fs.readFileSync(path.join(root, 'hooks', 'claude-identity', 'install-wrappers.ps1'), 'utf8');
-  assert.equal(blockAcceptsInheritModel(wrapperBlock(sh), 'posix'), true, 'the block install-wrappers.sh writes is read as supporting the flag');
-  assert.equal(blockAcceptsInheritModel(wrapperBlock(ps), 'powershell'), true, 'and the PowerShell one');
+  /* The installer's own source is the block it writes: does that framework's spawn take the flag? */
+  const has = /^\s*--inherit-model\)/m.test(sh);
+  assert.equal(blockAcceptsInheritModel(wrapperBlock(sh), 'posix'), has, 'the block install-wrappers.sh writes is read as it is');
+  assert.equal(blockAcceptsInheritModel(wrapperBlock(ps), 'powershell'), has, 'and the PowerShell one agrees with it');
+  const rc = path.posix.join('/Users/x', '.zshrc');
+  /* A framework without the flag (today's main): no flag typed, so the command is today's, and launchSpawn logs the fallback. */
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: sh })), has ? '--inherit-model ' : '');
 });

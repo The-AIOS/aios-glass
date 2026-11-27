@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {
-  modelOptions, MODE_OPTIONS, TERMINAL_OPTIONS,
+  MODEL_OPTIONS, MODE_OPTIONS, TERMINAL_OPTIONS,
   setGlobalModel, setMode, setTerminalMode,
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
@@ -241,11 +241,8 @@ export async function openConfigMenu(): Promise<void> {
       return;
     }
     case 'model': {
-      const options = modelOptions();
-      /* Only the clear option: the framework's ladder could not be read. Say so, or the picker just looks empty. */
-      if (options.length === 1) void vscode.window.showInformationMessage(t('AIOS Glass: the framework\'s model list could not be read (run /aios:update). You can still clear the override.'));
       const m = await vscode.window.showQuickPick(
-        options.map((o) => ({ label: o.label, value: o.value })),
+        MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
         { title: t('Default model — writes ~/.claude/settings.json') }
       );
       if (m) await setGlobalModel(m.value);

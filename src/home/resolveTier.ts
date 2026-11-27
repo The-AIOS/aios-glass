@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { frameworkRoot } from './vault';
 import { resolveBash } from './resolveBash';
-import { resolveTierWith, parseLadder, ladderModelOptions, type HookRun, type WorkerModel } from '../core/workerModel';
+import { resolveTierWith, type HookRun, type WorkerModel } from '../core/workerModel';
 
 /**
  * Ask the framework's `resolve-tier` (aios-app#230). THE LOOKING lives here; the deciding lives
@@ -15,7 +15,7 @@ import { resolveTierWith, parseLadder, ladderModelOptions, type HookRun, type Wo
  * check is not passed on.
  *
  * The call is synchronous and short (one small bash script; a 10 s ceiling): once per bus spawn
- * that names a tier, and twice when the model picker opens.
+ * that names a tier.
  */
 function hookRunner(): ((args: string[]) => HookRun) | { error: string } {
   const root = frameworkRoot();
@@ -44,16 +44,4 @@ export function resolveTier(tier: string): WorkerModel | { error: string } {
   const run = hookRunner();
   if (typeof run !== 'function') return { error: `cannot resolve tier '${tier}': ${run.error}` };
   return resolveTierWith(tier, run);
-}
-
-/** The models the ladder starts, for the model picker. Empty when the framework cannot be asked. */
-export function ladderModels(): { value: string; rungs: string[] }[] {
-  const run = hookRunner();
-  if (typeof run !== 'function') return [];
-  const list = run(['--list']);
-  if (list.status !== 0) return [];
-  return ladderModelOptions(parseLadder(list.stdout), (rung) => {
-    const r = run(['--launch-model', rung]);          // a framework without it exits non-zero: no row
-    return r.status === 0 ? r.stdout.trim() : undefined;
-  });
 }
