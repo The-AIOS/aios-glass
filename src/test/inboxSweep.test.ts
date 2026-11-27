@@ -187,8 +187,11 @@ test('the dead letter names the addressee and says whether it was running', () =
 });
 
 test('INVARIANT: the dispatcher sweeps the inbox with its own consume, and words the dead letter here', () => {
-  /* Read as code, not as text: a call that survives only inside a comment is not wiring. */
-  const code = fs.readFileSync('src/extension.ts', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  /* Read as code, not as text: a call that survives only inside a comment is not wiring. Only a
+     comment that STARTS a line is removed. This file holds string literals with a slash and a star
+     in them (a glob in the inbox README text), and a stripper that took those for the start of a
+     block comment would swallow a hundred lines of code up to the next star-slash. */
+  const code = fs.readFileSync('src/extension.ts', 'utf8').replace(/^[ \t]*\/\*[\s\S]*?\*\//gm, '').replace(/^[ \t]*\/\/.*$/gm, '');
   const wiring = /const stopInboxSweep = startInboxSweep\(spawnInboxDir, \(p\) => \{ void consumeSpawnRequest\(p\); \}\);/;
   assert.equal(code.split('startInboxSweep(').length - 1, 1, 'exactly one sweep is started');
   assert.match(code, wiring,
@@ -201,9 +204,13 @@ test('INVARIANT: the dispatcher sweeps the inbox with its own consume, and words
   assert.ok(off >= 0 && watcher >= 0, 'the anchors this test reads still exist in the dispatcher');
   assert.ok(at > off, 'the sweep starts after the AIOS_BUS_DISABLED switch');
   assert.ok(at > watcher, 'the sweep starts after the watcher, in the same setup');
-  const end = code.indexOf('createStatusBarItem(');
-  assert.ok(end >= 0 && at < end, 'and before that setup ends');
-  assert.match(code, /dispose: stopInboxSweep/, 'the sweep stops when the extension is deactivated');
+  /* And INSIDE the block the switch guards, not merely below its opening line: the sweep and its
+     disposal are the last statements before the brace that closes `if (!busDisabled) {`, and the
+     first code after that brace is the status bar item. Moved below the brace, the sweep would
+     run with the bus switched off, and this fails. */
+  assert.match(code,
+    /startInboxSweep\(spawnInboxDir, \(p\) => \{ void consumeSpawnRequest\(p\); \}\);\s*context\.subscriptions\.push\(\{ dispose: stopInboxSweep \}\);\s*\}[ \t]*(?:\/\/[^\n]*)?\s*const statusItem = vscode\.window\.createStatusBarItem\(/,
+    'the sweep is started and disposed inside the bus block, as its last statements');
   assert.match(code, /unclaimedReason\(String\(fresh\.surface\), ageOf\(fsPath\), addresseeRunning\(String\(fresh\.surface\), pidAlive\)\)/,
     'a request its addressee never took is retired with the reason that names the addressee and says whether it was running');
 });
