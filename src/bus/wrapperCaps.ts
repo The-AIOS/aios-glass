@@ -68,3 +68,29 @@ export function addDirFlag(dir: string, platform: NodeJS.Platform, home: string,
   if (!blocks.every((b) => blockAcceptsAddDir(b, shell))) return '';
   return shell === 'powershell' ? `-AddDir '${dir}' ` : `--add-dir '${dir}' `;
 }
+
+/**
+ * Does this block's `spawn` start a session with NO model flag when asked? (aios-app#230.)
+ * Canonical's wrapper always passes `--model` (its pin) unless told `spawn --inherit-model`
+ * (zsh/bash) or `spawn -InheritModel` (PowerShell). Same rule as the folder grant: an older
+ * wrapper takes the unknown flag as the worker's name, so it is typed only when the wrapper the
+ * shell will run has it.
+ */
+export function blockAcceptsInheritModel(block: string | undefined, shell: 'posix' | 'powershell'): boolean {
+  if (!block) return false;
+  return shell === 'posix' ? /^\s*--inherit-model\)/m.test(block) : /\[switch\]\s*\$InheritModel\b/.test(block);
+}
+
+/**
+ * The flag that makes a typed `spawn` start on the operator's saved model, or '' when the installed
+ * wrapper cannot take it (then the worker starts on the wrapper's pin, as before). On Windows every
+ * profile that carries the wrapper must support it, as for the folder grant.
+ */
+export function inheritModelFlag(platform: NodeJS.Platform, home: string,
+  env: Record<string, string | undefined>, read: (f: string) => string | undefined): string {
+  const blocks = wrapperStartupFiles(platform, home, env).map((f) => wrapperBlock(read(f))).filter((b): b is string => !!b);
+  if (!blocks.length) return '';
+  const shell = platform === 'win32' ? 'powershell' : 'posix';
+  if (!blocks.every((b) => blockAcceptsInheritModel(b, shell))) return '';
+  return shell === 'powershell' ? '-InheritModel ' : '--inherit-model ';
+}

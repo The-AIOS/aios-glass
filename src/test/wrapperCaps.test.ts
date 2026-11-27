@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { addDirFlag, blockAcceptsAddDir, wrapperBlock, wrapperStartupFiles } from '../bus/wrapperCaps';
+import { addDirFlag, blockAcceptsAddDir, blockAcceptsInheritModel, inheritModelFlag, wrapperBlock, wrapperStartupFiles } from '../bus/wrapperCaps';
 
 const wrap = (body: string, by = 'install-wrappers.sh') =>
   `export PATH=x\n# ==== claude-spawn-wrappers (managed by hooks/claude-identity/${by}) ====\n${body}\n# ==== END claude-spawn-wrappers ====\n`;
@@ -62,4 +62,45 @@ test('the banner counts only at the start of a line — the installer also names
   const noisy = '#   1. Banner block: `# ==== claude-spawn-wrappers …` through `# ==== END claude-spawn-wrappers`\n'
     + '  /^# ==== END claude-spawn-wrappers/ { next }\n' + SH_813;
   assert.equal(blockAcceptsAddDir(wrapperBlock(noisy), 'posix'), true);
+});
+
+/* aios-app#230: the wrapper starts with no model flag only when told, and only a wrapper that has
+   the flag may be told. Fixtures quote the real lines of canonical's installed block. */
+const SH_INHERIT = wrap(`spawn() {\n  while [ $# -gt 0 ]; do case "$1" in\n      --model=*)   model="\${1#*=}"; shift ;;\n      --inherit-model) inherit_model=1; shift ;;\n      --add-dir)   add_dirs="$2"; shift 2 ;;\n  esac; done\n}`);
+const SH_NO_INHERIT = wrap(`spawn() {\n  # a later wrapper takes --inherit-model) here\n  while [ $# -gt 0 ]; do case "$1" in\n      --model=*)   model="\${1#*=}"; shift ;;\n  esac; done\n  echo "see --inherit-model) in the docs"\n}`);
+const PS_INHERIT = wrap(`function spawn {\n    param(\n        [Parameter(Position=0)] [string] $Name,\n        [string] $Model,\n        [switch] $InheritModel,\n        [string[]] $AddDir\n    )\n}`, 'install-wrappers.ps1');
+
+test('a wrapper with the flag is told to start with no model; an older one is not', () => {
+  const rc = path.posix.join('/Users/x', '.zshrc');
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: SH_INHERIT })), '--inherit-model ');
+  assert.equal(inheritModelFlag('linux', '/home/x', { SHELL: '/bin/bash' }, files({ [path.posix.join('/home/x', '.bashrc')]: SH_INHERIT })), '--inherit-model ');
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: SH_813 })), '', 'CONTROL: a wrapper from before the flag');
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: SH_NO_INHERIT })), '', 'CONTROL: the flag named in a comment or a string is not support');
+  assert.equal(blockAcceptsInheritModel(wrapperBlock(SH_NO_INHERIT), 'posix'), false);
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({})), '', 'no startup file → no flag');
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: 'export PATH=x\n' })), '', 'no wrapper block → no flag');
+});
+
+test('Windows: -InheritModel only when EVERY profile that carries the wrapper has it', () => {
+  const home = 'C:\\Users\\x';
+  const [pw7, ps51] = wrapperStartupFiles('win32', home, {});
+  assert.equal(inheritModelFlag('win32', home, {}, files({ [pw7]: PS_INHERIT, [ps51]: PS_INHERIT })), '-InheritModel ');
+  assert.equal(inheritModelFlag('win32', home, {}, files({ [pw7]: PS_INHERIT })), '-InheritModel ', 'a profile without the wrapper does not count');
+  assert.equal(inheritModelFlag('win32', home, {}, files({ [pw7]: PS_INHERIT, [ps51]: PS_813 })), '', 'one old edition → no flag');
+  assert.equal(inheritModelFlag('win32', home, {}, files({ [pw7]: SH_INHERIT })), '', 'a POSIX block is not a PowerShell switch');
+});
+
+test('against the real installer, when a framework is at hand: the flag only where it exists, today\'s command where it does not', (t) => {
+  const root = process.env.AIOS_FRAMEWORK_ROOT;
+  if (!root) { t.skip('set AIOS_FRAMEWORK_ROOT to a framework checkout to run this'); return; }
+  const sh = fs.readFileSync(path.join(root, 'hooks', 'claude-identity', 'install-wrappers.sh'), 'utf8');
+  const ps = fs.readFileSync(path.join(root, 'hooks', 'claude-identity', 'install-wrappers.ps1'), 'utf8');
+  /* The installer's own source is the block it writes: does that framework's spawn take the flag? */
+  assert.ok(wrapperBlock(sh) && wrapperBlock(ps), 'the installer sources carry the managed block, so the answers below are about it');
+  const has = /^\s*--inherit-model\)/m.test(sh);
+  assert.equal(blockAcceptsInheritModel(wrapperBlock(sh), 'posix'), has, 'the block install-wrappers.sh writes is read as it is');
+  assert.equal(blockAcceptsInheritModel(wrapperBlock(ps), 'powershell'), has, 'and the PowerShell one agrees with it');
+  const rc = path.posix.join('/Users/x', '.zshrc');
+  /* A framework without the flag (today's main): no flag typed, so the command is today's, and launchSpawn logs the fallback. */
+  assert.equal(inheritModelFlag('darwin', '/Users/x', { SHELL: '/bin/zsh' }, files({ [rc]: sh })), has ? '--inherit-model ' : '');
 });

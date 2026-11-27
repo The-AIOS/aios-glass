@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A spawn request's tier is resolved by the framework, and an unknown one is refused.** Glass kept its own list of tier names, matched with exact case. A name it did not know (`Fast`, or one the framework adds later) left the request with no model, and the worker started on the default one with nothing said. Glass now asks the framework's `resolve-tier`, as the App does, and has no list of its own: a tier that script does not know becomes a dead letter that lists the valid ones (The-AIOS/aios-app#230). A request that names a tier is also refused, with the reason, when the script cannot be asked at all: a framework that does not have it yet (run `/aios:update`), or no bash for the editor to run it with (Windows: Git for Windows). Such a request used to be passed to the `spawn` wrapper unchecked.
+- **A `model` the request names is passed or refused, never dropped.** One shape decides (letters, digits, dot, dash, underscore, optionally ending in `[1m]`), the same as in the App: an id ending in `[1m]` now passes, and a value outside the shape becomes a dead letter that names the field.
+
+### Changed
+- **A session started with no model asked for runs on your own default model, as in the App.** Glass starts sessions through the framework's `spawn`, which pins its own model (Opus with the 1M context) unless a tier or a model is given. So a spawn request with no `tier` and no `model`, and every session started from Glass's own buttons (a new agent, go with agents, onboarding, the builder), ran that pinned model, while the App started the same thing on your default model, the one a plain `claude` starts. Glass now tells `spawn` to start with no model (`--inherit-model`), so both surfaces start the same. If you export `CLAUDE_MODEL` in your shell to choose what `spawn` starts, it no longer applies to these sessions: a plain `claude` does not read it; set your default model instead, or ask for a `tier` or a `model`. `"tier":"judgment"` still starts the pinned model. This needs a framework whose `spawn` knows the flag (`/aios:update`, then a new terminal): Glass reads the installed wrapper, and with an older one it starts the pinned model as before and says so in its log. A `spawn` you type in a terminal is not changed.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

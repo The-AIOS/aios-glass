@@ -45,6 +45,8 @@ import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
 import { frameworkRoot } from './home/vault';
+import { modelField, tierField, type WorkerModel } from './core/workerModel';
+import { resolveTier } from './home/resolveTier';
 import { initI18n, t } from './i18n';
 
 // The AIOS operating manual lives on the website (theme-aware reader + PDF
@@ -1438,6 +1440,30 @@ export function activate(context: vscode.ExtensionContext): void {
       releaseRequest(held, true, `${c4.field} '${c4.value}' is not valid — ${c4.field === 'effort' ? 'use one of low, medium, high, xhigh, max' : 'use a rung or a model id'}`);
       return;
     }
+    /* The worker's model (aios-app#230), decided before anything launches. `model` and `tier` say
+       what a NEW session runs on, so they are read where one can start: a spawn, and a resume that
+       asked for "fallback":"spawn". A plain resume starts nothing new, so the fields mean nothing
+       to it and are no reason to refuse it. A value that cannot be used is dead-lettered naming
+       the field; a rung is resolved by the framework's resolve-tier, lazily, only on the path
+       that launches. */
+    const wantsModel = action === 'spawn' || (action === 'resume' && req.fallback === 'spawn');
+    const mf = wantsModel ? modelField(req.model) : {};
+    const tf = wantsModel ? tierField(req.tier) : {};
+    const badField = mf.fieldError ?? tf.fieldError;
+    if (badField) { releaseRequest(held, true, badField.reason); return; }
+    /** An explicit model wins over the tier, as in the wrapper. Neither written = nothing asked for:
+     *  launchSpawn then starts the operator's saved model, as the App does. `false` = refused, already dead-lettered. */
+    const workerModel = (): WorkerModel | false => {
+      if (!tf.tier) return { model: mf.model };
+      /* A written tier is always put to the script, even beside a model that wins over it: the
+         wrapper refuses an unknown --tier before it looks at --model, and a rung nobody checked is
+         a rung dropped in silence. */
+      const r = resolveTier(tf.tier);
+      if ('error' in r) { releaseRequest(held, true, r.error); return false; }
+      if (mf.model) return { model: mf.model };
+      log(`spawn-inbox: '${name}' tier ${tf.tier} → ${r.model ?? "the wrapper's pinned model"}`);
+      return r;
+    };
     /* A field only the App implements (cwd, App PR #77) is refused, never ignored: ignoring it
        opened the session in the framework root — silently the wrong folder. */
     const unsupported = unsupportedFieldReason(req as Record<string, unknown>, action);
@@ -1541,19 +1567,14 @@ export function activate(context: vscode.ExtensionContext): void {
             + 'Pass "fallback":"spawn" to start a fresh one instead.');
           return;
         }
+        const wm = workerModel();
+        if (!wm) return;
         log(`spawn-inbox: resume '${name}' — no transcript; falling back to spawn as asked`);
-        await launchSpawn(name, prompt, {
-          model: typeof req.model === 'string' ? req.model : undefined,
-          tier: typeof req.tier === 'string' ? req.tier : undefined,
-          bus: true, ...c4Launch,
-        });
+        await launchSpawn(name, prompt, { model: wm.model, launcherDefault: wm.launcherDefault, bus: true, ...c4Launch });
         releaseRequest(held, false);
       } else {
-        // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose);
-        // launchSpawn whitelists them before they touch the command line.
+        // default: spawn. Optional model/tier — pick by cognitive load (Calibrate-Don't-Choose).
         const task = typeof req.task === 'string' ? req.task : '';
-        const model = typeof req.model === 'string' ? req.model : undefined;
-        const tier = typeof req.tier === 'string' ? req.tier : undefined;
         // Collision guard: reveal a live same-name session rather than duplicate it.
         const live = (await listRunningAgents()).find((a) => a.name === name);
         if (live) {
@@ -1561,8 +1582,10 @@ export function activate(context: vscode.ExtensionContext): void {
           log(`spawn-inbox: '${name}' already running — revealed`);
           releaseRequest(held, false); return;
         }
-        log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${model ? ` [model ${model}]` : tier ? ` [tier ${tier}]` : ''}`);
-        await launchSpawn(name, task, { model, tier, bus: true, ...c4Launch });
+        const wm = workerModel();
+        if (!wm) return;
+        log(`spawn-inbox: spawning '${name}'${task ? ' with task' : ''}${wm.model ? ` [model ${wm.model}]` : ''}`);
+        await launchSpawn(name, task, { model: wm.model, launcherDefault: wm.launcherDefault, bus: true, ...c4Launch });
         releaseRequest(held, false);
       }
     } catch (e) {
