@@ -18,6 +18,6 @@ Please include:
 ## Scope notes
 
 - Glass is a **glass layer** — it launches your local Claude CLI and reads your AIOS at runtime. It stores no credentials of its own; account/auth state lives in Claude Code's own files.
-- The publishing token (`OVSX_TOKEN`) lives only as a GitHub Actions secret and is never committed.
+- The publishing token (`OVSX_TOKEN`) lives only as a secret of the `release` environment, handed to the publish job on `main` or a `v*` tag after the owner approves the run, and is never committed.
 
 We'll acknowledge a valid report and coordinate a fix and disclosure timeline with you.
