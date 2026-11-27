@@ -1,5 +1,6 @@
 import { ResumeIndex } from '../agents/resumeIndex';
 import { resolveBash } from '../home/resolveBash';
+import { accountsChanged } from '../home/config';
 import * as vscode from 'vscode';
 import { AiosCommand, discoverCommands, expandHome, resolveCommandsDir } from '../aios/commands';
 import * as path from 'path';
@@ -903,6 +904,7 @@ export async function launchAccountSwap(email: string): Promise<void> {
         );
       } catch { /* banner is best-effort */ }
       vscode.window.setStatusBarMessage(`$(arrow-swap) Swapped to ${email}`, 5000);
+      accountsChanged();   // the cached answer still names the old seat as active
       resolve();
     });
   });

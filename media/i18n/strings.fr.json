@@ -58,6 +58,7 @@
   "running.toggle.title": "Afficher / masquer vos sessions Claude actives",
   "running.terms.toggle.title": "Afficher / masquer les terminaux ouverts",
   "running.quotaWarn.title": "Passer à votre autre compte : silencieusement, sur place (la ligne d’état l’indique)",
+  "running.quotaWarn.paused": "rotation en pause jusqu’à {time}",
   "card.workspaces.title": "Espaces",
   "workspaces.browseFiles": "📁 Parcourir les fichiers",
   "workspaces.browseFiles.k": "vue Finder",

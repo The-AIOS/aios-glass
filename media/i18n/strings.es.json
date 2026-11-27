@@ -58,6 +58,7 @@
   "running.toggle.title": "Mostrar / ocultar tus sesiones activas de Claude",
   "running.terms.toggle.title": "Mostrar / ocultar las terminales abiertas",
   "running.quotaWarn.title": "Cambia a tu otra cuenta — silencioso, en el lugar (la barra de estado lo muestra)",
+  "running.quotaWarn.paused": "rotación en pausa hasta las {time}",
   "card.workspaces.title": "Espacios de trabajo",
   "workspaces.browseFiles": "📁 Explorar archivos",
   "workspaces.browseFiles.k": "vista finder",

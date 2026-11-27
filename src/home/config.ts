@@ -9,6 +9,7 @@ import { frameworkRoot } from './vault';
 import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
 import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
+import { readSwapRule, type SwapRule } from './swapRule';
 
 /**
  * Read/write Claude Code's own global configuration. Glass surfaces these as
@@ -81,7 +82,7 @@ export function rateLimit(): RateLimit | undefined {
 // and a Python, and the Home panel asks on a 2s poll, so the panel reads the last answer and
 // ACCOUNTS_MAX_AGE_MS decides when to ask again, in the background.
 const ACCOUNTS_MAX_AGE_MS = 60_000;
-let accountsCache: { rows: AccountRow[]; error: string; at: number } = { rows: [], error: '', at: 0 };
+let accountsCache: { rows: AccountRow[]; error: string; at: number; rule: SwapRule | null } = { rows: [], error: '', at: 0, rule: null };
 let accountsAsking: Promise<void> | undefined;
 
 function identityScript(): string | undefined {
@@ -113,7 +114,7 @@ export function refreshAccounts(): Promise<void> {
     execFile(bash, [identityScript() as string, 'switch', '--availability'], { timeout: 20_000, windowsHide: true }, (err, out, stderr) => {
       const rows = err ? null : parseAvailability(out);
       accountsCache = rows
-        ? { rows, error: '', at: Date.now() }
+        ? { rows, error: '', at: Date.now(), rule: readSwapRule(out) }
         : { ...accountsCache, error: String(stderr || (err && err.message) || 'unreadable answer').trim().slice(0, 300), at: Date.now() };
       accountsAsking = undefined;
       resolve();
@@ -141,6 +142,20 @@ export function accountRows(): AccountRow[] {
   }
   if (Date.now() - accountsCache.at > ACCOUNTS_MAX_AGE_MS) void refreshAccounts();
   return accountsCache.rows;
+}
+
+/** Where the framework says to offer the swap, from the last answer; null when it does not say (an older framework). */
+export function swapRule(): SwapRule | null {
+  if (!frameworkHasAvailability()) return null;
+  accountRows();   // a stale answer asks for a new one
+  return accountsCache.rule;
+}
+
+/** After a swap the cached answer still names the old seat as active: ask again now. An ask already
+ *  in flight was started before the swap, so its answer is old too: ask once more after it. */
+export function accountsChanged(): void {
+  const again = (): void => { accountsCache = { ...accountsCache, at: 0 }; void refreshAccounts(); };
+  if (accountsAsking) void accountsAsking.then(again); else again();
 }
 
 /** The account a swap should go to; '' when none can take you. */

@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **The account swap button follows the framework's numbers.** The Home panel offered "Swap to …" at 5h 95% / 7d 99% from numbers of its own, while the quota watcher rotates at 98%. It now offers it where the framework says (`swap_offer_at` in `claude-switch --availability`: the watcher's threshold minus 3, in both windows), the same rule as the AIOS App. While the watcher is paused, the button says until when. With a framework that does not send those numbers yet, Glass keeps its previous 95/99 and says so once in its log. After a swap, the account list is asked again at once.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

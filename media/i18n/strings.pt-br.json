@@ -58,6 +58,7 @@
   "running.toggle.title": "Mostrar / ocultar suas sessões ativas do Claude",
   "running.terms.toggle.title": "Mostrar / ocultar os terminais abertos",
   "running.quotaWarn.title": "Troque para sua outra conta — silencioso, no mesmo lugar (a barra de status mostra)",
+  "running.quotaWarn.paused": "rotação pausada até {time}",
   "card.workspaces.title": "Espaços de trabalho",
   "workspaces.browseFiles": "📁 Explorar arquivos",
   "workspaces.browseFiles.k": "visão finder",
