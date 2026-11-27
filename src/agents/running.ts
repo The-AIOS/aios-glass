@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { recordedStart, sameProcessStart, processStartMs } from './procStart';
+import { inScope, type SessionScope } from './sessionScope';
 
 export interface RunningAgent {
   pid: number;
@@ -131,8 +132,32 @@ export function isOperatorSession(a: { kind: string; entrypoint: string }): bool
   return a.kind === 'interactive' && !/^sdk-/i.test(a.entrypoint);
 }
 
+/**
+ * The operator's sessions out of everything registered, as the App decides it: not headless or
+ * background (isOperatorSession) AND in scope (agents/sessionScope — the App's core/sessionScope,
+ * copied unchanged): in a tab of this window, a primary of USER.md, messaged by the bus, or running
+ * under the framework, an App workspace folder or a folder open in this window. Without a scope
+ * (tests, or before activation) only the first half applies. Pure.
+ */
+export function operatorSessions(all: readonly RunningAgent[], scope?: SessionScope): RunningAgent[] {
+  const mine = all.filter(isOperatorSession);
+  if (!scope) return mine;
+  return mine.filter((a) => inScope({ ...a, cwd: realOr(a.cwd || '') }, scope));
+}
+const realOr = (p: string): string => { try { return fs.realpathSync(p); } catch { return p; } };
+
+/* The scope is built where the editor is (agents/operatorScope registers it at activation); this
+   module stays vscode-free. */
+let scopeSource: ((all: readonly RunningAgent[]) => Promise<SessionScope>) | undefined;
+export function setScopeSource(fn: (all: readonly RunningAgent[]) => Promise<SessionScope>): void { scopeSource = fn; }
+
 export async function listOperatorSessions(): Promise<RunningAgent[]> {
-  return (await listRunningAgents()).filter(isOperatorSession);
+  const all = await listRunningAgents();
+  let scope: SessionScope | undefined;
+  // A scope that cannot be built lists everything, as before: never hide a session that may need the operator.
+  // (the source logs its own failure; this module stays vscode-free)
+  try { scope = scopeSource ? await scopeSource(all) : undefined; } catch { scope = undefined; }
+  return operatorSessions(all, scope);
 }
 
 /** True if the process is still running (ESRCH = dead; EPERM = alive, not ours). */

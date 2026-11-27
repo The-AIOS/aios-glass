@@ -44,6 +44,7 @@ import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HO
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
+import { initOperatorScope } from './agents/operatorScope';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
 
@@ -84,6 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const home = new HomeViewProvider(context.extensionUri);
   initGlassState(context); // tasks/routines state: vault file, globalState as migration source
+  initOperatorScope();     // which sessions are the operator's: the App's scope, per window
 
   /* #22 — the standing "what is waiting on you" counter, and the source of truth for #23's
      jump order. An extension does not own the Dock icon, so the App's badge becomes a
