@@ -60,6 +60,14 @@ test('a name lives in one terminal: when a session of that name is seen in anoth
   assert.deepEqual(tabsLeftBy(ledger, 'w', [100, 200]), [200], 'a kill closes the terminal of the latest w, never the old one');
 });
 
+test('a recycled shell pid is not the terminal the session left: the shell start time must match', () => {
+  const ledger = noteTab({}, 100, { name: 'w', shellStart: 1_000_000 });
+  assert.deepEqual(tabsLeftBy(ledger, 'w', [100], new Map([[100, 1_000_500]])), [100], 'same shell (within tolerance)');
+  assert.deepEqual(tabsLeftBy(ledger, 'w', [100], new Map([[100, 9_000_000]])), [], 'a new shell holding the old pid is left alone');
+  const renoted = noteTab(ledger, 100, { name: 'w' });
+  assert.equal(renoted, ledger, 'noting the same session without a start keeps the recorded one');
+});
+
 test('the log line says what happened, and never "closed" when nothing closed', () => {
   assert.equal(killReport('w', { did: 'nothing', closed: 0, busy: [] }), "kill 'w': no live session and no terminal left by one: nothing to close");
   assert.equal(killReport('w', { did: 'closed-left', closed: 1, busy: [] }), "kill 'w': no live session; closed the terminal it left");

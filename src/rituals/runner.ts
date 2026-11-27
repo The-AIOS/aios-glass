@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents, listOperatorSessions } from '../agents/running';
+import { processStartMs } from '../agents/procStart';
 import { killPlan, noteTab, pruneLedger, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
@@ -216,7 +217,10 @@ function saveTabLedger(next: TabLedger): void {
   void tabLedgerStore?.update(TAB_LEDGER_KEY, next);
 }
 function rememberTab(shellPid: number, note: { name: string; sessionId?: string }): void {
-  saveTabLedger(noteTab(tabLedger, shellPid, note));
+  // The shell's start time goes with the note, so a pid recycled by a later shell is not this one.
+  void processStartMs(shellPid)
+    .then((shellStart) => saveTabLedger(noteTab(tabLedger, shellPid, { ...note, ...(shellStart !== undefined ? { shellStart } : {}) })))
+    .catch((e) => swallow('tabLedger', e));
 }
 async function openShellPids(): Promise<{ term: vscode.Terminal; shellPid: number }[]> {
   const all = await Promise.all(vscode.window.terminals.map(async (term) => ({ term, shellPid: await term.processId })));
@@ -780,7 +784,9 @@ export async function disposeAgentTerminal(name: string, pid?: number): Promise<
   // The session is gone from the registry: the terminal it ran in is still open at a shell
   // prompt. Close the one the ledger names (never one found by name), unless its shell is busy.
   const open = live ? [] : await openShellPids();
-  const left = live ? [] : tabsLeftBy(tabLedger, name, open.map((o) => o.shellPid));
+  const candidates = live ? [] : open.filter((o) => tabLedger[String(o.shellPid)]?.name === name);
+  const startOf = new Map(await Promise.all(candidates.map(async (o) => [o.shellPid, await processStartMs(o.shellPid)] as [number, number | undefined])));
+  const left = live ? [] : tabsLeftBy(tabLedger, name, candidates.map((o) => o.shellPid), startOf);
   const plan = killPlan({ terminalHere: false, live, left, ppidOf: left.length ? await getPpidMap() : new Map() });
   if (plan.do === 'spawn-kill') {
     runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });

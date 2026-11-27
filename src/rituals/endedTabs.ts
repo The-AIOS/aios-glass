@@ -10,9 +10,11 @@
  *
  * Pure and vscode-free so it can be tested without an editor host.
  */
+import { sameProcessStart } from '../core/procStart';
 
-/** The last session seen in a terminal. */
-export interface TabNote { name: string; sessionId?: string; }
+/** The last session seen in a terminal, and when that terminal's shell started (epoch ms), so a
+ *  shell pid reused by a later process is not taken for the same terminal. */
+export interface TabNote { name: string; sessionId?: string; shellStart?: number; }
 
 /** Shell pid (as a string key) → the last session seen in that terminal. */
 export type TabLedger = Record<string, TabNote>;
@@ -27,11 +29,12 @@ export function noteTab(ledger: TabLedger, shellPid: number, note: TabNote): Tab
   const key = String(shellPid);
   const cur = ledger[key];
   const elsewhere = Object.keys(ledger).filter((k) => k !== key && ledger[k].name === note.name);
-  if (!elsewhere.length && cur && cur.name === note.name && (cur.sessionId ?? '') === (note.sessionId ?? cur.sessionId ?? '')) return ledger;
+  const shellStart = note.shellStart ?? cur?.shellStart;
+  if (!elsewhere.length && cur && cur.name === note.name && (cur.sessionId ?? '') === (note.sessionId ?? cur.sessionId ?? '') && cur.shellStart === shellStart) return ledger;
   const out: TabLedger = {};
   for (const k of Object.keys(ledger)) if (!elsewhere.includes(k)) out[k] = ledger[k];
   const sessionId = note.sessionId ?? (cur && cur.name === note.name ? cur.sessionId : undefined);
-  out[key] = { name: note.name, ...(sessionId ? { sessionId } : {}) };
+  out[key] = { name: note.name, ...(sessionId ? { sessionId } : {}), ...(shellStart !== undefined ? { shellStart } : {}) };
   return out;
 }
 
@@ -45,9 +48,17 @@ export function pruneLedger(ledger: TabLedger, openShellPids: readonly number[])
   return out;
 }
 
-/** Shell pids of the open terminals whose last session was `name`. */
-export function tabsLeftBy(ledger: TabLedger, name: string, openShellPids: readonly number[]): number[] {
-  return openShellPids.filter((p) => ledger[String(p)]?.name === name);
+/**
+ * Shell pids of the open terminals whose last session was `name`. `startOf` gives when the process
+ * now holding each pid started: a terminal whose shell started at another time is a new terminal
+ * that got a recycled pid (after a window reload, say), never the one the session left.
+ */
+export function tabsLeftBy(ledger: TabLedger, name: string, openShellPids: readonly number[],
+  startOf: ReadonlyMap<number, number | undefined> = new Map()): number[] {
+  return openShellPids.filter((p) => {
+    const note = ledger[String(p)];
+    return note?.name === name && sameProcessStart(note.shellStart, startOf.get(p));
+  });
 }
 
 /** Direct children of `pid` in a pid → ppid map. */
