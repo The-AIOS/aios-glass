@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A bus request addressed to a surface that is not running is retired, as the inbox README says.** A request with `"surface":"app"` while only Glass was open stayed in `~/.aios/spawn-inbox/` for good: Glass decided what to do with a request only when a file event arrived for it or at startup, so a request it skipped was never looked at again and the ten-minute retirement was never reached. Glass now looks at the waiting requests once a minute, through the same code path as a file event, and the request becomes a `.undelivered` dead letter after ten minutes. The same pass retires a request this window handed back that no other window took, and picks up a request whose file event was lost. The dead letter now names the addressee and says whether it was running (The-AIOS/aios-app#218).
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.
