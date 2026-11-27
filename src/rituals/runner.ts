@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
-import { claudeConfigDir, claudeJsonPath } from '../agents/claudeDir';
+import { claudeConfigDir, claudeJsonPath, swapMarkerPath } from '../agents/claudeDir';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
@@ -899,7 +899,7 @@ export async function launchAccountSwap(email: string): Promise<void> {
       // TTL — exactly what the autopilot (_watch.py) does after its swaps.
       try {
         fs.writeFileSync(
-          path.join(claudeConfigDir(), 'swap-notification.json'),
+          swapMarkerPath(),
           JSON.stringify({ from: fromEmail, to: readAccount() || email, ts: Math.floor(Date.now() / 1000), reason: 'manual (AIOS Glass)' })
         );
       } catch { /* banner is best-effort */ }

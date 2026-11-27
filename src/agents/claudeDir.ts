@@ -14,3 +14,11 @@ export const claudeConfigDir = (): string => process.env.CLAUDE_CONFIG_DIR || pa
 /** ~/.claude.json, or $CLAUDE_CONFIG_DIR/.claude.json when that is set (Claude Code's own rule). */
 export const claudeJsonPath = (): string =>
   process.env.CLAUDE_CONFIG_DIR ? path.join(process.env.CLAUDE_CONFIG_DIR, '.claude.json') : path.join(os.homedir(), '.claude.json');
+
+/**
+ * The marker the statusline reads to show the "swapped account" banner. The framework's writer
+ * (`_watch.py`) and its reader (`context-monitor.py`) both use ~/.claude for it whatever
+ * CLAUDE_CONFIG_DIR says, so Glass writes it there too: a marker under the variable would be one
+ * the statusline never looks at. Follow the variable here only once the framework's reader does.
+ */
+export const swapMarkerPath = (): string => path.join(os.homedir(), '.claude', 'swap-notification.json');

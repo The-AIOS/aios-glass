@@ -5,7 +5,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { claudeConfigDir, claudeJsonPath } from '../agents/claudeDir';
+import { claudeConfigDir, claudeJsonPath, swapMarkerPath } from '../agents/claudeDir';
 import { listRunningAgents } from '../agents/running';
 
 function withConfigDir<T>(dir: string | undefined, run: () => T): T {
@@ -27,6 +27,12 @@ test('the folder follows CLAUDE_CONFIG_DIR, and is ~/.claude without it; .claude
   withConfigDir('/somewhere/else', () => {
     assert.equal(claudeConfigDir(), '/somewhere/else');
     assert.equal(claudeJsonPath(), path.join('/somewhere/else', '.claude.json'));
+  });
+});
+
+test('the swap marker stays in ~/.claude: the statusline reads it there whatever the variable says', () => {
+  withConfigDir('/somewhere/else', () => {
+    assert.equal(swapMarkerPath(), path.join(os.homedir(), '.claude', 'swap-notification.json'));
   });
 });
 
