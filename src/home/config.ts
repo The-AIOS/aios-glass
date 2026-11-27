@@ -6,6 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { frameworkRoot } from './vault';
+import { modelOptionsFrom, type ModelOption } from './modelOptions';
 import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
 import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
@@ -152,19 +153,16 @@ export function anthropicAccounts(): string[] {
   return accountRows().map((r) => r.email);
 }
 
-export interface ModelOption {
-  label: string;
-  value: string;
-}
+export type { ModelOption } from './modelOptions';
 
-/** Curated model choices (latest Claude family) + a clear-to-default option. */
-export const MODEL_OPTIONS: ModelOption[] = [
-  { label: 'Opus 4.8 — 1M context', value: 'claude-opus-4-8[1m]' },
-  { label: 'Opus 4.8', value: 'claude-opus-4-8' },
-  { label: 'Sonnet 4.6', value: 'claude-sonnet-4-6' },
-  { label: 'Haiku 4.5', value: 'claude-haiku-4-5' },
-  { label: 'Default (clear the override)', value: '' }
-];
+/** The default-model picker's choices (home/modelOptions). From ~/.claude.json only the key
+ *  `additionalModelOptionsCache` is read. */
+export function modelOptions(): ModelOption[] {
+  let extra: unknown;
+  try { extra = (JSON.parse(fs.readFileSync(claudeJsonPath(), 'utf8')) as { additionalModelOptionsCache?: unknown })?.additionalModelOptionsCache; }
+  catch { extra = undefined; }
+  return modelOptionsFrom(extra, currentModel());
+}
 
 export const MODE_OPTIONS = ['default', 'auto', 'acceptEdits', 'plan', 'bypassPermissions'];
 
@@ -462,7 +460,7 @@ export function currentMode(): string {
 /** Pretty label for a model value (falls back to the raw value). */
 export function modelLabel(value: string): string {
   if (!value) return 'default';
-  return MODEL_OPTIONS.find((m) => m.value === value)?.label ?? value;
+  return modelOptions().find((m) => m.value === value)?.label ?? value;
 }
 
 /**

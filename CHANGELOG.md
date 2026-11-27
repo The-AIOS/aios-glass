@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **The default-model picker offers the same models as the AIOS App.** It listed a model generation behind (Opus 4.8, Sonnet 4.6, Haiku 4.5). It now offers exactly the App's list: Fable 5.1, Opus 5.5 and Sonnet 5.5 (these two with and without 1M context), Haiku 5.5 and the previous generation, plus the extra models Claude Code lists for your account and the model you have set, if no list carries it. Only the `additionalModelOptionsCache` key is read from `~/.claude.json`. Part of The-AIOS/aios-app#226.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.
