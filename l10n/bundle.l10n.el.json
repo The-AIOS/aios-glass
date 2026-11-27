@@ -29,5 +29,6 @@
   "Should Claude answer in the language you write in again?": "Να απαντά ξανά ο Claude στη γλώσσα που γράφεις;",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Το Glass είναι τώρα στα {lang}. Να απαντά και ο Claude στα {lang};",
   "Yes, match": "Ναι, ίδια",
-  "No, keep it": "Όχι, ως έχει"
+  "No, keep it": "Όχι, ως έχει",
+  "has ended, and its terminal was left open because something is still running in it.": "έχει τερματιστεί, και το τερματικό της έμεινε ανοιχτό επειδή κάτι τρέχει ακόμη σε αυτό."
 }

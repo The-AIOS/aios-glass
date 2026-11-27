@@ -44,6 +44,8 @@ import { decideSend, safeNeedle, holdPathFor, undeliveredPathFor, isHoldPath, HO
 import { byteLength } from './core/busPayload';
 import { swallow, logChannel, log } from './log';
 import { initGlassState } from './state';
+import { killReport } from './rituals/endedTabs';
+import { initTabLedger } from './rituals/runner';
 import { frameworkRoot } from './home/vault';
 import { initI18n, t } from './i18n';
 
@@ -84,6 +86,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const home = new HomeViewProvider(context.extensionUri);
   initGlassState(context); // tasks/routines state: vault file, globalState as migration source
+  initTabLedger(context);  // which session each terminal last held, so a kill can close a tab an ended session left
 
   /* #22 — the standing "what is waiting on you" counter, and the source of truth for #23's
      jump order. An extension does not own the Dock icon, so the App's badge becomes a
@@ -1466,12 +1469,14 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
       if (action === 'kill') {
         // disposeAgentTerminal = the NON-interactive "kill now": dispose the worker's terminal
-        // (closes the tab, SIGHUPs shell+claude+respawn loop), falling back to spawn-kill only
-        // when it isn't a terminal in this window. NOT killGuardedDispose — that always pops
+        // (closes the tab, SIGHUPs shell+claude+respawn loop); spawn-kill only for a LIVE session
+        // that isn't in a terminal of this window; for one that already ended, the tab it left. NOT killGuardedDispose — that always pops
         // the capture/kill/cancel QuickPick for a human, which would hang a bus request.
-        log(`spawn-inbox: kill '${name}' (dispose terminal)`);
-        await disposeAgentTerminal(name);
-        releaseRequest(held, false);
+        const outcome = await disposeAgentTerminal(name);
+        const report = killReport(name, outcome);
+        log(`spawn-inbox: ${report}`);
+        // A terminal left open because its shell is busy is a kill that did not happen: say so on disk.
+        if (outcome.busy.length) releaseRequest(held, true, report); else releaseRequest(held, false);
       } else if (action === 'send') {
         const prompt = typeof req.prompt === 'string' ? req.prompt : (typeof req.task === 'string' ? req.task : '');
         if (!prompt) { releaseRequest(held, true, "missing 'prompt'"); return; }

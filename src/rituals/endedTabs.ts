@@ -66,6 +66,42 @@ export type KillPlan =
   | { do: 'close-left'; close: number[]; busy: BusyTab[] }
   | { do: 'nothing' };
 
+/**
+ * - Its terminal is here: dispose it (closing the tab stops the shell, claude and the wrapper).
+ * - Live, but not in a terminal of this window: `spawn-kill`, which finds the process by name.
+ * - Not live: close the terminals it left, except any whose shell has something running, which
+ *   is reported and left alone. With no process table an idle shell cannot be told from a busy
+ *   one, so nothing is closed. A session that left no terminal has nothing to close: no
+ *   `spawn-kill` terminal is opened for it, there being no process to kill.
+ */
 export function killPlan(f: KillFacts): KillPlan {
-  return f.terminalHere ? { do: 'dispose' } : { do: 'spawn-kill' };
+  if (f.terminalHere) return { do: 'dispose' };
+  if (f.live) return { do: 'spawn-kill' };
+  if (f.left.length === 0) return { do: 'nothing' };
+  const close: number[] = [];
+  const busy: BusyTab[] = [];
+  for (const shellPid of f.left) {
+    const running = childrenOf(shellPid, f.ppidOf);
+    if (f.ppidOf.size > 0 && running.length === 0) close.push(shellPid); else busy.push({ shellPid, running });
+  }
+  return { do: 'close-left', close, busy };
+}
+
+/** What a kill did, for the caller to report truthfully. */
+export interface KillOutcome {
+  did: 'disposed' | 'spawn-kill' | 'closed-left' | 'nothing';
+  /** Terminals closed. */
+  closed: number;
+  /** Terminals the session left that were NOT closed because their shell is busy. */
+  busy: BusyTab[];
+}
+
+/** The log line for a kill, one wording for every outcome. It never says "closed" when nothing closed. */
+export function killReport(name: string, o: KillOutcome): string {
+  if (o.did === 'disposed') return `kill '${name}': closed its terminal`;
+  if (o.did === 'spawn-kill') return `kill '${name}': live, but not in a terminal of this window: ran spawn-kill`;
+  if (o.did === 'nothing') return `kill '${name}': no live session and no terminal left by one: nothing to close`;
+  const kept = o.busy.map((b) => (b.running.length ? `shell ${b.shellPid} is running pid ${b.running.join(', ')}` : `shell ${b.shellPid}: the process table could not be read`)).join('; ');
+  if (o.busy.length === 0) return `kill '${name}': no live session; closed the terminal it left`;
+  return `kill '${name}': no live session; ${o.closed ? `closed ${o.closed} terminal it left, and ` : ''}left ${o.busy.length} open because something is running in it (${kept})`;
 }

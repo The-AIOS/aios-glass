@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
-import { killPlan } from './endedTabs';
+import { killPlan, noteTab, pruneLedger, tabsLeftBy, type KillOutcome, type TabLedger } from './endedTabs';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
@@ -21,7 +21,7 @@ import { latestAgentName, pickResume, staleResumeName } from '../core/resumeTarg
 import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
-import { matchTerminal, parsePpidTable, parseWinPpidTable, WIN_PPID_COMMAND, type TerminalRef } from './terminalMatch';
+import { matchTerminal, parsePpidTable, parseWinPpidTable, WIN_PPID_COMMAND, type TerminalRef, ancestorsOf } from './terminalMatch';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -192,13 +192,62 @@ export async function terminalHasClaude(terminal: vscode.Terminal): Promise<bool
 }
 
 /** Run a full shell command line in a fresh terminal (always-new actions). */
-function runNew(cmdline: string, style?: TermStyle): void {
+function runNew(cmdline: string, style?: TermStyle, session?: string): void {
   void (async () => {
     if (await nameHeld(cmdline)) return;
     const term = newTerminal(style);
     term.show();
     term.sendText(cmdline);
+    // The terminal was made for this session: note it now, before the session reaches the registry.
+    if (session) { const sp = await term.processId; if (sp) rememberTab(sp, { name: session }); }
   })().catch((e) => swallow('runNew', e));
+}
+
+// ── Which session each terminal last held (rituals/endedTabs) ─────────────────────────────
+// Kept per window (workspaceState), so it survives a window reload, where the terminals and
+// their shell pids survive too. Pruned to the open terminals whenever one closes.
+const TAB_LEDGER_KEY = 'aiosGlass.tabLedger';
+let tabLedger: TabLedger = {};
+let tabLedgerStore: vscode.Memento | undefined;
+
+function saveTabLedger(next: TabLedger): void {
+  if (next === tabLedger) return;
+  tabLedger = next;
+  void tabLedgerStore?.update(TAB_LEDGER_KEY, next);
+}
+function rememberTab(shellPid: number, note: { name: string; sessionId?: string }): void {
+  saveTabLedger(noteTab(tabLedger, shellPid, note));
+}
+async function openShellPids(): Promise<{ term: vscode.Terminal; shellPid: number }[]> {
+  const all = await Promise.all(vscode.window.terminals.map(async (term) => ({ term, shellPid: await term.processId })));
+  return all.filter((x): x is { term: vscode.Terminal; shellPid: number } => !!x.shellPid);
+}
+
+/** Load the ledger and keep it pruned — call once from activate(). */
+export function initTabLedger(ctx: vscode.ExtensionContext): void {
+  tabLedgerStore = ctx.workspaceState;
+  const stored = ctx.workspaceState.get<TabLedger>(TAB_LEDGER_KEY);
+  tabLedger = stored && typeof stored === 'object' ? stored : {};
+  const prune = (): void => { void openShellPids().then((open) => saveTabLedger(pruneLedger(tabLedger, open.map((o) => o.shellPid)))).catch((e) => swallow('tabLedger', e)); };
+  prune();
+  ctx.subscriptions.push(vscode.window.onDidCloseTerminal(prune));
+}
+
+/**
+ * Note, for every live session, the terminal of this window that holds it (by process ancestry).
+ * Called from the Home panel's poll, so a session started in a terminal Glass did not create, or
+ * renamed since, is known before it ends. One process-table read per call.
+ */
+export async function noteLiveSessions(agents: readonly { name: string; pid: number; sessionId?: string }[]): Promise<void> {
+  if (!agents.length || !vscode.window.terminals.length) return;
+  const ppidOf = await getPpidMap();
+  if (ppidOf.size === 0) return;
+  const open = await openShellPids();
+  for (const a of agents) {
+    const anc = ancestorsOf(a.pid, ppidOf);
+    const hit = open.find((o) => anc.has(o.shellPid));
+    if (hit) rememberTab(hit.shellPid, { name: a.name, sessionId: a.sessionId });
+  }
 }
 
 /* Issue 95 — never start a second session under a name a live session already holds.
@@ -378,7 +427,7 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   }
   // A bus spawn's first prompt is bus-typed — record exactly what the worker receives.
   if (opts?.bus && inlineTask) recordTyped(inlineTask, name, 'spawn');
-  runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color });
+  runNew(`spawn ${flag}${name}${inlineTask ? ` ${shellQuote(inlineTask)}` : ''}`, { name, icon, color }, name);
 }
 
 /**
@@ -415,7 +464,7 @@ export async function launchPrimary(name: string): Promise<void> {
     await revealAgentTerminal(name, match.pid);
     return;
   }
-  runNew(name, { name, icon: 'aios-mark', color: 'terminal.ansiMagenta' });
+  runNew(name, { name, icon: 'aios-mark', color: 'terminal.ansiMagenta' }, name);
 }
 
 /** Resume a Claude conversation — always a new terminal with the session picker. */
@@ -459,7 +508,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
   if (bus && inline) recordTyped(inline, name, 'resume', from);
-  runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile), { name, icon, color: 'terminal.ansiBlue' });
+  runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile), { name, icon, color: 'terminal.ansiBlue' }, name);
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
 
@@ -597,7 +646,12 @@ export async function findAgentTerminal(name: string, pid?: number): Promise<vsc
   const terminals = vscode.window.terminals;
   const refs: TerminalRef[] = await Promise.all(terminals.map(async (t) => ({ name: t.name, shellPid: await t.processId })));
   const i = matchTerminal(refs, name, pid, ppidOf);
-  return i === -1 ? undefined : terminals[i];
+  if (i === -1) return undefined;
+  // Found by ancestry (a table and a pid): remember which session this terminal holds, so a
+  // kill that arrives after the session ended still knows which tab it left.
+  const sp = refs[i].shellPid;
+  if (pid && ppidOf.size > 0 && sp) rememberTab(sp, { name });
+  return terminals[i];
 }
 
 export async function revealAgentTerminal(name: string, pid?: number): Promise<void> {
@@ -704,12 +758,24 @@ export async function interruptSessionTerminal(name: string, pid?: number): Prom
  * loop), so it stops cleanly. Falls back to `spawn-kill` only when the session
  * isn't an integrated terminal in this window (e.g. another window / machine).
  */
-export async function disposeAgentTerminal(name: string, pid?: number): Promise<void> {
+export async function disposeAgentTerminal(name: string, pid?: number): Promise<KillOutcome> {
   const t = await findAgentTerminal(name, pid);
+  if (t) { t.dispose(); return { did: 'disposed', closed: 1, busy: [] }; }
   const live = (await listRunningAgents()).some((a) => (pid ? a.pid === pid : a.name === name));
-  const plan = killPlan({ terminalHere: !!t, live, left: [], ppidOf: new Map() });
-  if (plan.do === 'dispose') { t?.dispose(); return; }
-  if (plan.do === 'spawn-kill') runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
+  // The session is gone from the registry: the terminal it ran in is still open at a shell
+  // prompt. Close the one the ledger names (never one found by name), unless its shell is busy.
+  const open = live ? [] : await openShellPids();
+  const left = live ? [] : tabsLeftBy(tabLedger, name, open.map((o) => o.shellPid));
+  const plan = killPlan({ terminalHere: false, live, left, ppidOf: left.length ? await getPpidMap() : new Map() });
+  if (plan.do === 'spawn-kill') {
+    runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
+    return { did: 'spawn-kill', closed: 0, busy: [] };
+  }
+  if (plan.do === 'close-left') {
+    for (const sp of plan.close) open.find((o) => o.shellPid === sp)?.term.dispose();
+    return { did: 'closed-left', closed: plan.close.length, busy: plan.busy };
+  }
+  return { did: 'nothing', closed: 0, busy: [] };
 }
 
 /**
@@ -761,7 +827,8 @@ export async function killGuardedDispose(name: string, pid?: number): Promise<vo
 
   if (noteCount) await harvestSessionNotes(name); // harvest before either close path — never drop a reminder
   if (choice === 'capture') { await closeSessionInTerminal(name, pid); return; }
-  await disposeAgentTerminal(name, pid);
+  const outcome = await disposeAgentTerminal(name, pid);
+  if (outcome.busy.length) void vscode.window.showWarningMessage(`AIOS Glass: "${name}" ${t('has ended, and its terminal was left open because something is still running in it.')}`);
 }
 
 /** Launch native Claude with a natural-language prompt — fresh terminal. */

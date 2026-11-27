@@ -321,5 +321,6 @@
   "Should Claude answer in the language you write in again?": "¿Quieres que Claude vuelva a responder en el idioma en que escribes?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass ahora está en {lang}. ¿Quieres que Claude también responda en {lang}?",
   "Yes, match": "Sí, igualar",
-  "No, keep it": "No, dejarlo así"
+  "No, keep it": "No, dejarlo así",
+  "has ended, and its terminal was left open because something is still running in it.": "terminó, y su terminal quedó abierto porque todavía hay algo corriendo en él."
 }
