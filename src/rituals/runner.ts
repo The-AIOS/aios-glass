@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { listRunningAgents } from '../agents/running';
+import { killPlan } from './endedTabs';
 import { needsPointer, pointerText, byteLength, isStalePayload } from '../core/busPayload';
 import { recordTyped } from '../bus/busSent';
 import { discoverAgents, iconForAgent } from '../agents/agents';
@@ -705,8 +706,10 @@ export async function interruptSessionTerminal(name: string, pid?: number): Prom
  */
 export async function disposeAgentTerminal(name: string, pid?: number): Promise<void> {
   const t = await findAgentTerminal(name, pid);
-  if (t) { t.dispose(); return; }
-  runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
+  const live = (await listRunningAgents()).some((a) => (pid ? a.pid === pid : a.name === name));
+  const plan = killPlan({ terminalHere: !!t, live, left: [], ppidOf: new Map() });
+  if (plan.do === 'dispose') { t?.dispose(); return; }
+  if (plan.do === 'spawn-kill') runNew(`spawn-kill ${name}`, { name: `kill ${name}`, icon: 'trash', color: 'terminal.ansiRed' });
 }
 
 /**
