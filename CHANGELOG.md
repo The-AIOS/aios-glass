@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A `kill` to the name a session had before it was renamed reaches it.** Claude Code keeps a renamed session's earlier names in its registry; Glass did not read them, so a bus `kill` to the old name found no session. It now does, as the AIOS App does: the current name always wins, the old one is used only when exactly one live session ever carried it, and the log names both. Part of The-AIOS/aios-app#226.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

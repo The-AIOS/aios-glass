@@ -1422,7 +1422,9 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!name) { releaseRequest(held, true, "missing 'name'"); return; }
     /* A request addressing a LIVE session reaches it by its real registry name (bus/busTarget). */
     if (action === 'send' || action === 'kill' || action === 'resume') {
+      const addressed = name;
       name = busTargetName(action, name, await listRunningAgents());
+      if (action === 'kill' && name.toLowerCase() !== addressed.toLowerCase()) log(`spawn-inbox: kill '${addressed}' → renamed '${name}'`);
     }
     if (action === 'unknown') {
       releaseRequest(held, true,
