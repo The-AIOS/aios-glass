@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **A task that mentions closing the day no longer silences the evening reminder.** The day counts as closed only when today's note carries the `## Close of Day` heading that `/aios:close-day` writes, the same line `/aios:today` checks. Before, the words anywhere in the note were enough, so `- [ ] Prep close of day review` turned the reminder off. Same rule as the App.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.
