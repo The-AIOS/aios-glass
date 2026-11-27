@@ -50,9 +50,9 @@ test('the decision gets this window\'s own clock and counts every request but a 
 
 test('a flood writes one dead letter a minute, not one per request', () => {
   const flood = between(runOpen, "if (d.why === 'flood') {", '\n      }');
-  assert.equal((flood.match(/releaseRequest\(held, true,/g) ?? []).length, 1);
-  assert.match(flood, /else releaseRequest\(held, false\);/);
-  assert.match(flood, /dropped since the last notice/, 'a flood\'s tail is carried to the next notice, never thrown away');
+  assert.doesNotMatch(flood, /releaseRequest\(held, true,/, 'no dead letter per request');
+  assert.match(flood, /if \(floodKept\) releaseRequest\(floodKept, false\);\s*floodKept = held;/, 'only the newest dropped request is kept');
+  assert.match(flood, /floodTimer = setTimeout\(\(\) => \{[^\n]*releaseRequest\(k, true, `open refused \(flood\): \$\{n\}/, 'one dead letter at the END of the minute, with the full count');
   assert.match(ext, /if \(verdict === 'skip'\) \{ firstSeen\.delete\(fsPath\); presentAtStart\.delete\(fsPath\); return; \}/, 'no first-seen entry outlives a request this window will not take');
 });
 

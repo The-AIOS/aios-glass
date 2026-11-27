@@ -1434,7 +1434,8 @@ export function activate(context: vscode.ExtensionContext): void {
     if (openOff) log(`spawn-inbox: open is OFF: ${openOff}`);
   };
   let floodDropped = 0;
-  let floodLetterAt = 0;
+  let floodKept: string | undefined;
+  let floodTimer: NodeJS.Timeout | undefined;
   const runOpen = async (held: string, body: Record<string, unknown>, seen: { seenAgoMs: number; atStart: boolean }): Promise<void> => {
     const now = Date.now();
     /* Open off: no roots, so the decision refuses at check 8, after the flood and rate counting. */
@@ -1442,10 +1443,13 @@ export function activate(context: vscode.ExtensionContext): void {
     if (d.do === 'open' || d.counted) decidedOpens = rememberDecided(decidedOpens, { name: d.do === 'open' ? d.name : (d.name ?? '?'), at: now }, now);
     if (d.do === 'refuse') {
       if (d.why === 'flood') {
-        /* A flood: no dead letter per request, one a minute that says how many were dropped. */
-        floodDropped++;   // carried until the next notice, so a flood's tail is counted there
-        if (now - floodLetterAt >= 60_000) { floodLetterAt = now; releaseRequest(held, true, `open refused (flood): ${floodDropped} open request(s) dropped since the last notice; more than 20 a minute are not shown`); floodDropped = 0; }
-        else releaseRequest(held, false);
+        /* A flood: no dead letter per request. The newest dropped request is kept, held, and a minute after
+           the first drop it becomes ONE dead letter with the full count, so the number reaches the session
+           that flooded. */
+        floodDropped++;
+        if (floodKept) releaseRequest(floodKept, false);
+        floodKept = held;
+        if (!floodTimer) floodTimer = setTimeout(() => { const k = floodKept; const n = floodDropped; floodTimer = undefined; floodKept = undefined; floodDropped = 0; if (k) releaseRequest(k, true, `open refused (flood): ${n} open request(s) dropped in the last minute; more than 20 a minute are not shown`); }, 60_000);
         return;
       }
       releaseRequest(held, true, d.why === 'unavailable' && openOff
