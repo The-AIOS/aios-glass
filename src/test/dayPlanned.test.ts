@@ -41,6 +41,9 @@ test('a heading quoted in a code block does not count; CRLF line endings do', ()
   assert.equal(dayPlanned(SESSION_BLOCK + '\n~~~\n## Parking lot\n~~~\n'), false);
   assert.equal(dayPlanned('# Day\r\n\r\n## Rhythm\r\n- x\r\n'), true);
   assert.equal(dayPlanned('```\nnot closed\n## Rhythm\n'), true, 'an unclosed fence hides nothing');
+  assert.equal(dayPlanned('````md\n```\n## Rhythm\n```\n````\n'), false, 'a longer fence holds a shorter one');
+  assert.equal(dayPlanned('````md\nx\n````\n\n## Rhythm\n\n```\ny\n```\n'), true, 'and closes on its own run');
+  assert.equal(dayPlanned('```inline``` code\n\n## Rhythm\n\n```\ny\n```\n'), true, 'inline code is not a fence');
 });
 
 test('when the nudge asks to plan, hour by hour', () => {
