@@ -53,7 +53,7 @@ test('the Home panel decides through the framework rule, and says when it falls 
   assert.match(home, /log\('quota: the account answer carries no rotation thresholds/);
   assert.doesNotMatch(home, /fiveHourPct >= 95|sevenDayPct >= 99/, 'no inline threshold left in the panel');
   const cfg = read('src', 'home', 'config.ts');
-  assert.match(cfg, /\{ rows, error: '', at: Date\.now\(\), rule: readSwapRule\(out\) \}/, 'the rule comes from the same answer the rows do');
+  assert.match(cfg, /\{ rows, error: '', at: Date\.now\(\), rule: readSwapRule\(out\)(, rotation: readRotationSetting\(out\))? \}/, 'the rule comes from the same answer the rows do');
   assert.match(read('src', 'rituals', 'runner.ts'), /accountsChanged\(\);/, 'after a swap the answer is asked again');
   assert.match(cfg, /if \(accountsAsking\) void accountsAsking\.then\(again\); else again\(\);/, 'an ask started before the swap is followed by a new one');
   const js = read('media', 'home.js');

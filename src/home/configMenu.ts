@@ -5,6 +5,7 @@ import {
   currentModel, currentMode, currentTerminalMode, modelLabel, currentAccount,
   remoteControlOn, setRemoteControl,
   currentAnthropicAccount, anthropicAccounts, accountRows, accountsError, accountsAskedYet, refreshAccounts, frameworkHasAvailability,
+  rotationSetting, setRotation,
   automaticUpdates, setAutomaticUpdates,
   showHints, setShowHints,
   showNudges, setShowNudges,
@@ -19,6 +20,7 @@ import {
   openNotesIn, setOpenNotesIn, OpenNotesMode
 } from './config';
 import { canSwitchTo, rowLabel } from '../core/accounts';
+import type { RotationSetting, RotationChange } from './swapRule';
 import { launchClaude, launchInSession, launchAccountSwap } from '../rituals/runner';
 import { HomeViewProvider } from './homePanel';
 import { t } from '../i18n';
@@ -58,6 +60,60 @@ export async function askClaudeLanguage(): Promise<void> {
   if (pick === yes) await chooseClaudeLanguage(s.value);
 }
 
+/* ── Account rotation (#430) ── where the watcher rotates and whether it rotates on its own: one setting, owned by the
+   framework, changed only through its own command (setRotation). Glass stores nothing. The AIOS App shows the same rows in
+   its Settings. A value set on the computer outside Glass wins over the stored one: shown, not editable. */
+function rotationSummary(s: RotationSetting): string {
+  return t('{state} · 5-hour limit {five} % · weekly limit {seven} %')
+    .replace('{state}', s.enabled.value ? t('on') : t('off'))
+    .replace('{five}', String(s.fiveHour.value)).replace('{seven}', String(s.sevenDay.value));
+}
+async function saveRotation(change: RotationChange): Promise<void> {
+  const r = await setRotation(change);
+  if (r.ok) { void vscode.window.showInformationMessage(t('Account rotation saved')); return; }
+  /* The script's own words name files and paths: they go to the log, and the popup says only that it failed. */
+  console.warn('[rotation] rotation --set failed:', r.message);
+  void vscode.window.showWarningMessage(t('Could not save account rotation'));
+}
+async function rotationMenu(): Promise<void> {
+  const s = rotationSetting();
+  if (!s) return;
+  const elsewhere = t('set on this computer outside Glass');
+  const items: (vscode.QuickPickItem & { id: string })[] = [
+    { label: '$(sync) ' + t('Rotate accounts automatically'), description: s.enabled.source === 'environment' ? elsewhere : (s.enabled.value ? t('on') : t('off')), id: 'auto' },
+    { label: '$(watch) ' + t('5-hour limit'), description: s.fiveHour.source === 'environment' ? `${s.fiveHour.value} % · ${elsewhere}` : `${s.fiveHour.value} %`, id: 'fiveHour' },
+    { label: '$(calendar) ' + t('Weekly limit'), description: s.sevenDay.source === 'environment' ? `${s.sevenDay.value} % · ${elsewhere}` : `${s.sevenDay.value} %`, id: 'sevenDay' },
+  ];
+  if (s.ignored.length) items.push({ label: '$(warning) ' + t('A saved value was not valid and is not in use. Saving here replaces it.'), id: 'none' });
+  const pick = await vscode.window.showQuickPick(items, { title: t('Account rotation'), placeHolder: t('When the account in use nears its limit, the next account in the list takes over') });
+  if (!pick || pick.id === 'none') return;
+  if (pick.id === 'auto') {
+    if (s.enabled.source === 'environment') { void vscode.window.showInformationMessage(elsewhere); return; }
+    const choice = await vscode.window.showQuickPick(
+      [
+        { label: '$(sync) ' + t('On'), description: t('the next account in the list takes over near the limit'), value: true },
+        { label: '$(circle-slash) ' + t('Off'), description: t('stays on the current account; the button to change account still appears'), value: false }
+      ],
+      { title: `${t('Rotate accounts automatically')} — ${t('currently')} ${s.enabled.value ? t('on') : t('off')}` }
+    );
+    if (choice && choice.value !== s.enabled.value) await saveRotation({ enabled: choice.value });
+    return;
+  }
+  const key = pick.id as 'fiveHour' | 'sevenDay';
+  const cur = s[key];
+  if (cur.source === 'environment') { void vscode.window.showInformationMessage(elsewhere); return; }
+  const range = (m: string) => m.replace('{min}', String(s.min)).replace('{max}', String(s.max));
+  const typed = await vscode.window.showInputBox({
+    title: key === 'fiveHour' ? t('5-hour limit') : t('Weekly limit'),
+    prompt: range(t('Usage percent at which it rotates, from {min} to {max}. The button to change account appears a little before')),
+    value: String(cur.value),
+    validateInput: (v) => (/^\d{1,3}$/.test(v.trim()) && +v >= s.min && +v <= s.max ? undefined : range(t('Use a whole number from {min} to {max}'))),
+  });
+  if (typed === undefined) return;
+  const n = Number(typed.trim());
+  if (n !== cur.value) await saveRotation({ [key]: n });
+}
+
 /** Human label for the Glass language setting. */
 function langLabel(l: GlassLang): string {
   return l === 'es' ? 'Español' : l === 'pt-br' ? 'Português (BR)' : l === 'el' ? 'Ελληνικά' : l === 'fr' ? 'Français' : l === 'en' ? 'English' : 'Auto (IDE)';
@@ -81,6 +137,7 @@ export async function openConfigMenu(): Promise<void> {
   const multiAccount = anthropicAccounts().length > 1 || accountsBroken; // swap only matters with 2+
   const sep = (label: string): vscode.QuickPickItem & { id?: string } => ({ label, kind: vscode.QuickPickItemKind.Separator });
   const onOff = (b: boolean) => (b ? t('on') : t('off'));
+  const rotation = rotationSetting();
   const shownHidden = (b: boolean) => (b ? t('shown') : t('hidden'));
   const items: (vscode.QuickPickItem & { id?: string })[] = [
     // ── Appearance — how the Glass surfaces look ──
@@ -117,6 +174,8 @@ export async function openConfigMenu(): Promise<void> {
     sep(t('Account')),
     ...(multiAccount ? [{ label: (accountsBroken ? '$(warning) ' : '$(arrow-swap) ') + t('Swap account'), description: accountsBroken ? t('could not read the account list') : currentAnthropicAccount(), id: 'swap' }] : []),
     { label: '$(account) ' + t('Login'), description: account, id: 'login' },
+    // #430: the framework's rotation setting, only when it sends one (an older framework has no command to change it).
+    ...(rotation ? [{ label: '$(sync) ' + t('Account rotation'), description: rotationSummary(rotation), id: 'rotation' }] : []),
     { label: '$(sign-out) ' + t('Logout'), id: 'logout' },
     { label: '$(info) ' + t('Auth status'), id: 'status' },
     // ── Help ──
@@ -358,6 +417,10 @@ export async function openConfigMenu(): Promise<void> {
         await setAutomaticUpdates(choice.value);
         void vscode.window.showInformationMessage(`${t('Automatic updates')} ${onOff(choice.value)} — ${t('saved to USER.md.')}`);
       }
+      return;
+    }
+    case 'rotation': {
+      await rotationMenu();
       return;
     }
     case 'swap': {

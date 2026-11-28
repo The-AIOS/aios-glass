@@ -9,7 +9,7 @@ import { frameworkRoot } from './vault';
 import { claudeLanguageChoice, claudeLanguageSuggestion } from '../core/claudeLanguage';
 import { effectiveLocale } from '../i18n';
 import { parseAvailability, rowsFromUserMd, nextDestination, type AccountRow } from '../core/accounts';
-import { readSwapRule, type SwapRule } from './swapRule';
+import { readSwapRule, readRotationSetting, readRotationAnswer, rotationSetArgs, type SwapRule, type RotationSetting, type RotationChange } from './swapRule';
 
 /**
  * Read/write Claude Code's own global configuration. Glass surfaces these as
@@ -82,7 +82,7 @@ export function rateLimit(): RateLimit | undefined {
 // and a Python, and the Home panel asks on a 2s poll, so the panel reads the last answer and
 // ACCOUNTS_MAX_AGE_MS decides when to ask again, in the background.
 const ACCOUNTS_MAX_AGE_MS = 60_000;
-let accountsCache: { rows: AccountRow[]; error: string; at: number; rule: SwapRule | null } = { rows: [], error: '', at: 0, rule: null };
+let accountsCache: { rows: AccountRow[]; error: string; at: number; rule: SwapRule | null; rotation: RotationSetting | null } = { rows: [], error: '', at: 0, rule: null, rotation: null };
 let accountsAsking: Promise<void> | undefined;
 
 function identityScript(): string | undefined {
@@ -114,7 +114,7 @@ export function refreshAccounts(): Promise<void> {
     execFile(bash, [identityScript() as string, 'switch', '--availability'], { timeout: 20_000, windowsHide: true }, (err, out, stderr) => {
       const rows = err ? null : parseAvailability(out);
       accountsCache = rows
-        ? { rows, error: '', at: Date.now(), rule: readSwapRule(out) }
+        ? { rows, error: '', at: Date.now(), rule: readSwapRule(out), rotation: readRotationSetting(out) }
         : { ...accountsCache, error: String(stderr || (err && err.message) || 'unreadable answer').trim().slice(0, 300), at: Date.now() };
       accountsAsking = undefined;
       resolve();
@@ -149,6 +149,32 @@ export function swapRule(): SwapRule | null {
   if (!frameworkHasAvailability()) return null;
   accountRows();   // a stale answer asks for a new one
   return accountsCache.rule;
+}
+
+/** The framework's rotation setting (#430), from the last answer; null when it does not send it (an older framework,
+ *  which has no `rotation` command either, so the Config menu offers no editor). */
+export function rotationSetting(): RotationSetting | null {
+  if (!frameworkHasAvailability()) return null;
+  accountRows();   // a stale answer asks for a new one
+  return accountsCache.rotation;
+}
+
+/** Change it through the framework's own command; Glass writes nothing itself. The swap button follows at once. */
+export function setRotation(change: RotationChange): Promise<{ ok: boolean; setting: RotationSetting | null; message: string }> {
+  const cur = frameworkHasAvailability() ? accountsCache.rotation : null;
+  const built = rotationSetArgs(change, cur);
+  if ('error' in built) return Promise.resolve({ ok: false, setting: cur, message: built.error });
+  const bash = resolveBash();
+  if (!bash) return Promise.resolve({ ok: false, setting: cur, message: 'Git Bash not found. Install Git for Windows.' });
+  return new Promise((resolve) => {
+    execFile(bash, [identityScript() as string, 'rotation', '--set', ...built.args], { timeout: 20_000, windowsHide: true }, (err, out, stderr) => {
+      if (err) { resolve({ ok: false, setting: cur, message: String(stderr || err.message).trim().slice(0, 300) }); return; }
+      const next = readRotationAnswer(out);
+      if (next) accountsCache = { ...accountsCache, rotation: next };
+      accountsChanged();
+      resolve(next ? { ok: true, setting: next, message: '' } : { ok: false, setting: cur, message: 'unreadable answer' });
+    });
+  });
 }
 
 /** After a swap the cached answer still names the old seat as active: ask again now. An ask already
