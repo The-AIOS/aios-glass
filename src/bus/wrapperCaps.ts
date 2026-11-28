@@ -14,6 +14,7 @@
  * doubt (no file, no block, a profile without support) answers false, which keeps today's command.
  */
 import * as path from 'path';
+import { spawnOption, typedShellFor } from '../core/spawnShell';
 
 /* A banner counts only at the START of a line, which is how the installer writes it. The installer's
    own source also names the banners inside comments and match patterns (indented, or mid-line); a
@@ -64,9 +65,9 @@ export function addDirFlag(dir: string, platform: NodeJS.Platform, home: string,
   if (!dir || dir.includes("'")) return '';
   const blocks = wrapperStartupFiles(platform, home, env).map((f) => wrapperBlock(read(f))).filter((b): b is string => !!b);
   if (!blocks.length) return '';
-  const shell = platform === 'win32' ? 'powershell' : 'posix';
+  const shell = typedShellFor(platform);
   if (!blocks.every((b) => blockAcceptsAddDir(b, shell))) return '';
-  return shell === 'powershell' ? `-AddDir '${dir}' ` : `--add-dir '${dir}' `;
+  return `${spawnOption('add-dir', shell)} '${dir}' `;
 }
 
 /**
@@ -90,7 +91,7 @@ export function inheritModelFlag(platform: NodeJS.Platform, home: string,
   env: Record<string, string | undefined>, read: (f: string) => string | undefined): string {
   const blocks = wrapperStartupFiles(platform, home, env).map((f) => wrapperBlock(read(f))).filter((b): b is string => !!b);
   if (!blocks.length) return '';
-  const shell = platform === 'win32' ? 'powershell' : 'posix';
+  const shell = typedShellFor(platform);
   if (!blocks.every((b) => blockAcceptsInheritModel(b, shell))) return '';
-  return shell === 'powershell' ? '-InheritModel ' : '--inherit-model ';
+  return `${spawnOption('inherit-model', shell)} `;
 }

@@ -12,6 +12,7 @@
  * The App holds the same shape and the same decision (its core/commandBus and core/tierResolve);
  * both move into the shared package with aios-app#229.
  */
+import { quoteFor, spawnOption, type TypedShell } from './spawnShell';
 
 /**
  * What a `model` may look like: letters, digits, dot, dash and underscore, starting with a letter
@@ -90,11 +91,13 @@ export interface WorkerModel { model?: string; launcherDefault?: true }
  * to know the flag: an old wrapper reads an unknown flag as the worker's NAME, so it is never
  * typed blind. `fellBack` then says the worker starts on the wrapper's pin, for the log.
  * A model outside MODEL_SHAPE throws: nothing else may reach a command line.
+ * `shell` is the dialect of the terminal it is typed into: on Windows the wrapper is PowerShell's
+ * and takes `-Model`; `--model` there is read as the worker's name (core/spawnShell).
  */
-export function spawnModelFlag(m: WorkerModel, inheritFlag: string): { flag: string; fellBack?: true } {
+export function spawnModelFlag(m: WorkerModel, inheritFlag: string, shell: TypedShell): { flag: string; fellBack?: true } {
   if (m.model !== undefined && m.model !== '') {
     if (!MODEL_SHAPE.test(m.model)) throw new Error('model is not one a command line may carry — not spawned');
-    return { flag: `--model ${/^[A-Za-z0-9._-]+$/.test(m.model) ? m.model : `'${m.model}'`} ` };
+    return { flag: `${spawnOption('model', shell)} ${/^[A-Za-z0-9._-]+$/.test(m.model) ? m.model : quoteFor(m.model, shell)} ` };
   }
   if (m.launcherDefault) return { flag: '' };
   return inheritFlag ? { flag: inheritFlag } : { flag: '', fellBack: true };

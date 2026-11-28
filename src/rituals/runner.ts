@@ -21,6 +21,7 @@ import { getSessionNotes, harvestSessionNotes } from '../agents/sessionNotes';
 import { t } from '../i18n';
 import { nameStartedBy, heldElsewhere } from '../core/nameHolder';
 import { spawnModelFlag } from '../core/workerModel';
+import { quoteFor, spawnOption, typedShellFor } from '../core/spawnShell';
 
 /**
  * The core "glass" mechanic: a click launches an existing AIOS command via
@@ -85,8 +86,12 @@ function claudeBin(): string {
   return vscode.workspace.getConfiguration('aiosGlass').get<string>('claudeCommand', 'claude') || 'claude';
 }
 
+/* Every line Glass types goes into a terminal that runs zsh/bash, or PowerShell on Windows, and the
+   two quote differently (core/spawnShell). One dialect for the whole module, read once. */
+const TYPED_SHELL = typedShellFor(process.platform);
+
 function shellQuote(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`;
+  return quoteFor(s, TYPED_SHELL);
 }
 
 /** Resolve the target terminal for an in-session action (ask/active). `style`
@@ -338,14 +343,16 @@ export async function launchSpawn(name: string, task?: string, opts?: { model?: 
   const readRc = (f: string) => { try { return fs.readFileSync(f, 'utf8'); } catch { return undefined; } };
   const asked = !!opts?.model || !!opts?.launcherDefault;
   const mf = spawnModelFlag({ model: opts?.model, launcherDefault: opts?.launcherDefault ? true : undefined },
-    asked ? '' : inheritModelFlag(process.platform, os.homedir(), process.env, readRc));
+    asked ? '' : inheritModelFlag(process.platform, os.homedir(), process.env, readRc), TYPED_SHELL);
   let flag = mf.flag;
   if (mf.fellBack) log(`spawn '${name}': no model was asked for, and the spawn wrapper in your shell's startup file cannot start without one (it is not installed there, or it is older than that flag: run /aios:update, then open a new terminal); it starts on the wrapper's pinned model instead of your own default`);
   /* Contract 4 through the wrapper's own flags (canonical v0.8.9): it writes the advisor settings
      to a unique file and appends the consult instruction. The advisor arrives as a MODEL ID,
-     resolved from the contract's table, so the wrapper never maps `judgment` to "default". */
-  if (opts?.effort && /^(low|medium|high|xhigh|max)$/.test(opts.effort)) flag += `--effort ${opts.effort} `;
-  if (opts?.advisorModel && /^[A-Za-z0-9._[\]-]{1,80}$/.test(opts.advisorModel)) flag += `--advisor ${shellQuote(opts.advisorModel)} `;
+     resolved from the contract's table, so the wrapper never maps `judgment` to "default".
+     Spelled by spawnOption: PowerShell's wrapper takes -Effort / -Advisor, and reads `--effort` as
+     the worker's name, which refuses the whole line and starts nothing. */
+  if (opts?.effort && /^(low|medium|high|xhigh|max)$/.test(opts.effort)) flag += `${spawnOption('effort', TYPED_SHELL)} ${opts.effort} `;
+  if (opts?.advisorModel && /^[A-Za-z0-9._[\]-]{1,80}$/.test(opts.advisorModel)) flag += `${spawnOption('advisor', TYPED_SHELL)} ${shellQuote(opts.advisorModel)} `;
   // Task transport hardening: launchSpawn TYPES the spawn command into a terminal
   // (runNew → sendText). A task with embedded newlines is typed as many Enter
   // presses, and a large body floods the integrated terminal — either can crash the
@@ -465,7 +472,7 @@ export async function launchResumeSession(name: string, sessionId: string, promp
   /* QUOTED — the id is a filename read off disk and this string is typed into a live shell.
      core/resumeTarget already refuses an unsafe id; one guard is a policy, two is a boundary. */
   if (bus && inline) recordTyped(inline, name, 'resume', from);
-  runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile), { name, icon, color: 'terminal.ansiBlue' });
+  runNew(resumeCmd(claudeBin(), sessionId, extraArgs, inline, taskFile, TYPED_SHELL), { name, icon, color: 'terminal.ansiBlue' });
   log(`resume '${name}' → session ${sessionId.slice(0, 8)}${inline ? ' with prompt' : ''}`);
 }
 
@@ -820,7 +827,7 @@ export function launchHealthHelp(brief: string): void {
     return;
   }
   const prompt = `Read ${file} and follow the instructions inside.`;
-  try { runNew(healthHelpCmd(claudeBin(), file, prompt), { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
+  try { runNew(healthHelpCmd(claudeBin(), file, prompt, TYPED_SHELL), { name: 'health-help', icon: 'heart', color: 'terminal.ansiGreen' }); }
   catch (e) { swallow('launchHealthHelp → runNew', e); }
 }
 
