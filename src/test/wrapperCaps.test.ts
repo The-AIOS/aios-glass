@@ -48,6 +48,9 @@ test('Windows: -AddDir only when EVERY profile that carries the wrapper supports
   assert.equal(addDirFlag(d, 'win32', home, {}, files({ [pw7]: PS_813 })), `-AddDir '${d}' `, 'a profile without the wrapper does not count');
   assert.equal(addDirFlag(d, 'win32', home, {}, files({ [pw7]: PS_813, [ps51]: PS_812 })), '', 'one old edition → no flag');
   assert.equal(addDirFlag(d, 'win32', home, {}, files({ [pw7]: SH_813 })), '', 'a POSIX block is not a PowerShell grant');
+  const curly = 'C:\\Users\\D’Arcy\\AppData\\Local\\Temp\\aios-handoff-0123456789abcdef';
+  assert.equal(addDirFlag(curly, 'win32', 'C:\\Users\\D’Arcy', {}, files({ [pw7]: PS_813 })), '',
+    'PowerShell ends a single-quoted string at ’: such a folder is not granted, as one with an ASCII quote is not');
 });
 
 test('launchSpawn grants the folder only through addDirFlag, and keeps today\'s command otherwise', () => {

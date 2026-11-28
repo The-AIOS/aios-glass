@@ -643,3 +643,13 @@ test('PROTOCOL: Ask AIOS names sessions with byte-identical code in both surface
   assert.equal(crypto.createHash('sha256').update(src).digest('hex').slice(0, 16), SESSION_NAME_SHA,
     'sessionName.ts changed: edit it in Glass, run sync-core in the App, and update SESSION_NAME_SHA in BOTH.');
 });
+
+/* The dialect and quoting of every line typed into a terminal (aios-glass#58). The App quotes its
+   bus lines through the same file (aios-app#254, pinned there with the same sha), so both surfaces
+   type the same thing into PowerShell. An edit on one side alone goes red on both. */
+const SPAWN_SHELL_SHA = 'd8609f769fb201b1';
+test('PROTOCOL: lines typed into a terminal are quoted by byte-identical code in both surfaces', () => {
+  const src = fs.readFileSync('src/core/spawnShell.ts', 'utf8');
+  assert.equal(crypto.createHash('sha256').update(src).digest('hex').slice(0, 16), SPAWN_SHELL_SHA,
+    'spawnShell.ts changed: edit it in Glass, run sync-core in the App, and update SPAWN_SHELL_SHA in BOTH.');
+});

@@ -90,16 +90,16 @@ test('no rung list and no model id of its own: a surface cannot disagree with re
 
 test('the typed model flag: a model, the wrapper\'s pin, or the operator\'s saved model (what the App starts)', () => {
   const INHERIT = '--inherit-model ';
-  assert.deepEqual(spawnModelFlag({ model: 'model-low' }, INHERIT), { flag: '--model model-low ' }, 'an asked model, and never the inherit flag beside it');
-  assert.deepEqual(spawnModelFlag({ model: 'model-big[1m]' }, INHERIT), { flag: "--model 'model-big[1m]' " }, 'a bracket is quoted: bare, zsh reads it as a glob');
-  assert.deepEqual(spawnModelFlag({ launcherDefault: true }, INHERIT), { flag: '' }, 'the pinned rung: no flag, the wrapper starts its pin');
-  assert.deepEqual(spawnModelFlag({}, INHERIT), { flag: INHERIT }, 'nothing asked: the saved model, as the App starts a plain claude');
-  assert.deepEqual(spawnModelFlag({ model: '' }, INHERIT), { flag: INHERIT }, 'an empty model is nothing asked');
-  assert.deepEqual(spawnModelFlag({}, '-InheritModel '), { flag: '-InheritModel ' }, 'the PowerShell spelling passes through');
-  assert.deepEqual(spawnModelFlag({}, ''), { flag: '', fellBack: true }, 'CONTROL: a wrapper without the flag keeps the old command, and says it fell back');
-  assert.deepEqual(spawnModelFlag({ model: 'model-low', launcherDefault: true }, INHERIT), { flag: '--model model-low ' }, 'a model wins over the pinned rung');
+  assert.deepEqual(spawnModelFlag({ model: 'model-low' }, INHERIT, 'posix'), { flag: '--model model-low ' }, 'an asked model, and never the inherit flag beside it');
+  assert.deepEqual(spawnModelFlag({ model: 'model-big[1m]' }, INHERIT, 'posix'), { flag: "--model 'model-big[1m]' " }, 'a bracket is quoted: bare, zsh reads it as a glob');
+  assert.deepEqual(spawnModelFlag({ launcherDefault: true }, INHERIT, 'posix'), { flag: '' }, 'the pinned rung: no flag, the wrapper starts its pin');
+  assert.deepEqual(spawnModelFlag({}, INHERIT, 'posix'), { flag: INHERIT }, 'nothing asked: the saved model, as the App starts a plain claude');
+  assert.deepEqual(spawnModelFlag({ model: '' }, INHERIT, 'posix'), { flag: INHERIT }, 'an empty model is nothing asked');
+  assert.deepEqual(spawnModelFlag({}, '-InheritModel ', 'posix'), { flag: '-InheritModel ' }, 'the PowerShell spelling passes through');
+  assert.deepEqual(spawnModelFlag({}, '', 'posix'), { flag: '', fellBack: true }, 'CONTROL: a wrapper without the flag keeps the old command, and says it fell back');
+  assert.deepEqual(spawnModelFlag({ model: 'model-low', launcherDefault: true }, INHERIT, 'posix'), { flag: '--model model-low ' }, 'a model wins over the pinned rung');
   for (const bad of ["x'; touch pwned; '", 'a b', '$(id)', '-rf', 'm[2m]']) {
-    assert.throws(() => spawnModelFlag({ model: bad }, INHERIT), /not one a command line may carry/, `${bad} never reaches the command`);
+    assert.throws(() => spawnModelFlag({ model: bad }, INHERIT, 'posix'), /not one a command line may carry/, `${bad} never reaches the command`);
   }
 });
 
@@ -126,7 +126,7 @@ test('wiring: the bus resolves before it launches, refuses by dead letter, and t
   assert.equal((ext.match(/const wm = workerModel\(\);\s*\n\s*if \(!wm\) return;/g) || []).length, 2, 'the spawn and the resume fallback both resolve first');
   assert.doesNotMatch(code(ext), /launchSpawn\([^)]*\btier\b/, 'a tier never reaches the runner');
   const runner = read('src', 'rituals', 'runner.ts');
-  assert.match(runner, /const mf = spawnModelFlag\(\{ model: opts\?\.model, launcherDefault: opts\?\.launcherDefault \? true : undefined \},\s*\n\s*asked \? '' : inheritModelFlag\(process\.platform, os\.homedir\(\), process\.env, readRc\)\);/);
+  assert.match(runner, /const mf = spawnModelFlag\(\{ model: opts\?\.model, launcherDefault: opts\?\.launcherDefault \? true : undefined \},\s*\n\s*asked \? '' : inheritModelFlag\(process\.platform, os\.homedir\(\), process\.env, readRc\), TYPED_SHELL\);/);
   assert.match(runner, /let flag = mf\.flag;\s*\n\s*if \(mf\.fellBack\) log\(/, 'a fallback to the pin is said in the log');
   assert.doesNotMatch(code(runner), /--inherit-model|-InheritModel|--model /, 'the model flags are spelled in workerModel and wrapperCaps only');
   assert.equal((ext.match(/\{ model: wm\.model, launcherDefault: wm\.launcherDefault, bus: true, \.\.\.c4Launch \}/g) || []).length, 2, 'both bus launches hand over which of the three cases it is');
