@@ -6,6 +6,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **"Plan your day" asks whether the day was planned, not whether today's note exists.** A session block from `/close-session`, a close-day, or post-its harvested from a killed session each create today's note, and from then on the nudge never asked to plan the day. It now looks for a section `/aios:today` writes (`## Rhythm`, `## Today I ship`, `## Parking lot`, `## Claude's take`, `## Agents can handle`, or a first run's `## Recommended next step`). **Behaviour change:** if you keep a daily note without running `/aios:today`, the Home nudge now says "Plan your day" every morning until 15:00. From 15:00 nothing changes: closing sessions, then closing the day from 17:00. A closed day is never asked to be planned. The ✕ on the nudge hides it until the window reloads; the cog's "Ritual nudges" turns all nudges off. The rule is a new shared module, `src/core/dayPlanned.ts`, which the AIOS App takes with `sync-core`.
+- **Harvesting a killed session's post-its never loses the day's note or the post-its.** The harvest used to read today's note, rebuild it and write it whole: a note that existed but could not be read was replaced by the post-its alone, and a block another session appended in between was dropped. It now appends, and a note it cannot read is left untouched. With no vault to write to, the post-its used to be cleared anyway; now they are kept.
+
 ## [0.5.17] — 2026-11-22
 
 > **Glass in French, and Claude's language as its own choice.** Parity with the AIOS App 0.17.0.

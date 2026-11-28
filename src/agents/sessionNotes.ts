@@ -4,6 +4,7 @@ import { stateGet, stateSet } from '../state';
 import { vaultRoot } from '../home/vault';
 import { swallow } from '../log';
 import { SessionNote, parseStoredNotes } from './sessionNotesParse';
+import { appendHarvestToNote } from './harvestWrite';
 
 export { SessionNote, parseStoredNotes } from './sessionNotesParse';
 
@@ -113,6 +114,12 @@ function dailyNotePath(): string | undefined {
  * otherwise to today's daily note under a `## Session notes (harvested)` region,
  * creating the note/section if needed. Clears the notes after. Returns how many
  * were harvested (0 = nothing to do). Best-effort — never throws into the caller.
+ *
+ * The notes are cleared only once they are on disk. With no vault to write to, or a note that
+ * exists but cannot be read, nothing is written, nothing is cleared, and 0 comes back.
+ *
+ * Creating today's note here does not silence "Plan your day": the nudge asks whether the day
+ * was planned (core/dayPlanned), not whether the file exists.
  */
 export async function harvestSessionNotes(name: string): Promise<number> {
   const notes = getSessionNotes(name);
@@ -126,19 +133,8 @@ export async function harvestSessionNotes(name: string): Promise<number> {
       fs.appendFileSync(report, `\n\n## Session post-its (harvested ${stamp})\n\n${block}\n`);
     } else {
       const daily = dailyNotePath();
-      if (daily) {
-        let md = '';
-        try { md = fs.readFileSync(daily, 'utf8'); } catch { /* note may not exist yet */ }
-        const heading = '## Session notes (harvested)';
-        if (md.includes(heading)) {
-          md = md.replace(/\s*$/, '\n') + `\n**${name}** _(${stamp})_\n\n${block}\n`;
-        } else {
-          const prefix = md ? md.replace(/\s*$/, '\n') + '\n' : '';
-          md = `${prefix}${heading}\n\n> Reminders harvested from a killed session — move or clear them.\n\n**${name}** _(${stamp})_\n\n${block}\n`;
-        }
-        fs.mkdirSync(path.dirname(daily), { recursive: true });
-        fs.writeFileSync(daily, md);
-      }
+      if (!daily) return 0; // nowhere to put them: keep them rather than clear them unwritten
+      appendHarvestToNote(daily, name, stamp, notes);
     }
   } catch (e) {
     swallow('harvestSessionNotes ' + name, e);

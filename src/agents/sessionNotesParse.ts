@@ -29,3 +29,24 @@ export function parseStoredNotes(raw: unknown): SessionNote[] {
   if (!Array.isArray(raw)) return [];
   return raw.map(coerceNote).filter((n): n is SessionNote => !!n);
 }
+
+export const HARVEST_HEADING = '## Session notes (harvested)';
+
+/**
+ * The text a harvest APPENDS to today's daily note. `existing` is the note as it is now, or ''
+ * when the file does not exist.
+ *
+ * It returns only what goes at the end, never a rewritten note. The harvest used to read the
+ * note, rebuild it and write it whole, so a read that failed for any reason other than a missing
+ * file (permissions, a lock) left it with '' and the write replaced the day's note with the
+ * post-its alone. A rewrite also drops whatever another writer appended between the read and the
+ * write. Appending can do neither. A note with CRLF line endings gets CRLF.
+ */
+export function harvestAppendix(existing: string, name: string, stamp: string, notes: SessionNote[]): string {
+  const sep = !existing || /\r?\n\r?\n$/.test(existing) ? '' : /\r?\n$/.test(existing) ? '\n' : '\n\n';
+  const entry = `**${name}** _(${stamp})_\n\n${notes.map((n) => `- ${n.text}`).join('\n')}\n`;
+  const text = existing.includes(HARVEST_HEADING)
+    ? `${sep}${entry}`
+    : `${sep}${HARVEST_HEADING}\n\n> Reminders harvested from a killed session — move or clear them.\n\n${entry}`;
+  return /\r\n/.test(existing) ? text.replace(/\r?\n/g, '\r\n') : text;
+}

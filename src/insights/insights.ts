@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { nudgeShort } from '../core/nudgeCommand';
+import { asksToPlan } from '../core/dayPlanned';
 import * as path from 'path';
 import { vaultRoot } from '../home/vault';
 
@@ -174,6 +175,7 @@ function suggestedRitual(md: string): { command: string; short: string; desc: st
 /**
  * Contextual ritual nudge for the Home banner, by time of day + state:
  *   no today-note     → plan the day (/today)
+ *   note, unplanned   → plan the day until 15h, unless already closed (core/dayPlanned)
  *   evening (≥17h)    → close the day
  *   morning (<12h)    → the note's 💡 suggested ritual (planning-type only)
  *   daytime + live sessions → wrap open sessions before close-day
@@ -182,10 +184,14 @@ function suggestedRitual(md: string): { command: string; short: string; desc: st
 export function nudgeState(hour: number, weekday: number, runningCount: number): Nudge | null {
   const note = latestDailyNote();
   const isToday = !!note && path.basename(note, '.md') === todayLocalIso();
-  if (!isToday) return { kind: 'plan', icon: '☀️', label: 'Plan your day', command: '/aios:today' };
+  const plan: Nudge = { kind: 'plan', icon: '☀️', label: 'Plan your day', command: '/aios:today' };
+  if (!isToday) return plan;
   let md = '';
   try { md = fs.readFileSync(note as string, 'utf8'); } catch { return null; }
   const isClosed = /close[\s-]?of[\s-]?day|^#{1,4}.*\bclose\b.*\bday\b/im.test(md);
+  /* A note that exists is not a planned day: a session block, a close-day or harvested post-its
+     each create it. core/asksToPlan decides, the same rule as the App's. */
+  if (asksToPlan(md, hour, isClosed)) return plan;
   if (hour >= 17 && !isClosed) {
     return { kind: 'close', icon: '🌙', label: "Close the day: save what you learned before it's lost", command: '/aios:close-day' };
   }
