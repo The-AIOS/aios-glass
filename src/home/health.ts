@@ -91,6 +91,6 @@ export function healthHelpBrief(checks = computeHealth(), jobs = routineJobs()):
   ];
   return 'Help me fix my AIOS health. These items in the AIOS Glass Health card are not green:\n' + lines.join('\n') + '\n\n'
     + 'For each one: find the cause, explain it in plain words, and propose the fix. Ask me before you run any command or change anything. '
-    + 'Scheduled jobs write their status with hooks/pipeline/aios-health.py (hooks/aios-health.py before v0.8.19) at the end of each run; a job is fixed when its NEXT run writes a fresh "ok", so tell me how to trigger it or when it is due — never edit or delete a status file to make it look green. '
+    + 'Scheduled jobs write their status with hooks/pipeline/aios-health.py at the end of each run; a job is fixed when its NEXT run writes a fresh "ok", so tell me how to trigger it or when it is due — never edit or delete a status file to make it look green. '
     + 'When you are done, tell me to re-check the Health card.';
 }
