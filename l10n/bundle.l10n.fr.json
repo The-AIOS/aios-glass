@@ -28,5 +28,19 @@
   "Should Claude answer in the language you write in again?": "Claude doit-il de nouveau répondre dans la langue dans laquelle vous écrivez ?",
   "Glass is in {lang} now. Should Claude answer in {lang} too?": "Glass est maintenant en {lang}. Claude doit-il aussi répondre en {lang} ?",
   "Yes, match": "Oui, aligner",
-  "No, keep it": "Non, garder"
+  "No, keep it": "Non, garder",
+  "Account rotation": "Rotation des comptes",
+  "{state} · 5-hour limit {five} % · weekly limit {seven} %": "{state} · limite de 5 heures {five} % · limite hebdomadaire {seven} %",
+  "Account rotation saved": "Rotation des comptes enregistrée",
+  "Could not save account rotation: {why}": "Impossible d’enregistrer la rotation des comptes : {why}",
+  "set on this computer outside Glass": "défini sur cet ordinateur en dehors de Glass",
+  "Rotate accounts automatically": "Changer de compte automatiquement",
+  "5-hour limit": "Limite de 5 heures",
+  "Weekly limit": "Limite hebdomadaire",
+  "A saved value was not valid and is not in use. Saving here replaces it.": "Une valeur enregistrée n’était pas valide et n’est pas utilisée. Enregistrer ici la remplace.",
+  "When the account in use nears its limit, the next account in the list takes over": "Quand le compte utilisé approche de sa limite, le suivant de la liste prend le relais",
+  "the next account in the list takes over near the limit": "le compte suivant de la liste prend le relais près de la limite",
+  "stays on the current account; the button to change account still appears": "reste sur le compte actuel ; le bouton pour changer de compte apparaît toujours",
+  "Usage percent at which it rotates, from {min} to {max}. The button to change account appears a little before": "Pourcentage d’utilisation auquel il change, de {min} à {max}. Le bouton pour changer de compte apparaît un peu avant",
+  "Use a whole number from {min} to {max}": "Utilisez un nombre entier de {min} à {max}"
 }

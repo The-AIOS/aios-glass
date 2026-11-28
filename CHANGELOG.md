@@ -6,6 +6,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Account rotation in the cog menu.** Where the quota watcher rotates (the 5-hour and weekly limits, 50 to 98 %) and whether it rotates on its own are now one setting kept by the framework (The-AIOS/aios#430). The cog menu shows it under Account and changes it through the framework's own command, as the AIOS App does in Settings; Glass stores nothing. A value set on the computer outside Glass is shown, not editable. With a framework that does not offer the setting, the entry is not shown.
+
 ### Changed
 - **The account swap button follows the framework's numbers.** The Home panel offered "Swap to …" at 5h 95% / 7d 99% from numbers of its own, while the quota watcher rotates at 98%. It now offers it where the framework says (`swap_offer_at` in `claude-switch --availability`: the watcher's threshold minus 3, in both windows), the same rule as the AIOS App. While the watcher is paused, the button says until when. With a framework that does not send those numbers yet, Glass keeps its previous 95/99 and says so once in its log. After a swap, the account list is asked again at once.
 
