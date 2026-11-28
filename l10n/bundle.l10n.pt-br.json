@@ -325,7 +325,6 @@
   "Account rotation": "Rotação de contas",
   "{state} · 5-hour limit {five} % · weekly limit {seven} %": "{state} · limite de 5 horas {five} % · limite semanal {seven} %",
   "Account rotation saved": "Rotação de contas salva",
-  "Could not save account rotation: {why}": "Não foi possível salvar a rotação de contas: {why}",
   "set on this computer outside Glass": "definido neste computador fora do Glass",
   "Rotate accounts automatically": "Trocar de conta automaticamente",
   "5-hour limit": "Limite de 5 horas",
@@ -335,5 +334,6 @@
   "the next account in the list takes over near the limit": "a próxima conta da lista assume perto do limite",
   "stays on the current account; the button to change account still appears": "continua na conta atual; o botão para trocar de conta continua aparecendo",
   "Usage percent at which it rotates, from {min} to {max}. The button to change account appears a little before": "Porcentagem de uso em que troca, de {min} a {max}. O botão para trocar de conta aparece um pouco antes",
-  "Use a whole number from {min} to {max}": "Use um número inteiro de {min} a {max}"
+  "Use a whole number from {min} to {max}": "Use um número inteiro de {min} a {max}",
+  "Could not save account rotation": "Não foi possível salvar a rotação de contas"
 }

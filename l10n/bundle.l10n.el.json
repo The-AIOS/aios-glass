@@ -33,7 +33,6 @@
   "Account rotation": "Εναλλαγή λογαριασμών",
   "{state} · 5-hour limit {five} % · weekly limit {seven} %": "{state} · όριο 5 ωρών {five} % · εβδομαδιαίο όριο {seven} %",
   "Account rotation saved": "Η εναλλαγή λογαριασμών αποθηκεύτηκε",
-  "Could not save account rotation: {why}": "Δεν ήταν δυνατή η αποθήκευση της εναλλαγής λογαριασμών: {why}",
   "set on this computer outside Glass": "ορίστηκε σε αυτόν τον υπολογιστή εκτός του Glass",
   "Rotate accounts automatically": "Αυτόματη εναλλαγή λογαριασμών",
   "5-hour limit": "Όριο 5 ωρών",
@@ -43,5 +42,11 @@
   "the next account in the list takes over near the limit": "αναλαμβάνει ο επόμενος λογαριασμός της λίστας κοντά στο όριο",
   "stays on the current account; the button to change account still appears": "παραμένει στον τρέχοντα λογαριασμό· το κουμπί αλλαγής λογαριασμού εμφανίζεται κανονικά",
   "Usage percent at which it rotates, from {min} to {max}. The button to change account appears a little before": "Ποσοστό χρήσης στο οποίο γίνεται η εναλλαγή, από {min} έως {max}. Το κουμπί αλλαγής λογαριασμού εμφανίζεται λίγο νωρίτερα",
-  "Use a whole number from {min} to {max}": "Χρησιμοποιήστε έναν ακέραιο από {min} έως {max}"
+  "Use a whole number from {min} to {max}": "Χρησιμοποιήστε έναν ακέραιο από {min} έως {max}",
+  "Could not save account rotation": "Δεν ήταν δυνατή η αποθήκευση της εναλλαγής λογαριασμών",
+  "On": "Ενεργό",
+  "Off": "Ανενεργό",
+  "on": "ενεργό",
+  "off": "ανενεργό",
+  "currently": "τώρα"
 }

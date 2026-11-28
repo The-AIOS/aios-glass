@@ -70,8 +70,10 @@ function rotationSummary(s: RotationSetting): string {
 }
 async function saveRotation(change: RotationChange): Promise<void> {
   const r = await setRotation(change);
-  if (r.ok) void vscode.window.showInformationMessage(t('Account rotation saved'));
-  else void vscode.window.showWarningMessage(t('Could not save account rotation: {why}').replace('{why}', r.message || '?'));
+  if (r.ok) { void vscode.window.showInformationMessage(t('Account rotation saved')); return; }
+  /* The script's own words name files and paths: they go to the log, and the popup says only that it failed. */
+  console.warn('[rotation] rotation --set failed:', r.message);
+  void vscode.window.showWarningMessage(t('Could not save account rotation'));
 }
 async function rotationMenu(): Promise<void> {
   const s = rotationSetting();

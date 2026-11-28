@@ -62,14 +62,19 @@ test('the Config menu: an entry only when the framework sends the setting, and e
   assert.match(menu, /\.\.\.\(rotation \? \[\{ label: '\$\(sync\) ' \+ t\('Account rotation'\), description: rotationSummary\(rotation\), id: 'rotation' \}\] : \[\]\)/);
   assert.match(menu, /case 'rotation': \{\s*await rotationMenu\(\);/);
   const body = menu.slice(menu.indexOf('function rotationSummary('), menu.indexOf('/** Human label for the Glass language setting. */'));
-  assert.match(body, /source === 'environment'/, 'a value set outside Glass is said, not edited');
+  const limit = body.slice(body.indexOf("const key = pick.id as 'fiveHour' | 'sevenDay';"));
+  assert.ok(limit.indexOf("if (cur.source === 'environment') { void vscode.window.showInformationMessage(elsewhere); return; }") >= 0
+    && limit.indexOf("if (cur.source === 'environment')") < limit.indexOf('showInputBox('), 'a limit set outside Glass is said and returns before any input box');
+  const auto = body.slice(body.indexOf("if (pick.id === 'auto') {"), body.indexOf("const key = pick.id"));
+  assert.ok(auto.indexOf("if (s.enabled.source === 'environment')") < auto.indexOf('showQuickPick('), 'the switch set outside Glass returns before the on/off pick');
+  assert.match(body, /showWarningMessage\(t\('Could not save account rotation'\)\)/, 'a failed save names no file: the script\'s words go to the log');
   assert.match(body, /validateInput: .*s\.min.*s\.max/, 'the range is the framework\'s');
   const keys = [...body.matchAll(/\bt\('((?:[^'\\]|\\.)+)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   assert.ok(keys.length >= 12, `found ${keys.length} strings`);
   for (const loc of ['', '.es', '.pt-br', '.fr', '.el']) {
     const b = JSON.parse(read('l10n', `bundle.l10n${loc}.json`));
     for (const k of keys) {
-      if (['on', 'off', 'On', 'Off', 'currently'].includes(k)) continue;   // shared words, translated where the bundle already carries them
+      if (loc === '' && ['on', 'off', 'On', 'Off', 'currently'].includes(k)) continue;   // English shared words: the key is the text
       assert.ok(typeof b[k] === 'string' && b[k].trim(), `bundle.l10n${loc}.json: ${k}`);
       assert.doesNotMatch(b[k], /quota-rotation|CLAUDE_QUOTA|watcher|json/i, `${loc}: ${k} names no mechanism`);
     }
